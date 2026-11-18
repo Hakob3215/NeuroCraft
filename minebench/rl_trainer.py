@@ -255,7 +255,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
     torch.save(policy.state_dict(), active_path)
     if is_best:
         torch.save(policy.state_dict(), best_path)
-    if loop_idx is not None:
+    if loop_idx is not None and loop_idx <= 4:
         loop_path = CHECKPOINT_DIR / f"voxel_reflex_policy_loop{loop_idx}.pt"
         torch.save(policy.state_dict(), loop_path)
 

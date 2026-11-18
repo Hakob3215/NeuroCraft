@@ -153,8 +153,7 @@ export function generateTrainingVisuals(): void {
   const history: IterationRecord[] = state.history || [];
 
   if (history.length === 0) {
-    console.warn(`[GraphGen] Warning: No iteration history found in training_state.json`);
-    return;
+    console.log(`[GraphGen] Rendering fresh Loop 0 baseline dashboard (0 completed iterations).`);
   }
 
   backfillHistoricalDomains(history, replayPath);
@@ -217,8 +216,8 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
   const y2 = y1 + plotH1 + gap;
   const y3 = y2 + plotH2 + gap;
 
-  const minIter = Math.min(0, ...history.map((h) => h.iteration));
-  const maxIter = Math.max(10, ...history.map((h) => h.iteration));
+  const minIter = history.length > 0 ? Math.min(0, ...history.map((h) => h.iteration)) : 0;
+  const maxIter = history.length > 0 ? Math.max(10, ...history.map((h) => h.iteration)) : 10;
   const getX = (iter: number) => margin.left + ((iter - minIter) / Math.max(1, maxIter - minIter)) * plotW;
   const getYScore = (score: number) => y1 + plotH1 - (Math.max(0, Math.min(100, score)) / 100) * plotH1;
 
@@ -239,7 +238,8 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
     .join(' ');
 
   // Middle Panel: Latest Domain Bar Breakdown
-  const latestWithDomains = [...history].reverse().find((h) => h.domainBreakdown) || history[history.length - 1];
+  const latestWithDomains =
+    history.length > 0 ? [...history].reverse().find((h) => h.domainBreakdown) || history[history.length - 1] : undefined;
   const bd = latestWithDomains?.domainBreakdown || {};
   const barWidth = Math.floor(plotW / DOMAIN_BUCKETS.length) - 24;
   const barSvg = DOMAIN_BUCKETS.map((dom, idx) => {
@@ -261,9 +261,11 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
     `;
   }).join('');
 
+  const latestSurvivalTier = history.length > 0 ? history[history.length - 1]?.survivalCampaign?.techTierReached || 'Active' : 'Ready (Loop 0)';
+
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" width="${width}" height="${height}" style="background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <text x="${margin.left}" y="34" fill="#f8fafc" font-size="20" font-weight="bold">NeuroCraft Decomposed Dual-Track Training Telemetry</text>
-  <text x="${margin.left}" y="54" fill="#94a3b8" font-size="12">Iterations: ${history.length} | Peak Score: ${state.bestMeanScore}/100 | Open-World Tier: ${history[history.length - 1]?.survivalCampaign?.techTierReached || 'Active'}</text>
+  <text x="${margin.left}" y="54" fill="#94a3b8" font-size="12">Iterations: ${history.length} | Peak Score: ${state.bestMeanScore}/100 | Open-World Tier: ${latestSurvivalTier}</text>
 
   <!-- Panel 1: Standardized Exam -->
   <rect x="${margin.left}" y="${y1}" width="${plotW}" height="${plotH1}" fill="#1e293b" rx="6"/>
@@ -272,8 +274,8 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
     const yy = getYScore(v);
     return `<line x1="${margin.left}" y1="${yy}" x2="${margin.left + plotW}" y2="${yy}" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="${margin.left - 8}" y="${yy + 4}" fill="#64748b" font-size="10" text-anchor="end">${v}</text>`;
   }).join('')}
-  <path d="${passPath}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>
-  <path d="${scorePath}" fill="none" stroke="#3b82f6" stroke-width="3"/>
+  ${passPath ? `<path d="${passPath}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>` : ''}
+  ${scorePath ? `<path d="${scorePath}" fill="none" stroke="#3b82f6" stroke-width="3"/>` : `<text x="${margin.left + plotW / 2}" y="${y1 + plotH1 / 2}" fill="#94a3b8" font-size="14" text-anchor="middle">Loop 0 Initialized — Ready for Iteration #1</text>`}
 
   <!-- Panel 2: Domain Bar Breakdown -->
   <rect x="${margin.left}" y="${y2}" width="${plotW}" height="${plotH2}" fill="#1e293b" rx="6"/>
@@ -283,7 +285,7 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
   <!-- Panel 3: SLM Loss -->
   <rect x="${margin.left}" y="${y3}" width="${plotW}" height="${plotH3}" fill="#1e293b" rx="6"/>
   <text x="${margin.left + 12}" y="${y3 + 20}" fill="#f8fafc" font-size="13" font-weight="bold">3. System 2 Qwen2.5-Coder SLM Cross-Entropy Loss</text>
-  <path d="${lossPath}" fill="none" stroke="#f43f5e" stroke-width="3"/>
+  ${lossPath ? `<path d="${lossPath}" fill="none" stroke="#f43f5e" stroke-width="3"/>` : `<text x="${margin.left + plotW / 2}" y="${y3 + plotH3 / 2}" fill="#94a3b8" font-size="13" text-anchor="middle">No QLoRA updates recorded yet (awaiting Iteration #1)</text>`}
   ${history.map((h, i) => {
     if (i % Math.max(1, Math.ceil(history.length / 15)) === 0 || i === history.length - 1) {
       return `<text x="${getX(h.iteration)}" y="${y3 + plotH3 + 22}" fill="#94a3b8" font-size="10" text-anchor="middle">Iter ${h.iteration}</text>`;
@@ -393,7 +395,7 @@ function renderHtmlDashboard(history: IterationRecord[], state: PersistentTraini
     <div class="card-stat">
       <div class="stat-title">SLM Loss & ACT Aim</div>
       <div class="stat-val" style="color: #60a5fa;">${minLoss.toFixed(4)}</div>
-      <div class="stat-sub">Init: ${initialLoss.toFixed(4)} | ACT Err: ${latestRecord?.actAimErrorDeg ?? '0.98'}°</div>
+      <div class="stat-sub">Init: ${initialLoss.toFixed(4)} | ACT Err: ${typeof latestRecord?.actAimErrorDeg === 'number' ? latestRecord.actAimErrorDeg + '°' : 'Ready'}</div>
     </div>
   </div>
 
@@ -427,7 +429,10 @@ function renderHtmlDashboard(history: IterationRecord[], state: PersistentTraini
       </tr>
     </thead>
     <tbody>
-      ${history.slice().reverse().map((h) => {
+      ${
+        history.length === 0
+          ? `<tr><td colspan="8" style="text-align:center;color:#94a3b8;padding:1.5rem;">Loop 0 Initialized — Ready for Iteration #1</td></tr>`
+          : history.slice().reverse().map((h) => {
         const craftRate = h.domainBreakdown?.['Crafting & Tech']?.passRate;
         const combatRate = h.domainBreakdown?.['Tactical Combat']?.passRate;
         return `

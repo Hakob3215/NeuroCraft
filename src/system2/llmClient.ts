@@ -60,7 +60,9 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
       userPrompt,
       compactSystemPrompt,
       compactUserPrompt,
-      140
+      140,
+      360,
+      worldState.botUsername || 'default'
     );
     if (rawJson) {
       const parsed = this.tryParseJson<CognitiveDecision>(rawJson);
@@ -151,7 +153,9 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
       userPrompt,
       compactSystemPrompt,
       compactUserPrompt,
-      140
+      140,
+      360,
+      worldState.botUsername || 'default'
     );
     if (rawJson) {
       const parsed = this.tryParseJson<CognitiveDecision>(rawJson);
@@ -239,7 +243,8 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
     compactSystemPrompt?: string,
     compactUserPrompt?: string,
     localMaxTokens = 160,
-    geminiMaxTokens = 360
+    geminiMaxTokens = 360,
+    botId = 'default'
   ): Promise<string | null> {
     if (this.options?.offlineOnly || process.env.LLM_OFFLINE_ONLY === 'true') {
       return null;
@@ -260,7 +265,12 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
       const gpuOut = await sharedNeuralBridge.generateLocalSLMResponse(
         compactSystemPrompt || systemPrompt,
         compactUserPrompt || userPrompt,
-        localMaxTokens
+        localMaxTokens,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        botId
       );
       if (gpuOut && gpuOut.content) {
         return gpuOut.content;
@@ -419,7 +429,12 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
       const gpuOut = await sharedNeuralBridge.generateLocalSLMResponse(
         compactSystemPrompt || systemPrompt,
         compactUserPrompt || userPrompt,
-        localMaxTokens
+        localMaxTokens,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        botId
       );
       if (gpuOut && gpuOut.content) {
         return gpuOut.content;

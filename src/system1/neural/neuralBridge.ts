@@ -191,7 +191,8 @@ export class NeuralBridgeClient {
     repetitionPenalty = 1.1,
     temperature?: number,
     topP?: number,
-    doSample?: boolean
+    doSample?: boolean,
+    botId = 'default'
   ): Promise<NeuralLLMOutput | null> {
     if (!(await this.checkHealth())) return null;
 
@@ -218,6 +219,7 @@ export class NeuralBridgeClient {
           temperature: effectiveTemp,
           top_p: effectiveTopP,
           do_sample: effectiveSample,
+          bot_id: botId,
         }),
       });
       clearTimeout(timeout);
