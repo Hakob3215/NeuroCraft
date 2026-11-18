@@ -2077,6 +2077,56 @@ test('42. HierarchicalGoalPlanner & computeGroundedAffordances track macro/sub-g
   assert.ok(planner.formatGoalHorizonContext(mockState).includes('Replan Alert'));
 });
 
+test('43. UnifiedLLMClient.buildGroundedTrainingSystemPrompt preserves live sensory presence and affordances', () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const schemas = registry.listSchemas();
+  const llm = new UnifiedLLMClient({ offlineOnly: true });
+
+  const mockState: any = {
+    tick: 120,
+    timestamp: Date.now(),
+    botUsername: 'NeuroAgent_1',
+    position: { x: 12, y: 64, z: -8 },
+    velocity: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    pitch: 0,
+    health: 18,
+    food: 16,
+    oxygen: 20,
+    onGround: true,
+    isInWater: false,
+    isInLava: false,
+    heldItem: 'stone_pickaxe',
+    equippedArmor: { head: null, torso: 'iron_chestplate', legs: null, feet: null, offHand: 'shield' },
+    inventory: [
+      { name: 'oak_log', count: 2, slot: 36 },
+      { name: 'cobblestone', count: 8, slot: 37 },
+      { name: 'raw_iron', count: 4, slot: 38 },
+      { name: 'coal', count: 2, slot: 39 },
+      { name: 'stone_pickaxe', count: 1, slot: 40, durability: 65, maxDurability: 131, durabilityPercent: 50 },
+    ],
+    visibleEntities: [{ id: 5, name: 'creeper', type: 'hostile', position: { x: 16, y: 64, z: -8 }, velocity: { x: 0, y: 0, z: 0 }, distance: 4.0 }],
+    audibleCues: [],
+    nearbyNotableBlocks: [{ name: 'furnace', position: { x: 13, y: 64, z: -8 }, distance: 1.0 }],
+    activeHazard: null,
+    activeSubtask: null,
+  };
+
+  const snapPrompt = llm.buildGroundedTrainingSystemPrompt(schemas, mockState, [
+    { stepNumber: 1, toolName: 'gather_resource', args: { blockType: 'iron_ore' }, success: true, summary: 'Mined 4 raw_iron' },
+  ]);
+
+  assert.ok(snapPrompt.includes('Gear & Durability:'), 'Must include Gear & Durability');
+  assert.ok(snapPrompt.includes('Inventory: [2x oak_log, 8x cobblestone, 4x raw_iron'), 'Must include Inventory contents');
+  assert.ok(snapPrompt.includes('Workstations Nearby: [furnace]'), 'Must include Workstations Nearby');
+  assert.ok(snapPrompt.includes('Immediately Craftable: [oak_planks]'), 'Must include Immediately Craftable');
+  assert.ok(snapPrompt.includes('Smeltable: [') && snapPrompt.includes('raw_iron'), 'Must include Smeltable');
+  assert.ok(snapPrompt.includes('Nearby Entities (360°): [creeper(4.0m)]'), 'Must include Nearby Entities');
+  assert.ok(snapPrompt.includes('Recent Actions: [gather_resource(OK)]'), 'Must include Recent Actions');
+});
+
 
 
 

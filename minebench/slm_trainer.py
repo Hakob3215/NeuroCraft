@@ -200,8 +200,8 @@ def train_slm_qlora(
             full_text = tokenizer.apply_chat_template(msgs, tokenize=False)
             prompt_text = tokenizer.apply_chat_template(msgs[:-1], tokenize=False, add_generation_prompt=True)
 
-            enc_full = tokenizer(full_text, truncation=True, max_length=512, return_tensors="pt")
-            enc_prompt = tokenizer(prompt_text, truncation=True, max_length=512, return_tensors="pt")
+            enc_full = tokenizer(full_text, truncation=True, max_length=1024, return_tensors="pt")
+            enc_prompt = tokenizer(prompt_text, truncation=True, max_length=1024, return_tensors="pt")
 
             input_ids = enc_full.input_ids[0]
             labels = input_ids.clone()
@@ -209,6 +209,8 @@ def train_slm_qlora(
 
             # Mask prompt tokens with -100 so loss is strictly computed on assistant actions
             labels[:prompt_len] = -100
+            if prompt_len >= input_ids.shape[0] or not (labels != -100).any():
+                continue
 
             adv = float(traj.get("advantage", 0.0))
             # Weight loss by trajectory advantage (min 0.3, max 2.5)

@@ -1115,6 +1115,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const preState = sampleLiveRLTransitionState(survivalWorker.system1);
               const worldState = survivalWorker.system1.getLatestWorldState();
               const schemas = survivalWorker.registry.listSchemas();
+              const preStepSystemPrompt = survivalWorker.llm.buildGroundedTrainingSystemPrompt(
+                schemas,
+                worldState,
+                sIdx === 0 ? undefined : sStepHistory
+              );
               const goalHeader = sIdx === 0 ? campaignGoal.prompt : sGoalPlanner.formatGoalHorizonContext(worldState);
               const dynamicPrompt = `${goalHeader} [Tech Tier: ${finalEval.techTier} | Unlocked: ${
                 finalEval.unlocked.join(', ') || 'none'
@@ -1176,7 +1181,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 } catch {}
               }
 
-              sExecutedTools.push({ name: toolName, arguments: toolArgs, args: toolArgs, success: ok, summary });
               sStepHistory.push({ stepNumber: sIdx + 1, toolName, args: toolArgs, success: ok, summary });
               sGoalPlanner.advanceOrReplan(
                 { toolName, args: toolArgs, success: ok, summary },
@@ -1190,6 +1194,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               for (const a of newAdvs) persistentUnlockedAdvancements.add(a);
               const rewardDelta = newAdvs.length * 40 + (ok ? 5 : -2);
               finalEval = nextEval;
+
+              sExecutedTools.push({
+                name: toolName,
+                arguments: toolArgs,
+                args: toolArgs,
+                success: ok,
+                summary,
+                stepReward: rewardDelta,
+                systemPrompt: preStepSystemPrompt,
+              });
 
               if (preState) {
                 await stateWriteMutex.runExclusive(async () => {
@@ -1551,6 +1565,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               const worldState = worker.system1.getLatestWorldState();
               const schemas = worker.registry.listSchemas();
+              const preStepSystemPrompt = worker.llm.buildGroundedTrainingSystemPrompt(
+                schemas,
+                worldState,
+                stepIdx === 0 ? undefined : stepHistory
+              );
 
               const variants = PROMPT_VARIANTS[task.id];
               let effectivePrompt =
@@ -1599,6 +1618,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               let stepSuccess = false;
               let stepSummary = '';
+              let stepReward = 0;
 
               try {
                 const prevYaw = bot.entity?.yaw || 0;
@@ -1638,7 +1658,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
                 const postSnap = buildSnapshot();
                 const postGrading = evaluateMinebenchEpisode(shardedTask, postSnap);
-                const stepReward = Number((postGrading.rawReward - preGrading.rawReward).toFixed(3));
+                stepReward = Number((postGrading.rawReward - preGrading.rawReward).toFixed(3));
 
                 if (preRlState) {
                   const dYaw = Math.max(-0.35, Math.min(0.35, (bot.entity?.yaw || 0) - prevYaw));
@@ -1688,6 +1708,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 args: toolArgs,
                 success: stepSuccess,
                 summary: stepSummary,
+                stepReward,
+                systemPrompt: preStepSystemPrompt,
               });
               stepHistory.push({
                 stepNumber: stepIdx + 1,

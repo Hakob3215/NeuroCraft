@@ -47,7 +47,7 @@ def generate_temporal_action_dataset(
 ) -> Tuple[
     torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
     torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
-    torch.Tensor, torch.Tensor, torch.Tensor
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
 ]:
     """
     Synthesizes diverse multi-modal behavioral scenarios with 8-tick temporal trajectories,
@@ -75,6 +75,7 @@ def generate_temporal_action_dataset(
     target_tools = torch.zeros(num_samples, dtype=torch.long, device=device)
     target_tool_gate = torch.zeros(num_samples, device=device)
     target_values = torch.zeros(num_samples, device=device)
+    actor_weights = torch.ones(num_samples, dtype=torch.float32, device=device)
 
     for i in range(num_samples):
         mode = i % 10
@@ -239,7 +240,7 @@ def generate_temporal_action_dataset(
     return (
         latents, proprios, voxels, entities,
         target_aim, target_move, target_discrete, target_extended,
-        target_tools, target_tool_gate, target_values
+        target_tools, target_tool_gate, target_values, actor_weights
     )
 
 
@@ -258,12 +259,12 @@ def _map_action_idx_to_tool_idx(act_idx: int, tool_name: Optional[str] = None) -
 
 
 def load_real_transitions_dataset(
-    max_samples: int = 2000,
+    max_samples: int = 3000,
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
 ) -> Optional[Tuple[
     torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
     torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
-    torch.Tensor, torch.Tensor, torch.Tensor
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
 ]]:
     """Loads recent real Mojang server transitions into multi-modal 8-tick temporal chunks."""
     trans_path = ROOT_DIR / "minebench" / "results" / "real_rl_transitions.jsonl"
@@ -303,6 +304,7 @@ def load_real_transitions_dataset(
     tgt_tools = torch.zeros(n, dtype=torch.long, device=device)
     tgt_gate = torch.zeros(n, device=device)
     tgt_val = torch.zeros(n, device=device)
+    actor_weights = torch.ones(n, dtype=torch.float32, device=device)
 
     for i, r in enumerate(records):
         bs = r["botState"]
@@ -358,11 +360,17 @@ def load_real_transitions_dataset(
         tgt_aim[i, :, 1] = dpitch_deg
         rew = float(r.get("reward", 0.0))
         tgt_val[i] = 1.0 / (1.0 + math.exp(-max(-5.0, min(5.0, rew / 25.0))))
+        if rew > 0.0:
+            actor_weights[i] = min(3.0, 1.2 + rew / 20.0)
+        elif rew == 0.0:
+            actor_weights[i] = 0.6
+        else:
+            actor_weights[i] = 0.05
 
     return (
         latents, proprios, voxels, entities,
         tgt_aim, tgt_move, tgt_disc, tgt_ext,
-        tgt_tools, tgt_gate, tgt_val
+        tgt_tools, tgt_gate, tgt_val, actor_weights
     )
 
 
@@ -402,11 +410,13 @@ def train_action_transformer(
     total_params = sum(p.numel() for p in model.parameters())
     print(f"[Action Head] Model has {total_params:,} parameters ({total_params * 2 / 1e6:.1f} MB in BF16).")
 
-    print("[Action Head] Generating 4,000 multi-modal synthetic + loading real Mojang server transitions...")
-    ds = list(generate_temporal_action_dataset(num_samples=4000, device=str(device)))
-    real_ds = load_real_transitions_dataset(max_samples=2000, device=str(device))
+    real_ds = load_real_transitions_dataset(max_samples=3000, device=str(device))
+    num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
+    num_synth = max(1000, 4000 - num_real)
+    print(f"[Action Head] Generating {num_synth:,} annealed synthetic + {num_real:,} real Mojang server transitions...")
+    ds = list(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)))
     if real_ds is not None:
-        print(f"[Action Head] Appended {real_ds[0].shape[0]} real server transition trajectories!")
+        print(f"[Action Head] Appended {num_real} reward-weighted real server transition trajectories!")
         for idx in range(len(ds)):
             ds[idx] = torch.cat([ds[idx], real_ds[idx]], dim=0)
 
@@ -436,7 +446,7 @@ def train_action_transformer(
         epoch_tool_acc = 0.0
         batches = 0
 
-        for b_lat, b_prop, b_vox, b_ent, b_aim, b_move, b_disc, b_ext, b_tool, b_gate, b_val in loader:
+        for b_lat, b_prop, b_vox, b_ent, b_aim, b_move, b_disc, b_ext, b_tool, b_gate, b_val, b_w in loader:
             optimizer.zero_grad()
 
             out = model(
@@ -454,12 +464,14 @@ def train_action_transformer(
             pred_gate_logit = out["tool_gate_logit"]
             pred_val = out["value"]
 
-            loss_aim = criterion_mse(pred_aim, b_aim.to(dtype)) * 0.001
-            loss_move = criterion_mse(pred_move, b_move.to(dtype)) * 2.0
-            loss_disc = criterion_bce(pred_discrete_logits, b_disc.to(dtype)) * 2.5
-            loss_ext = criterion_bce(pred_ext_logits, b_ext.to(dtype)) * 1.0
-            loss_tool = F.cross_entropy(pred_tool_logits.float(), b_tool) * 0.75
-            loss_gate = criterion_bce(pred_gate_logit, b_gate.to(dtype)) * 0.5
+            w_actor = b_w.to(dtype=dtype)
+            w_actor_f32 = b_w.float()
+            loss_aim = (F.mse_loss(pred_aim, b_aim.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 0.001
+            loss_move = (F.mse_loss(pred_move, b_move.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.0
+            loss_disc = (F.binary_cross_entropy_with_logits(pred_discrete_logits, b_disc.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.5
+            loss_ext = (F.binary_cross_entropy_with_logits(pred_ext_logits, b_ext.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 1.0
+            loss_tool = (F.cross_entropy(pred_tool_logits.float(), b_tool, reduction="none") * w_actor_f32).mean() * 0.75
+            loss_gate = (F.binary_cross_entropy_with_logits(pred_gate_logit, b_gate.to(dtype), reduction="none") * w_actor).mean() * 0.5
             loss_val = criterion_mse(pred_val, b_val.to(dtype)) * 0.5
 
             total_loss = loss_aim + loss_move + loss_disc + loss_ext + loss_tool + loss_gate + loss_val
