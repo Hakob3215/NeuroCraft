@@ -1,6 +1,6 @@
 # NeuroCraft Autonomous Agent Workspace Rules & Execution Standards
 
-This file defines the mandatory operational directives, benchmark standards, and runtime protocols for the **NeuroCraft** Minecraft AI agent project. All agents operating in this workspace must adhere to these rules without exception.
+This file defines the mandatory operational directives, benchmark standards, architecture specifications, and runtime protocols for the **NeuroCraft** Minecraft AI agent project. All agents operating in this workspace must adhere to these rules without exception.
 
 ---
 
@@ -11,94 +11,101 @@ All development, training, and benchmarking in NeuroCraft are governed by Richar
 
 ### Core Directives:
 1. **Never "Solve It for the Model"**: If training results or benchmark scores drop, never inject procedural shortcuts, regex pattern routers, synthetic state machines, or hand-coded safety nets to artificially boost scores.
-2. **Embrace Exploratory Failure**: If something *can* be learned through more training iterations, cleaner loss functions, and grounded reinforcement learning, it *must* be learned that way. 
-3. **The 100-Iteration Maturation Curve**:
-   - **Iterations 1–25 (Unassisted Baseline)**: Raw exploratory behavior, low benchmark pass rates (~50–60%), prerequisite DAG failures, and clumsy motor misses. This is the natural and necessary progression of reinforcement learning, **not a system defect**.
-   - **Iterations 26–60 (Distillation & Pruning)**: PPO policy gradients, GRPO verified trajectories, and QLoRA fine-tuning prune invalid tool calls and tighten continuous motor chunk trajectories.
-   - **Iterations 61–100+ (Emergent Mastery)**: High benchmark pass rates (85%+) reflecting genuine neural weight adaptation across your RTX 5060 GPU.
+2. **Embrace Exploratory Failure**: If something *can* be learned through more training iterations, cleaner loss functions, and grounded reinforcement learning, it *must* be learned that way.
+3. **The 500-Iteration Maturation Curve**:
+   - **Iterations 1–50 (Exploratory Fumbling & Grounding Phase)**: Raw unassisted exploration (`SLM_TEMPERATURE=0.7`, `SLM_TOP_P=0.9`, `SLM_DO_SAMPLE=true`, `allowAutoPrereqs=false`). Expect low pass rates (~15–30%), prerequisite DAG misses, and clumsy motor attempts while the agent discovers basic affordances, gathers early successes into the Stratified Task Gold Bank, and fills 3D transition buffers. This fumbling phase is the natural progression of reinforcement learning, **not a system defect**.
+   - **Iterations 51–200 (Getting Its Footing — "Kinda Good" Ramp)**: As verified trajectories and real 3D semantic voxel/entity transitions accumulate, QLoRA adapters, the 211.4M Multi-Modal Action Transformer, and PPO reflex gradients gain traction. The agent reliably chains multi-step crafting DAGs (`oak_log` $\to$ `oak_planks` $\to$ `crafting_table` $\to$ `stick` $\to$ `pickaxe`), wins standard combat encounters, and unlocks early open-world survival advancements.
+   - **Iterations 201–400 (Accelerated Multi-Domain Competence — "Wow" Phase)**: Strong multi-step error recovery, tool durability preservation, smooth 20Hz motor kiting/parkour, and deep tech-tree progression (Iron & Diamond tiers) across both the standardized testbench and the persistent open-world survival campaign.
+   - **Iterations 401–500+ (Emergent Generalist Mastery)**: High, well-rounded competence across all gameplay domains, long-horizon survival campaign goals (Nether fortress, Stronghold triangulation, Wither, Beacon, Ender Dragon), and tight neural coordination between System 2 and the 211.4M Multi-Modal Motor Head.
 
 ---
 
-## 2. The Architectural Division of Labor (Discrete Symbolic vs. Continuous Sensorimotor)
+## 2. The Unified Hierarchical VLA Architecture: Rich Presence, SLM Intents & 211.4M Motor Head
 
-NeuroCraft strictly divides cognitive thought and bodily action into two complementary domains:
+NeuroCraft connects a **cognitive LLM planner (System 2)** and a **211.4M multi-modal motor transformer (System 1)** through shared rich sensory presence and strict combinatorial MCP tools:
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                   SYSTEM 2 (Cognitive SLM)                  │
-│       - Natural Language Intent & Multi-Step DAGs           │
-│       - Produces 1,536-dim Latent Thought Vector (h)        │
-└──────────────────────────────┬──────────────────────────────┘
-                               │
-            ┌──────────────────┴──────────────────┐
-            ▼                                     ▼
-┌──────────────────────────────┐     ┌──────────────────────────────┐
-│       MCP TOOL LAYER         │     │    SYSTEM 1 (80.8M ACT)      │
-│   (Discrete / Combinatorial) │     │  (Continuous / Sensorimotor) │
-│  - Crafting Recipe Graph     │     │  - 20Hz Camera Aim Tracking  │
-│  - Smelting & Fuel Cycles    │     │  - Continuous Planar Velocity│
-│  - Chest Inventory Transfers │     │  - Sprint-Jumping & Parkour  │
-│  - Tool Durability Checks    │     │  - Melee Strike Timings      │
-│  - Block Breaking / Placing  │     │  - Sub-Tick Voxel Reflexes   │
-└──────────────────────────────┘     └──────────────────────────────┘
+Prompt / Macro Goal + Rich Grounded World State (46-slot Inv, Affordances, 360° Radar, Horizon Stack)
+        │
+        ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  SYSTEM 2: Cognitive SLM (Qwen2.5-Coder-1.5B + QLoRA + HierarchicalGoalPlanner)        │
+│   • Decomposes long-term goals & sub-goals; monitors failure / replan triggers          │
+│   • Produces discrete JSON Intention + per-bot 1,536-dim Latent Intention Vector (h)   │
+└────────────────────────────────────────┬───────────────────────────────────────────────┘
+                                         │ h ∈ ℝ¹⁵³⁶ + Live 3D Sensory Context
+                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  85-TOKEN MULTI-MODAL CONTEXT MEMORY [B, 85, 1024]                                     │
+│   • 4 SLM Latent Intention Tokens (projected from per-bot h ∈ ℝ¹⁵³⁶)                  │
+│   • 1 Bodily Proprioception Token (24-dim HP, food, velocity, aim, target, gear flags) │
+│   • 16 Entity Radar Tokens (360° top-16 mobs, players, items, crystals: [16, 12])      │
+│   • 64 Spatial 3D Voxel Patch Tokens (15×15×15 32-class semantic blocks -> 4×4×4 grid) │
+└────────────────────────────────────────┬───────────────────────────────────────────────┘
+                                         ▼
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│  SYSTEM 1: 211.4M Multi-Modal Action Transformer (`action_head.py`) + 1.1M Reflex      │
+│   • Uses BOTH the SLM intent h AND live 3D data to predict 8-tick (400ms @ 20Hz) chunks│
+│   • Continuous Physics: (Δyaw, Δpitch, vx, vz) + [jump, sprint, sneak, attack,         │
+│     use_item, swap_slot, dig_block, drop_item]                                         │
+│   • Discrete Tool Dispatch (`tool_dispatch_head` across 24 tools + `tool_gate_head`)   │
+│   • Lifecycle Feedback (`subgoal_completed`, `should_replan`, Critic V(s))              │
+└───────────────────┬───────────────────────────────────────────┬────────────────────────┘
+                    │ Combinatorial GUI / Recipe Math           │ Continuous 20Hz Control
+                    ▼                                           ▼
+        ┌──────────────────────────┐                ┌──────────────────────────┐
+        │     MCP TOOL LAYER       │                │   SUB-TICK REFLEX CORE   │
+        │  - 3x3 Crafting Matching │                │  - 20Hz Camera & Motion  │
+        │  - Furnace Smelt Cycles  │                │  - 1.1M VoxelReflexPolicy│
+        │  - Chest & Slot Swaps    │                │  - Shield / Creeper Kite │
+        └──────────────────────────┘                └──────────────────────────┘
 ```
 
-### 1. Discrete Symbolic Domain (MCP Tool Layer)
-- **What Belongs Here**: 46-slot inventory management, official Minecraft crafting table recipe matching, furnace smelting, and durability thresholds.
-- **Why**: Trying to force a continuous neural head to output raw window-click packets (`clickWindow(slot, mode)`) explodes the search space into a $46!$ combinatorial trap. The deterministic recipe engine guarantees valid crafts without hallucinations.
-- **Strict Prohibition of Procedural Crutches**:
-  - **No Auto-Crafting Crutches**: The execution layer must NEVER silently synthesize sub-ingredients (e.g. auto-crafting wood planks, sticks, or crafting tables). If the agent attempts to craft an advanced item without prerequisite items in its inventory, the tool must fail and return grounded inventory feedback, compelling the SLM to discover and plan the prerequisite DAG sequence (`gather_resource` $\to$ `craft planks` $\to$ `craft table` $\to$ `craft sticks` $\to$ `craft pickaxe`).
-  - **No Synthetic Progression Nudges**: Prompts and context formatters must NEVER inject artificial stopping or progression hints. The cognitive policy must evaluate its own inventory and world state.
-  - **No Monolithic Structure Macros**: 3D construction must not be collapsed into single-call procedural scripts that build an entire structure in one shot.
+### 1. Rich Informative Presence for Both Brains
+- **System 2 Presence (`llmClient.ts` & `goalPlanner.ts`)**: `computeGroundedAffordances(state)` surfaces objective, non-prescriptive situational awareness: gear & minimum tool durability %, nearby workstations, items immediately craftable from current inventory, smeltable ores + fuel availability, 360° resource clusters, nearby entities, and the active `HierarchicalGoalPlanner` horizon stack (`Macro Goal`, `Sub-Goal [idx/total]`, failure alerts).
+- **System 1 Multi-Modal Presence (`vlaClient.ts` & `action_head.py`)**: `MinecraftActionHead` (~211.4M parameters, 12 Transformer Decoder layers, 16 heads, `d_model=1024`) cross-attends over **85 rich tokens** combining 4 SLM intent tokens (`h`), 24-dim proprioception, 16 entity radar vectors, and 64 3D spatial patches built from **32-class semantic block IDs** (`0..31` — air, stone, cobble, water, lava, ores, logs, crafting tables, furnaces, gold/emerald goal blocks, levers/doors, etc.), never blind binary cubes.
+- **No Procedural Crutches (`allowAutoPrereqs = false`)**: The execution layer must never silently auto-craft sub-ingredients (planks, sticks, crafting tables) or inject synthetic heuristic nudges solving gameplay for the model. Missing prerequisite items must fail cleanly with grounded inventory feedback.
 
-### 2. Continuous Sensorimotor Domain (System 1: ACT & Reflex)
-- **What Belongs Here**: 20Hz continuous physics, 3D voxel spatial awareness, camera aiming, velocity vectors, sprinting, sneaking, jumping, and melee strike timing.
-- **Direct Latent Coupling**:
-  - The SLM (Qwen2.5-Coder-1.5B) produces a 1,536-dimensional latent representation ($h \in \mathbb{R}^{1536}$) on every decision.
-  - The 80.8M Temporal Action Chunking Transformer (`action_head.py`) cross-attends directly to $h$, combining it with bodily proprioception (24-dim) and local 3D voxels ($15 \times 15 \times 15$) to output 8-tick ($400\text{ms}$) continuous action trajectories:
-    - Continuous camera aim: $(\Delta\text{yaw}, \Delta\text{pitch})$
-    - Continuous planar velocity vectors: $(v_x, v_z)$
-    - Discrete motor activations: `[jump, sprint, sneak, attack, use_item, swap_slot]` across all 8 ticks.
-- **Full Reflex Output Consumption**:
-  - In `reflexEngine.ts`, all outputs from `VoxelReflexPolicy` must be actively applied: continuous camera aim deltas, directional strafing/backpedaling, sprint-jumping, and reactive attacks. Never castrate the neural reflex to a simple 2-button trigger.
+### 2. Dual Outputs: Tick-Future Physical Control + Tool Dispatch + Replanning
+- **Tick-Future Actions & Tool Dispatch**: Guided by both $h$ and live 3D voxels/entities, the 211.4M Motor Head outputs continuous camera/movement trajectories alongside discrete action activations (`dig_block`, `drop_item`, `attack`, `use_item`, `swap_slot`), discrete MCP tool dispatch logits (`24 CANONICAL_MOTOR_TOOLS` for crafting, smelting, equipping, chest transfers, etc.), and `should_replan` / `subgoal_completed` signals.
+- **Full Reflex Output Consumption**: In `reflexEngine.ts`, all outputs from `VoxelReflexPolicy` (continuous aim deltas, directional strafing/backpedaling, sprint-jumping, shields, and reactive attacks) remain active at sub-tick speed.
 
 ---
 
 ## 3. Mandatory Benchmark & Runtime Flags
 
-To guarantee that benchmarks measure real neural capabilities rather than regex pattern matching or hardcoded state machines, the following environment flags must remain permanently active:
+To guarantee that benchmarks measure genuine neural capabilities and explore multi-step trajectories natively rather than hitting deterministic greedy traps, the following environment flags must remain active:
 
 ```cmd
 set DISABLE_FAST_INTENT=true
 set STRICT_LLM_BENCHMARK=true
 set NEURAL_FORCE_LOCAL_SLM=true
 set LLM_PROVIDER=local_gpu
+set SLM_TEMPERATURE=0.7
+set SLM_TOP_P=0.9
+set SLM_DO_SAMPLE=true
 ```
 
-- `DISABLE_FAST_INTENT=true`: Completely disables regex intent interception so the SLM is forced to parse all player prompts.
-- `STRICT_LLM_BENCHMARK=true`: Disables heuristic fallback state machines on JSON parse failures, exposing true policy accuracy.
-- `NEURAL_FORCE_LOCAL_SLM=true`: Directs all inference to the local RTX 5060 GPU daemon.
+- `DISABLE_FAST_INTENT=true`: Completely disables regex intent interception so the SLM parses all prompts.
+- `STRICT_LLM_BENCHMARK=true`: Disables heuristic fallback state machines on JSON parse failures.
+- `NEURAL_FORCE_LOCAL_SLM=true`: Routes System 2 inference to the local RTX 5060 GPU daemon.
+- `SLM_TEMPERATURE=0.7`, `SLM_TOP_P=0.9`, `SLM_DO_SAMPLE=true`: Enables stochastic RL policy exploration rather than argmax mode collapse.
 
 ---
 
-## 4. Definition & Requirements for a "Full Run"
+## 4. Definition & Requirements for a "Full Run" (Dual-Track Training & Telemetry)
 
 Whenever the user instructs to perform a **"full run"**, **"full benchmark"**, or **"full training run"**:
 
-### Mandatory Dual-Tier Execution
-Never substitute a single-step policy probe or abbreviated shortcut for a full run unless the user explicitly asks for a "smoke test" or "quick check". Every full run must exhaustively execute **both tiers**:
+### Mandatory Dual-Tier & Dual-Track Execution
+Never substitute a single-step policy probe or abbreviated shortcut for a full run unless the user explicitly asks for a "smoke test" or "quick check". Every full run must execute both brain tiers against real Mojang `server.jar` 1.20.4 physics across **both training tracks**:
 
-1. **Tier 1: Cognitive Policy Planning (System 2 VLA / SLM)**:
-   - Full natural language prompt decoding and intent classification.
-   - Generation of structured tool calls and 1,536-dim latent vectors.
-   - Generation of 8-tick ($400\text{ms}$) continuous motor chunk trajectories from the 80.8M Action Chunking Transformer.
-2. **Tier 2: Grounded Physical Simulation (System 1 + Mojang `server.jar` 1.20.4 Physics)**:
-   - Live multi-step execution loop across physical game ticks.
-   - Verification of real world state transitions:
-     - **Affordance & Homesteading**: Physical block state transitions (`oak_log` $\to$ `stripped_oak_log`, dirt $\to$ farmland, sheep shearing, crop harvesting).
-     - **Agility & Navigation**: Jump-by-jump parkour navigation, sneak-bridging over ravines, and reaching target coordinates without falling.
-     - **Tactical Combat**: Live entity damage, shield blocking, kiting creeper fuses, dodging skeleton arrows, and verifying entity HP reaches 0 in server memory.
-     - **Architecture & Progression**: 3D voxel placement (IoU verification), crafting tree progressions, smelting, and equipping gear.
+1. **Track A — Standardized MINEbench Sharded Workers (`NeuroAgent_1..3`, $\Delta X = 4,000$)**:
+   - Executes curated + Omniscience tasks across Agility/Parkour, Architecture/3D, Tactical Combat, Homesteading/Affordances, Crafting & Tech DAGs, Puzzles/Tooling, and Multiplayer Sparring.
+2. **Track B — Persistent Open-World Survival Worker (`NeuroAgent_Surv` at `(20000, 100, 20000)`)**:
+   - Runs persistently alongside Track A without resetting world state between iterations, pursuing long-horizon `SURVIVAL_CAMPAIGN_GOALS` (Ender Dragon, Wither, Beacon, Ocean Monument Sponges, Trail Ruins/Ancient City, Iron/Diamond progression) anchored by Vanilla Minecraft Advancements.
+3. **Decomposed 4-Panel Dashboard (`generate_training_graphs.ts`)**:
+   - Reports outcomes cleanly without muddying metrics: (1) Standardized Exam Over Time, (2) Per-Domain Pass Rate Grouped Bars at Time Increments $t$, (3) Open-World Survival Tech Tier & Advancements, and (4) System 2 SLM Loss + System 1 ACT Aim Error.
 
 ---
 
@@ -113,74 +120,54 @@ or
 node .runtime/node/node.exe minebench/dist/minebench/train_loop.js
 ```
 
+To reset all replay buffers, checkpoints, and metrics cleanly back to Loop 0:
+```cmd
+reset_agent.bat
+```
+
 ### Mandatory Graceful Shutdown Standards (`Ctrl+C` / `SIGINT` / `SIGTERM`)
 Any script running continuous loops must handle interruption cleanly and without data loss:
-1. **Atomic State Flushing**:
-   - Immediately flush and save `training_state.json`, `grpo_verified_trajectories.jsonl`, and the latest scorecard to disk.
-   - Prevent JSON truncation or corrupted records.
-2. **Clean Bot Disconnect**:
-   - Send `disconnect.quitting` packet to cleanly disconnect `NeuroAgent` from the server.
-3. **Headless Server Teardown**:
-   - Issue `/stop` to `server.jar` and wait for clean process termination.
-4. **VRAM & Port Safety**:
-   - Terminate or pause background daemons, release CUDA allocations, and ensure ports `25575` (Minecraft) and `8765` (VLA Daemon) are completely free.
-   - Zero orphaned `node.exe`, `python.exe`, or `java.exe` processes.
+1. **Atomic State Flushing**: Flush `training_state.json`, `grpo_verified_trajectories.jsonl`, and scorecard/dashboard artifacts immediately without truncation.
+2. **Clean Bot Disconnect**: Send `disconnect.quitting` packets for all connected worker bots.
+3. **Headless Server Teardown**: Issue `/stop` to `server.jar` and wait for clean exit.
+4. **VRAM & Port Safety**: Release CUDA memory, ensure ports `25575` (Minecraft) and `8765` (VLA Daemon) are completely free, and leave zero orphaned `node.exe`, `python.exe`, or `java.exe` processes.
 
 ---
 
 ## 6. Hardware & Memory Envelope (RTX 5060 Laptop GPU, 8GB)
 
-- **VRAM Ceiling**: Never allocate more than 6.0 GB of VRAM. Maintain a **minimum of 2.0 GB of free headroom** at all times to prevent system freezes or display driver crashes.
-- **Dynamic Offloading During Backprop**: When running QLoRA training on System 2, send `POST /pause_slm` to offload the active inference model to CPU memory, execute gradient backpropagation safely, and hot-reload updated weights to GPU with `POST /reload_adapter`.
-- **Action Head Kinematics**: All physical bot actions must use the 80.8M Temporal Action Chunking Transformer (`action_head.py`) generating 8-tick ($400\text{ms}$) trajectories to guarantee smooth, human-mimicking movement.
+- **VRAM Ceiling**: Never allocate more than 6.0 GB of VRAM. Maintain at least **2.0 GB of free headroom** during both inference and QLoRA/ACT/PPO updates (`SLM ~3.05 GB` + `211.4M Multi-Modal Action Head ~422.7 MB BF16` + `1.1M Reflex / ChunkScan ~20 MB` $\approx$ `3.5–3.8 GB` active inference footprint).
+- **Dynamic Offloading & Reversible LoRA Hot-Reload**: During QLoRA backpropagation, send `POST /pause_slm` to offload the SLM to CPU memory, run gradient updates, and hot-reload updated LoRA/ACT/PPO weights with `POST /reload_adapter` using reversible `merge_adapter()` / `unmerge_adapter()` (never stacking $\Delta W$ into $W_0$ across loops).
+- **Zero-Disk-Bloat Checkpoints**: Keep only `*_latest`, `*_best`, base `voxel_reflex_policy.pt`, and early diagnostic loop checkpoints (`loop <= 4`).
 
 ---
 
 ## 7. Official Minecraft Server Scoreboard Telemetry Standards
 
-To guarantee 100% objective, incontrovertible physical logging directly within the Mojang `server.jar` engine (and in `latest.log`), the following 12 vanilla scoreboard objectives must remain permanently registered during live testing:
+The following 12 vanilla scoreboard objectives must remain registered during live testing so `train_loop.ts` logs verifiable server ground truth chronologically to `latest.log`:
 
-1. `deaths` (`deathCount`): Total player deaths recorded natively by server.
-2. `mob_kills` (`totalKillCount`): Total mob & entity kills (displayed on sidebar).
-3. `dmg_dealt` (`minecraft.custom:minecraft.damage_dealt`): Actual melee & ranged hit points dealt by `NeuroAgent` (tenths of HP).
-4. `dmg_taken` (`minecraft.custom:minecraft.damage_taken`): Real physical damage sustained by `NeuroAgent`.
-5. `dmg_blocked` (`minecraft.custom:minecraft.damage_blocked_by_shield`): Damage absorbed by shield blocking mechanics.
-6. `sprint_cm` (`minecraft.custom:minecraft.sprint_one_cm`): Agility sprinting displacement in cm.
-7. `jump_cnt` (`minecraft.custom:minecraft.jump`): Total jump counts across parkour and navigation obstacles.
-8. `mine_log` (`minecraft.mined:minecraft.oak_log`): Grounded oak log block break events.
-9. `mine_stone` (`minecraft.mined:minecraft.stone`): Grounded stone block break events.
-10. `mine_iron` (`minecraft.mined:minecraft.iron_ore`): Grounded iron ore block break events.
-11. `craft_bench` (`minecraft.crafted:minecraft.crafting_table`): Unassisted crafting table synthesis.
-12. `craft_pick` (`minecraft.crafted:minecraft.stone_pickaxe`): Unassisted stone pickaxe crafting milestones.
-
-At the conclusion of every benchmark episode, `train_loop.ts` queries all 12 scoreboard targets via server RCON/stdin so that verifiable server ground-truth is logged chronologically to `latest.log`.
+1. `deaths` (`deathCount`)
+2. `mob_kills` (`totalKillCount`, displayed on sidebar)
+3. `dmg_dealt` (`minecraft.custom:minecraft.damage_dealt`)
+4. `dmg_taken` (`minecraft.custom:minecraft.damage_taken`)
+5. `dmg_blocked` (`minecraft.custom:minecraft.damage_blocked_by_shield`)
+6. `sprint_cm` (`minecraft.custom:minecraft.sprint_one_cm`)
+7. `jump_cnt` (`minecraft.custom:minecraft.jump`)
+8. `mine_log` (`minecraft.mined:minecraft.oak_log`)
+9. `mine_stone` (`minecraft.mined:minecraft.stone`)
+10. `mine_iron` (`minecraft.mined:minecraft.iron_ore`)
+11. `craft_bench` (`minecraft.crafted:minecraft.crafting_table`)
+12. `craft_pick` (`minecraft.crafted:minecraft.stone_pickaxe`)
 
 ---
 
 ## 8. Two-Phase Operational Lifecycle: Testing Mode vs. Long-Term Training Mode
 
-To ensure the architecture, benchmark suite, physics engine, and telemetry are 100% sound before committing to extensive compute campaigns, execution must follow a strict two-phase operational protocol:
-
 ### Phase 1: Testing Mode (Iterative Architectural Audit & Wipe Loop)
-1. **Short Batch Execution**:
-   - Execute ONLY one or two iterations (`--iterations 1` or `--iterations 2`).
-2. **Dedicated Architecture Auditor Subagent**:
-   - Immediately upon batch completion, launch a specialized subagent whose sole task is to point out flaws with the **ARCHITECTURE and BENCHMARK SUITE**.
-   - **Mandatory Directive**: The auditor must NOT complain that the model scored low due to early training infancy (this is expected under Sutton's Bitter Lesson and the 100-Iteration Maturation Curve). Instead, it must audit for genuine systemic, structural, and mechanical defects:
-     - Entity filters, perception blind spots, or tool signature mismatches (e.g., players excluded from combat, missing tool schemas).
-     - Minecraft server errors, keepalive drops, tick lag warnings, packet disconnects, or socket timeouts.
-     - Broken crafting/smelting DAG prerequisites or unachievable win conditions in task evaluators.
-   - **Scope of Sweep**: The subagent must extensively sweep the entire active, unarchived codebase (`src/`, `minebench/`, `neural_lab/`), runner telemetry, and Minecraft server logs (`minebench/server/logs/latest.log`).
-3. **Coordinator Evaluation & Remediation**:
-   - The coordinator evaluates the subagent's report, filtering out any suggestions that would violate the Bitter Lesson (no procedural auto-crafting crutches or regex routers).
-   - If genuine architectural, perception, or suite flaws are identified, implement the proper code-level fixes and verify TypeScript/Python compilation.
-4. **Clean Wipe & Re-Probe**:
-   - After implementing verified fixes, wipe the previous probe logs/checkpoints and execute another 1–2 iteration probe.
-   - Continue this iterative audit $\to$ evaluate $\to$ fix $\to$ wipe $\to$ re-probe loop for as long as necessary until either:
-     - The subagent reports zero architectural/suite flaws, OR
-     - The coordinator deems all remaining suggestions improper or invalid.
+1. Execute 1–2 iterations (`--iterations 1` or `--iterations 2`).
+2. Launch a dedicated Architecture Auditor subagent to inspect **ARCHITECTURE and BENCHMARK SUITE** defects across `src/`, `minebench/`, `neural_lab/`, and `minebench/server/logs/latest.log`.
+   - **Mandatory Directive**: The auditor must NOT complain about low early scores (expected during Iterations 1–50 of the 500-Iteration Maturation Curve). Focus solely on systemic perception blind spots, entity filter bugs, server/packet failures, broken DAG prerequisites, or invalid evaluator conditions.
+3. Filter recommendations against **The Bitter Lesson** (never add auto-crafting crutches or regex routers), implement verified fixes, compile cleanly, wipe probe logs via `reset_agent.bat`, and re-probe until clean.
 
-### Phase 2: Long-Term Training Mode (Sustained Maturation to User Deadline)
-- Once Phase 1 settles cleanly and the architecture is certified sound, transition to long-term training mode.
-- Run iterations continuously toward the user's specified time budget (either a duration in hours or a specific wall-clock deadline).
-- Perform safe landings before the deadline, flushing atomic state, syncing dashboard artifacts, and presenting final scorecard telemetry.
+### Phase 2: Long-Term Training Mode (Sustained Maturation Toward 500+ Iterations)
+- Once the architecture is certified sound, transition to continuous multi-hour or overnight runs across the **500-Iteration Maturation Curve**, landing atomically on completion or deadline with synchronized dashboard visuals.
