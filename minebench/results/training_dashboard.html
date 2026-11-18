@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NeuroCraft AI Agent — Autonomous Training & Convergence Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --green: #10b981;
+      --pink: #f43f5e;
+      --amber: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
+    body { background-color: var(--bg); color: var(--text); padding: 2rem; }
+    header { margin-bottom: 2rem; border-bottom: 1px solid var(--border); padding-bottom: 1.5rem; }
+    h1 { font-size: 1.8rem; font-weight: 700; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.75rem; }
+    .badge { font-size: 0.75rem; background: #1e3a8a; color: #93c5fd; padding: 0.2rem 0.6rem; border-radius: 9999px; }
+    p.subtitle { color: var(--muted); font-size: 0.95rem; }
+    .grid-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+    .card-stat { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.25rem; }
+    .stat-title { color: var(--muted); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; }
+    .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--text); }
+    .stat-val.highlight { color: var(--green); }
+    .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
+    .chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; height: 380px; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--card); border-radius: 8px; overflow: hidden; font-size: 0.85rem; }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: #0f172a; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
+    tr:hover { background: rgba(255,255,255,0.02); }
+    .tag { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 600; font-size: 0.75rem; }
+    .tag-pass { background: rgba(16, 185, 129, 0.15); color: var(--green); }
+    .tag-amber { background: rgba(245, 158, 11, 0.15); color: var(--amber); }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🧠 NeuroCraft Autonomous Training & Convergence Dashboard <span class="badge">Live RTX 5060 + Mojang 1.20.4</span></h1>
+    <p class="subtitle">Continuously tracked performance curves across System 1 (80.8M Action Chunking Transformer) & System 2 (Qwen2.5-Coder 1.5B QLoRA).</p>
+  </header>
+
+  <div class="grid-stats">
+    <div class="card-stat">
+      <div class="stat-title">Current Iteration</div>
+      <div class="stat-val">#51</div>
+      <div class="stat-sub">Session Count: 18</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">All-Time Best Score</div>
+      <div class="stat-val highlight">42.6 / 100</div>
+      <div class="stat-sub">Best Pass Rate: 34.5% (Best Score Iter #1)</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">Vanilla Dragon Survival</div>
+      <div class="stat-val" style="color: #f59e0b;">0%</div>
+      <div class="stat-sub">0 / 8 Milestones Passed</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">SLM Loss Low</div>
+      <div class="stat-val" style="color: #60a5fa;">0.0000</div>
+      <div class="stat-sub">Down from 0.4623 initial loss</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">Action Head Specs</div>
+      <div class="stat-val">80.8M</div>
+      <div class="stat-sub">8-Tick (400ms) Chunk Trajectory</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">GPU VRAM Resident</div>
+      <div class="stat-val" style="color: #a78bfa;">3.6 GB</div>
+      <div class="stat-sub">4.2 GB Headroom on RTX 5060</div>
+    </div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="scoreChart"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="lossChart"></canvas>
+  </div>
+
+  <h2 style="margin-bottom: 0.5rem; font-size: 1.2rem;">Training Iteration Logs</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Iter</th>
+        <th>Phase / Note</th>
+        <th>Mean Score</th>
+        <th>Pass Rate</th>
+        <th>Tasks Passed</th>
+        <th>SLM Final Loss</th>
+        <th>Dragon Survival</th>
+        <th>Milestone / Breakthrough</th>
+      </tr>
+    </thead>
+    <tbody>
+      
+        <tr>
+          <td><strong>#51</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.3</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0056</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#50</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>39.6</strong> / 100</td>
+          <td><span class="tag ">33.3%</span></td>
+          <td>28 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0059</td>
+          <td><span class="tag tag-amber">0% (0/8)</span></td>
+          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#49</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.9</strong> / 100</td>
+          <td><span class="tag ">33.3%</span></td>
+          <td>28 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0124</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#48</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.6</strong> / 100</td>
+          <td><span class="tag ">29.8%</span></td>
+          <td>25 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0101</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#47</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.7</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0088</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#46</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>26.2</strong> / 100</td>
+          <td><span class="tag ">17.9%</span></td>
+          <td>15 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0086</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#45</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.7</strong> / 100</td>
+          <td><span class="tag ">29.8%</span></td>
+          <td>25 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0062</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#44</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.3</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0065</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#43</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.6</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0028</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#42</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.8</strong> / 100</td>
+          <td><span class="tag ">29.8%</span></td>
+          <td>25 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0021</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#41</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.7</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0062</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#40</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.4</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0044</td>
+          <td><span class="tag tag-amber">0% (0/8)</span></td>
+          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#39</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>33.7</strong> / 100</td>
+          <td><span class="tag ">26.2%</span></td>
+          <td>22 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0123</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#38</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>33.9</strong> / 100</td>
+          <td><span class="tag ">25%</span></td>
+          <td>21 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0125</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#37</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.6</strong> / 100</td>
+          <td><span class="tag ">33.3%</span></td>
+          <td>28 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0154</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#36</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>39.2</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0161</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#35</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>39.3</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0118</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#34</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.3</strong> / 100</td>
+          <td><span class="tag ">27.4%</span></td>
+          <td>23 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0178</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#33</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.1</strong> / 100</td>
+          <td><span class="tag ">33.3%</span></td>
+          <td>28 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0351</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#32</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>27.1</strong> / 100</td>
+          <td><span class="tag ">19%</span></td>
+          <td>16 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0083</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#31</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>24.7</strong> / 100</td>
+          <td><span class="tag ">17.9%</span></td>
+          <td>15 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#30</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.3</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td><span class="tag tag-amber">0% (0/8)</span></td>
+          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#29</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>27.2</strong> / 100</td>
+          <td><span class="tag ">17.9%</span></td>
+          <td>15 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#28</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>22.8</strong> / 100</td>
+          <td><span class="tag ">14.3%</span></td>
+          <td>12 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#27</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>38.1</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#26</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>32.2</strong> / 100</td>
+          <td><span class="tag ">23.8%</span></td>
+          <td>20 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#25</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>32.9</strong> / 100</td>
+          <td><span class="tag ">25%</span></td>
+          <td>21 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0031</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#24</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36</strong> / 100</td>
+          <td><span class="tag ">27.4%</span></td>
+          <td>23 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0057</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#23</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>28.9</strong> / 100</td>
+          <td><span class="tag ">19%</span></td>
+          <td>16 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0006</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#22</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>33.5</strong> / 100</td>
+          <td><span class="tag ">21.4%</span></td>
+          <td>18 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0078</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#21</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>40.7</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0290</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#20</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>32.2</strong> / 100</td>
+          <td><span class="tag ">25%</span></td>
+          <td>21 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0189</td>
+          <td><span class="tag tag-amber">0% (0/8)</span></td>
+          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#19</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>30.5</strong> / 100</td>
+          <td><span class="tag ">21.4%</span></td>
+          <td>18 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0116</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#18</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>39.8</strong> / 100</td>
+          <td><span class="tag ">33.3%</span></td>
+          <td>28 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0113</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#17</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>22.8</strong> / 100</td>
+          <td><span class="tag ">13.1%</span></td>
+          <td>11 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0058</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#16</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>28.2</strong> / 100</td>
+          <td><span class="tag ">21.4%</span></td>
+          <td>18 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0009</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#15</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.9</strong> / 100</td>
+          <td><span class="tag ">31%</span></td>
+          <td>26 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0002</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#14</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>23</strong> / 100</td>
+          <td><span class="tag ">14.3%</span></td>
+          <td>12 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0085</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#13</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>35.8</strong> / 100</td>
+          <td><span class="tag ">29.8%</span></td>
+          <td>25 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0049</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#12</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>40</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0101</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#11</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>24.6</strong> / 100</td>
+          <td><span class="tag ">14.3%</span></td>
+          <td>12 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0377</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#10</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>27.2</strong> / 100</td>
+          <td><span class="tag ">16.7%</span></td>
+          <td>14 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0071</td>
+          <td><span class="tag tag-amber">0% (0/8)</span></td>
+          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#9</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>36.2</strong> / 100</td>
+          <td><span class="tag ">28.6%</span></td>
+          <td>24 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0144</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#8</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>28.9</strong> / 100</td>
+          <td><span class="tag ">20.2%</span></td>
+          <td>17 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0303</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#7</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.7</strong> / 100</td>
+          <td><span class="tag ">29.8%</span></td>
+          <td>25 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0419</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#6</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>41.5</strong> / 100</td>
+          <td><span class="tag ">34.5%</span></td>
+          <td>29 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0644</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#5</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>37.2</strong> / 100</td>
+          <td><span class="tag ">28.6%</span></td>
+          <td>24 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0638</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#4</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>23.4</strong> / 100</td>
+          <td><span class="tag ">13.1%</span></td>
+          <td>11 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0723</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#3</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>26.6</strong> / 100</td>
+          <td><span class="tag ">17.9%</span></td>
+          <td>15 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.1290</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#2</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>35.7</strong> / 100</td>
+          <td><span class="tag ">26.2%</span></td>
+          <td>22 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.1674</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+        <tr>
+          <td><strong>#1</strong></td>
+          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
+          <td><strong>42.6</strong> / 100</td>
+          <td><span class="tag ">32.1%</span></td>
+          <td>27 / 84</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.4623</td>
+          <td>-</td>
+          <td>-</td>
+        </tr>
+      
+    </tbody>
+  </table>
+
+  <script>
+    const historyData = [{"iteration":1,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:33:54.659Z","meanScore":42.6,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":5426,"durationSeconds":810,"slmInitialLoss":2.1911,"slmFinalLoss":0.4623},{"iteration":2,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:54:38.735Z","meanScore":35.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2872.8,"durationSeconds":867,"slmInitialLoss":0.319,"slmFinalLoss":0.1674},{"iteration":3,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:07:23.139Z","meanScore":26.6,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":2107.8,"durationSeconds":764,"slmInitialLoss":0.1018,"slmFinalLoss":0.129},{"iteration":4,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:19:20.944Z","meanScore":23.4,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1803.5,"durationSeconds":718,"slmInitialLoss":0.0996,"slmFinalLoss":0.0723},{"iteration":5,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T09:53:52.118Z","meanScore":37.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2564.2,"durationSeconds":986,"slmInitialLoss":0.0889,"slmFinalLoss":0.0638},{"iteration":6,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:19:18.752Z","meanScore":41.5,"passRate":34.5,"tasksPassed":29,"totalTasks":84,"rawReward":3477.6,"durationSeconds":925,"slmInitialLoss":0.0778,"slmFinalLoss":0.0644},{"iteration":7,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:32:15.069Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2688.5,"durationSeconds":776,"slmInitialLoss":0.0293,"slmFinalLoss":0.0419},{"iteration":8,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:50:59.760Z","meanScore":28.9,"passRate":20.2,"tasksPassed":17,"totalTasks":84,"rawReward":2218.9,"durationSeconds":1125,"slmInitialLoss":0.0316,"slmFinalLoss":0.0303},{"iteration":9,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:09:17.946Z","meanScore":36.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2708.5,"durationSeconds":828,"slmInitialLoss":0.0221,"slmFinalLoss":0.0144},{"iteration":10,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:30:23.015Z","meanScore":27.2,"passRate":16.7,"tasksPassed":14,"totalTasks":84,"rawReward":1991.8,"durationSeconds":1265,"slmInitialLoss":0.0273,"slmFinalLoss":0.0071,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":11,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:48:00.530Z","meanScore":24.6,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1718.5,"durationSeconds":1058,"slmInitialLoss":0.0115,"slmFinalLoss":0.0377},{"iteration":12,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:04:43.318Z","meanScore":40,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3084.5,"durationSeconds":786,"slmInitialLoss":0.0194,"slmFinalLoss":0.0101},{"iteration":13,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:18:48.472Z","meanScore":35.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2728.9,"durationSeconds":845,"slmInitialLoss":0.0116,"slmFinalLoss":0.0049},{"iteration":14,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:42:44.612Z","meanScore":23,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1138.5,"durationSeconds":1436,"slmInitialLoss":0.0057,"slmFinalLoss":0.0085},{"iteration":15,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:01:46.108Z","meanScore":36.9,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2988.5,"durationSeconds":901,"slmInitialLoss":0.0002,"slmFinalLoss":0.0002},{"iteration":16,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:19:30.012Z","meanScore":28.2,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2195.2,"durationSeconds":1064,"slmInitialLoss":0.0079,"slmFinalLoss":0.0009},{"iteration":17,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:40:28.200Z","meanScore":22.8,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1353.4,"durationSeconds":1258,"slmInitialLoss":0.0064,"slmFinalLoss":0.0058},{"iteration":18,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:56:19.400Z","meanScore":39.8,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2938.5,"durationSeconds":794,"slmInitialLoss":0.0098,"slmFinalLoss":0.0113},{"iteration":19,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:15:00.796Z","meanScore":30.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2078.5,"durationSeconds":1121,"slmInitialLoss":0.0008,"slmFinalLoss":0.0116},{"iteration":20,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:35:44.701Z","meanScore":32.2,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2548.5,"durationSeconds":1244,"slmInitialLoss":0.0027,"slmFinalLoss":0.0189,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":21,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:53:30.762Z","meanScore":40.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3213.5,"durationSeconds":824,"slmInitialLoss":0.003,"slmFinalLoss":0.029},{"iteration":22,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:18:29.330Z","meanScore":33.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2575.2,"durationSeconds":1499,"slmInitialLoss":0.011,"slmFinalLoss":0.0078},{"iteration":23,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:34:19.881Z","meanScore":28.9,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":1863.5,"durationSeconds":951,"slmInitialLoss":0.0141,"slmFinalLoss":0.0006},{"iteration":24,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:51:15.919Z","meanScore":36,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2678.5,"durationSeconds":834,"slmInitialLoss":0.0001,"slmFinalLoss":0.0057},{"iteration":25,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:17:17.656Z","meanScore":32.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2403.5,"durationSeconds":1562,"slmInitialLoss":0.0005,"slmFinalLoss":0.0031},{"iteration":26,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:40:59.743Z","meanScore":32.2,"passRate":23.8,"tasksPassed":20,"totalTasks":84,"rawReward":2448.6,"durationSeconds":1422,"slmInitialLoss":0.0003,"slmFinalLoss":0},{"iteration":27,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:58:55.226Z","meanScore":38.1,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3054.1,"durationSeconds":844,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":28,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:14:09.426Z","meanScore":22.8,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1788.5,"durationSeconds":914,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":29,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:38:15.194Z","meanScore":27.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1328.5,"durationSeconds":1446,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":30,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:57:45.408Z","meanScore":37.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2738.5,"durationSeconds":1015,"slmInitialLoss":0,"slmFinalLoss":0,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":31,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:19:54.921Z","meanScore":24.7,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1971,"durationSeconds":1329,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":32,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:28:32.616Z","meanScore":27.1,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":2031,"durationSeconds":518,"slmInitialLoss":0.0601,"slmFinalLoss":0.0083},{"iteration":33,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:42:24.669Z","meanScore":38.1,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2963.5,"durationSeconds":660,"slmInitialLoss":0.0138,"slmFinalLoss":0.0351},{"iteration":34,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T19:04:45.176Z","meanScore":36.3,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2903.5,"durationSeconds":1340,"slmInitialLoss":0.0369,"slmFinalLoss":0.0178},{"iteration":35,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T10:47:24.868Z","meanScore":39.3,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3028.5,"durationSeconds":957,"slmInitialLoss":0.0154,"slmFinalLoss":0.0118},{"iteration":36,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:02:44.959Z","meanScore":39.2,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3038.5,"durationSeconds":920,"slmInitialLoss":0.04,"slmFinalLoss":0.0161},{"iteration":37,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:18:19.099Z","meanScore":38.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3028.5,"durationSeconds":650,"slmInitialLoss":0.0178,"slmFinalLoss":0.0154},{"iteration":38,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:41:42.190Z","meanScore":33.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2038.5,"durationSeconds":1403,"slmInitialLoss":0.0087,"slmFinalLoss":0.0125},{"iteration":39,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:03:48.503Z","meanScore":33.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2608.5,"durationSeconds":1326,"slmInitialLoss":0.007,"slmFinalLoss":0.0123},{"iteration":40,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:30:03.367Z","meanScore":37.4,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2718.5,"durationSeconds":1575,"slmInitialLoss":0.014,"slmFinalLoss":0.0044,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":41,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:51:17.879Z","meanScore":36.7,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2953.5,"durationSeconds":1274,"slmInitialLoss":0.002,"slmFinalLoss":0.0062},{"iteration":42,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:05:57.783Z","meanScore":36.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2978.5,"durationSeconds":628,"slmInitialLoss":0.006,"slmFinalLoss":0.0021},{"iteration":43,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:29:45.863Z","meanScore":37.6,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2897.1,"durationSeconds":1428,"slmInitialLoss":0.0077,"slmFinalLoss":0.0028},{"iteration":44,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:01:00.866Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2973,"durationSeconds":737,"slmInitialLoss":0.0101,"slmFinalLoss":0.0065},{"iteration":45,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:24:14.598Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2383.5,"durationSeconds":1394,"slmInitialLoss":0.0061,"slmFinalLoss":0.0062},{"iteration":46,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:47:13.820Z","meanScore":26.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1940.5,"durationSeconds":1379,"slmInitialLoss":0.0033,"slmFinalLoss":0.0086},{"iteration":47,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:11:10.514Z","meanScore":36.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3008.5,"durationSeconds":1437,"slmInitialLoss":0.0148,"slmFinalLoss":0.0088},{"iteration":48,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:26:36.729Z","meanScore":37.6,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":3063.5,"durationSeconds":579,"slmInitialLoss":0.0062,"slmFinalLoss":0.0101},{"iteration":49,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:48:40.282Z","meanScore":38.9,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3048.5,"durationSeconds":1324,"slmInitialLoss":0.0059,"slmFinalLoss":0.0124},{"iteration":50,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:17:00.533Z","meanScore":39.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2968.5,"durationSeconds":1700,"slmInitialLoss":0.0087,"slmFinalLoss":0.0059,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":51,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:39:33.450Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":3043.5,"durationSeconds":1353,"slmInitialLoss":0.0085,"slmFinalLoss":0.0056}];
+    const labels = historyData.map(h => 'Iter ' + h.iteration);
+    const scores = historyData.map(h => h.meanScore);
+    const passRates = historyData.map(h => h.passRate);
+    const slmLosses = historyData.map(h => h.slmFinalLoss !== undefined ? h.slmFinalLoss : null);
+    const dragonScores = historyData.map(h => typeof h.dragonSurvivalScore === 'number' ? h.dragonSurvivalScore : null);
+
+    // Chart 1: Scores & Pass Rate
+    new Chart(document.getElementById('scoreChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Benchmark Mean Score (0-100)',
+            data: scores,
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.2,
+          },
+          {
+            label: 'Pass Rate (%)',
+            data: passRates,
+            borderColor: '#10b981',
+            borderWidth: 2,
+            borderDash: [5, 5],
+            fill: false,
+            tension: 0.2,
+          },
+          {
+            label: 'Vanilla Dragon Survival (%)',
+            data: dragonScores,
+            borderColor: '#f59e0b',
+            backgroundColor: 'rgba(245, 158, 11, 0.2)',
+            borderWidth: 2.5,
+            pointRadius: 6,
+            pointBackgroundColor: '#f59e0b',
+            pointBorderColor: '#ffffff',
+            pointBorderWidth: 2,
+            spanGaps: true,
+            tension: 0.2,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Benchmark Score, Pass Rate & Dragon Survival Trajectory', color: '#f8fafc', font: { size: 16 } },
+          legend: { labels: { color: '#94a3b8' } }
+        },
+        scales: {
+          y: { min: 0, max: 100, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // Chart 2: Loss
+    new Chart(document.getElementById('lossChart'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'System 2 SLM Cross-Entropy Loss',
+            data: slmLosses,
+            borderColor: '#f43f5e',
+            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+            borderWidth: 3,
+            fill: true,
+            tension: 0.2,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'System 2 SLM Convergence (QLoRA Fine-Tuning Loss)', color: '#f8fafc', font: { size: 16 } },
+          legend: { labels: { color: '#94a3b8' } }
+        },
+        scales: {
+          y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

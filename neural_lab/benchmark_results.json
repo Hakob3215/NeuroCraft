@@ -1,0 +1,52 @@
+{
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "total_vram_mb": 8150.5625,
+  "compute_capability": "12.0",
+  "d2d_bandwidth_gbs": 127.14,
+  "gemm_tflops": {
+    "FP32": 9.0,
+    "FP16": 29.0,
+    "BF16": 30.82
+  },
+  "visuomotor": {
+    "FP32": {
+      "params_m": 89.0,
+      "weights_vram_mb": 379.8,
+      "lat_p50_ms": 9.64,
+      "lat_p95_ms": 12.94,
+      "fps": 103.8
+    },
+    "FP16": {
+      "params_m": 89.0,
+      "weights_vram_mb": 184.4,
+      "lat_p50_ms": 8.36,
+      "lat_p95_ms": 12.32,
+      "fps": 119.7
+    }
+  },
+  "voxel_policy": {
+    "params_m": 0.94,
+    "vram_mb": 12.7,
+    "lat_p50_ms": 2.05,
+    "lat_p99_ms": 5.87,
+    "fps": 487.0
+  },
+  "slm_profiling": {
+    "1B SLM (e.g. Llama-3.2-1B)": {
+      "fp16_gib": 2.24,
+      "int4_gib": 0.86,
+      "fits_with_game": true
+    },
+    "3B SLM (e.g. Llama-3.2-3B)": {
+      "fp16_gib": 5.96,
+      "int4_gib": 2.3,
+      "fits_with_game": true
+    },
+    "7B SLM (e.g. Qwen2.5-7B / Mistral)": {
+      "fp16_gib": 14.16,
+      "int4_gib": 4.89,
+      "fits_with_game": true
+    }
+  },
+  "peak_safe_vram_mb": 6656
+}

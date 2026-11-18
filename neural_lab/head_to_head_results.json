@@ -1,0 +1,36 @@
+{
+  "benchmark_1_reflex": {
+    "baseline_channel_acc_pct": 79.37,
+    "baseline_exact_match_pct": 28.57,
+    "neural_channel_acc_pct": 100.0,
+    "neural_exact_match_pct": 100.0,
+    "neural_latency_p50_ms": 3.83,
+    "neural_latency_p99_ms": 6.41
+  },
+  "benchmark_2_chunk_scan": {
+    "cpu_scan_p50_ms": 74.84,
+    "gpu_scan_p50_ms": 7.08,
+    "speedup_factor": 10.57
+  },
+  "benchmark_3_system2_llm": {
+    "local_slm_model": "Qwen/Qwen2.5-Coder-1.5B-Instruct",
+    "local_vram_mb": 2957.8,
+    "local_latency_p50_ms": 6396.6,
+    "local_tokens_per_sec": 12.6,
+    "local_json_valid_pct": 87.5,
+    "local_tool_acc_pct": 87.5,
+    "gemini_latency_p50_ms": 2002.5,
+    "gemini_json_valid_pct": 100.0,
+    "gemini_tool_acc_pct": 100.0,
+    "gemini_status": "OK (gemini-3.8-flash)"
+  },
+  "benchmark_4_tool_synthesis": {
+    "local_synth_latency_mean_ms": 13337.8,
+    "local_synth_valid_pct": 100.0
+  },
+  "benchmark_5_vram_coexistence": {
+    "resident_all_neural_vram_mb": 3085.9,
+    "free_vram_for_minecraft_mb": 3901.0,
+    "total_gpu_vram_mb": 8150.6
+  }
+}

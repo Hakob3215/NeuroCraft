@@ -1,0 +1,374 @@
+{
+  "completedAt": "2026-11-18T13:16:46.246Z",
+  "totalStepsExecuted": 30,
+  "progressDepthScore": 0,
+  "progressDepthPercent": 0,
+  "efficiencyScore": 21,
+  "efficiencyBreakdown": {
+    "parEfficiencyPercent": 0,
+    "actionSuccessPercent": 3,
+    "healthPreservationPercent": 100,
+    "finalHealth": 20
+  },
+  "milestonesAchievedCount": 0,
+  "milestones": [
+    {
+      "id": "milestone_1_wood",
+      "title": "Milestone 1: Wood Age (Logs / Planks / Crafting Table / Wooden Pickaxe)",
+      "achieved": false,
+      "score": 10,
+      "details": "Harvest wood logs and assemble basic wooden tools."
+    },
+    {
+      "id": "milestone_2_stone",
+      "title": "Milestone 2: Stone Age (Cobblestone / Stone Pickaxe / Stone Sword)",
+      "achieved": false,
+      "score": 15,
+      "details": "Mine cobblestone and upgrade to stone tools & weapons."
+    },
+    {
+      "id": "milestone_3_iron",
+      "title": "Milestone 3: Iron Age (Smelting / Iron Ingot / Iron Pickaxe / Shield)",
+      "achieved": false,
+      "score": 20,
+      "details": "Smelt iron ore into ingots and craft an iron pickaxe and shield."
+    },
+    {
+      "id": "milestone_4_diamond_obsidian",
+      "title": "Milestone 4: Diamond & Obsidian Age (Diamond Pickaxe / Obsidian)",
+      "achieved": false,
+      "score": 15,
+      "details": "Mine diamonds and harvest obsidian blocks for the Nether portal."
+    },
+    {
+      "id": "milestone_5_nether",
+      "title": "Milestone 5: Nether Expedition (Blaze Rods & Ender Pearls)",
+      "achieved": false,
+      "score": 15,
+      "details": "Enter the Nether, harvest blaze rods, and craft Eyes of Ender."
+    },
+    {
+      "id": "milestone_6_stronghold_triangulation",
+      "title": "Milestone 6: Mathematical Stronghold Triangulation",
+      "achieved": false,
+      "score": 10,
+      "details": "Execute DeepMind 2-ray vector triangulation to locate the Stronghold."
+    },
+    {
+      "id": "milestone_7_end_dimension",
+      "title": "Milestone 7: End Dimension & Crystal Sniping",
+      "achieved": false,
+      "score": 10,
+      "details": "Activate End portal and destroy protective End Crystals with bow."
+    },
+    {
+      "id": "milestone_8_dragon_slain",
+      "title": "Milestone 8: Ender Dragon Slain (\"Free the End\")",
+      "achieved": false,
+      "score": 5,
+      "details": "Slay the Ender Dragon to achieve complete Minecraft survival victory."
+    }
+  ],
+  "executedHistory": [
+    {
+      "stepNumber": 1,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": true,
+      "summary": "Dug staircase mine (1 blocks cleared) down to Y=70. Current inventory: [empty]."
+    },
+    {
+      "stepNumber": 2,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 3,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 4,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 5,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 6,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 7,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 8,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 9,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 10,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 11,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 12,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 13,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 14,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 15,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 16,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 17,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 18,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 19,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 20,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 21,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 22,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 23,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 24,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 25,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 26,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 27,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 28,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 29,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    },
+    {
+      "stepNumber": 30,
+      "toolName": "explore_or_dig_for_ores",
+      "args": {
+        "mode": "normal",
+        "steps": 10
+      },
+      "success": false,
+      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
+  "epochs": 8,
+  "batchSize": 64,
+  "totalTransitionsTrained": 4096,
+  "realStepTransitionsLoaded": 7894,
+  "transitionsPerSecond": 831.9,
+  "initialLoss": -0.288,
+  "finalLoss": -0.2881,
+  "trainingDurationSeconds": 4.924,
+  "replayEpisodesProcessed": 4306,
+  "grpoVerifiedTrajectories": 265,
+  "latestCheckpointSaved": "C:\\Users\\hataj\\Documents\\Projects\\For_Fun\\Minecraft Agents\\neural_lab\\checkpoints\\voxel_reflex_policy_latest.pt",
+  "isBestCheckpoint": false
+}

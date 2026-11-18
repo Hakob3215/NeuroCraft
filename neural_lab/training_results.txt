@@ -1,0 +1,28 @@
+==============================================================================
+  NEUROCRAFT GPU POLICY TRAINING PIPELINE (RTX 5060 BLACKWELL)
+==============================================================================
+Device: NVIDIA GeForce RTX 5060 Laptop GPU
+
+[1/3] Training VoxelReflexPolicy (6,000 3D Combat & Hazard Scenarios)...
+  Epoch  1/15 | Loss: 1.3584 | Val Action Acc: 78.80% | Urgency MAE: 0.1879
+  Epoch  5/15 | Loss: 0.3608 | Val Action Acc: 96.64% | Urgency MAE: 0.1066
+  Epoch 10/15 | Loss: 0.0053 | Val Action Acc: 99.98% | Urgency MAE: 0.0070
+  Epoch 15/15 | Loss: 0.0021 | Val Action Acc: 100.00% | Urgency MAE: 0.0043
+  -> Saved checkpoints/voxel_reflex_policy.pt in 38.84s!
+
+[2/3] Training VolumetricChunkAnalyzer (64x64x64 3D Terrain & Ore Scanner)...
+  Epoch  1/12 | Loss: 0.2036 | Hazard Detection Acc: 50.0% | Score MAE: 0.1360
+  Epoch  4/12 | Loss: 0.1672 | Hazard Detection Acc: 50.0% | Score MAE: 0.1362
+  Epoch  8/12 | Loss: 0.1646 | Hazard Detection Acc: 50.0% | Score MAE: 0.1338
+  Epoch 12/12 | Loss: 0.1653 | Hazard Detection Acc: 50.0% | Score MAE: 0.1342
+  -> Saved checkpoints/chunk_analyzer.pt in 26.24s!
+
+[3/3] Training VisuomotorPolicy (Spatiotemporal Visual Target Tracker)...
+  Epoch  1/8  | Loss: 2.3826
+  Epoch  4/8  | Loss: 2.4245
+  Epoch  8/8  | Loss: 1.4750
+  -> Saved checkpoints/visuomotor_policy.pt in 11.62s!
+
+==============================================================================
+  ALL 3 NEURAL POLICIES TRAINED & SAVED TO neural_lab/checkpoints/
+==============================================================================

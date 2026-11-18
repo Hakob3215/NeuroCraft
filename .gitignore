@@ -1,0 +1,48 @@
+# Agent / Local Instructions & Secrets
+GEMINI.md
+.env
+
+# Dependencies & Runtimes
+node_modules/
+.runtime/
+neural_lab/.venv/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Build Outputs
+dist/
+minebench/dist/
+*.tsbuildinfo
+
+# Model Weights, Checkpoints & Large Binaries
+neural_lab/checkpoints/
+neural_lab/models/
+*.pt
+*.pth
+*.safetensors
+*.bin
+*.onnx
+*.ckpt
+
+# Minecraft Server, Worlds & Logs
+minebench/server/
+minebench/server_dragon/
+logs/
+*.jar
+*.log
+*.log.gz
+*.mca
+
+# Training Replay Buffers & Archives
+archive_*/
+legacy_baseline/
+scratch/
+*.jsonl
+
+# OS & Editor Artifacts
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+.idea/

@@ -1,0 +1,87 @@
+================================================================================
+  NEUROCRAFT HEAD-TO-HEAD BENCHMARK: CURRENT STACK vs. RTX 5060 NEURAL STACK
+================================================================================
+Timestamp: 2026-11-08 17:50:12
+GPU Device: NVIDIA GeForce RTX 5060 Laptop GPU
+Configured Cloud Model (.env): gemini-3.8-flash (Key present: True)
+================================================================================
+
+[BENCHMARK 1] System 1 Combat, Parkour & Hazard Reflexes (1,000 Scenarios)
+--------------------------------------------------------------------------------
+  Baseline Rule Engine (Static Thresholds):
+    - Action Channel Accuracy:    79.37%
+    - Exact Multi-Key Match Rate: 28.57% (Fails on parkour, arrow-strafe & cooldown kiting)
+  New RTX 5060 VoxelReflexPolicy (3D CNN + Entity Self-Attention):
+    - Single-Tick Inference P50:  3.83 ms (P99: 6.41 ms -> 261 Hz)
+    - Action Channel Accuracy:    100.00%
+    - Exact Multi-Key Match Rate: 100.00% (+71.43% improvement!)
+
+[BENCHMARK 2] Volumetric 64x64x64 Terrain & Ore Scan (262,144 Blocks)
+--------------------------------------------------------------------------------
+  CPU Iterative Strided Scan (64x64x64): P50 = 74.84 ms
+  RTX 5060 VolumetricChunkAnalyzer (GPU): P50 = 7.08 ms (141.3 chunks/sec)
+  GPU Acceleration Factor:                10.6x faster on RTX 5060!
+
+[BENCHMARK 3] System 2 Cognitive Decision & Tool Selection (8 Live Prompts)
+--------------------------------------------------------------------------------
+  Loading Local SLM 'Qwen/Qwen2.5-Coder-1.5B-Instruct' onto RTX 5060 in BF16...
+  Local SLM loaded in 11.85s | Resident VRAM: 2957.8 MiB (2.89 GiB)
+  Prompt #1 (Expected: follow_player     ) | Local RTX 5060:   6056ms (12.1 tok/s) -> follow_player      | Cloud Gemini:   2936ms [OK (gemini-3.8-flash)]
+  Prompt #2 (Expected: come_here         ) | Local RTX 5060:   5227ms (12.8 tok/s) -> come_here          | Cloud Gemini:   2146ms [OK (gemini-3.8-flash)]
+  Prompt #3 (Expected: gather_resource   ) | Local RTX 5060:   6678ms (12.4 tok/s) -> gather_resource    | Cloud Gemini:   1880ms [OK (gemini-3.8-flash)]
+  Prompt #4 (Expected: attack_target     ) | Local RTX 5060:   5227ms (12.8 tok/s) -> attack_target      | Cloud Gemini:   1773ms [OK (gemini-3.8-flash)]
+  Prompt #5 (Expected: craft_item        ) | Local RTX 5060:   6275ms (12.3 tok/s) -> craft_item         | Cloud Gemini:   1764ms [OK (gemini-3.8-flash)]
+  Prompt #6 (Expected: build_simple_house) | Local RTX 5060:   6605ms (13.0 tok/s) -> build_simple_house | Cloud Gemini:   2076ms [OK (gemini-3.8-flash)]
+  Prompt #7 (Expected: scan_area         ) | Local RTX 5060:   6518ms (12.4 tok/s) -> None               | Cloud Gemini:   1929ms [OK (gemini-3.8-flash)]
+  Prompt #8 (Expected: clear_flat_area   ) | Local RTX 5060:   6821ms (12.9 tok/s) -> clear_flat_area    | Cloud Gemini:   2390ms [OK (gemini-3.8-flash)]
+--------------------------------------------------------------------------------
+  [Local RTX 5060 Qwen2.5-Coder-1.5B BF16 Summary]:
+    - P50 Decision Latency:    6396.6 ms
+    - Generation Throughput:   12.6 tokens/sec
+    - Valid JSON Schema Rate:  7/8 (87.5%)
+    - Tool Selection Accuracy: 7/8 (87.5%)
+    - Offline / Zero-API Ready: YES (100% self-contained on GPU)
+  [Cloud Gemini API Summary]:
+    - P50 Round-Trip Latency:  2002.5 ms
+    - Valid JSON Schema Rate:  8/8 (100.0%)
+    - Tool Selection Accuracy: 8/8 (100.0%)
+    - Status Note:             OK (gemini-3.8-flash)
+
+[BENCHMARK 4] Dynamic JavaScript MCP Skill Synthesis on Local RTX 5060
+--------------------------------------------------------------------------------
+  Task: Synthesize MCP tool "place_torch_perimeter" that places to... -> 15164ms | Valid JS Tool JSON: True
+  Task: Synthesize MCP tool "patrol_square" that walks in a 6x6 sq... -> 14152ms | Valid JS Tool JSON: True
+  Task: Synthesize MCP tool "harvest_nearby_flowers" that finds da... -> 10698ms | Valid JS Tool JSON: True
+
+[BENCHMARK 5] Live All-Neural Stack Resident VRAM & Telemetry Audit
+--------------------------------------------------------------------------------
+  Simultaneously Loaded on RTX 5060 (cuda:0):
+    1. VoxelReflexPolicy (3D CNN + Entity Attention)
+    2. VolumetricChunkAnalyzer (64x64x64 3D Scene Transformer)
+    3. VisuomotorPolicy (Spatiotemporal Vision Transformer)
+    4. Qwen/Qwen2.5-Coder-1.5B-Instruct (BF16 Language & Code Brain)
+  Total PyTorch Resident VRAM: 3085.9 MiB (3.01 GiB)
+  Free Unallocated GPU VRAM:   3901.0 MiB (3.81 GiB)
+  Total Physical GPU VRAM:     8150.6 MiB (7.96 GiB)
+  Minecraft LAN Client Budget: ~1,500 MiB -> PASS (3.5+ GiB free!)
+
+================================================================================
+  FINAL HEAD-TO-HEAD ARCHITECTURAL VERDICT
+================================================================================
+
+  1. System 1 Combat & Parkour Reflexes:
+     - Trained RTX 5060 VoxelReflexPolicy achieves 100.0% exact multi-key accuracy
+       in 3.83ms/tick (vs 28.6% for static rules), mastering complex
+       multi-hazard combinations (shielding while recharging weapon, arrow strafing, gap jumping).
+
+  2. 3D Volumetric World Perception (64x64x64 = 262,144 blocks):
+     - RTX 5060 VolumetricChunkAnalyzer scans 262k blocks in 7.08ms (10.6x faster
+       than iterative CPU loops).
+
+  3. System 2 Strategic Brain (Local RTX 5060 Qwen2.5-Coder vs Cloud Gemini API):
+     - Local Qwen2.5-Coder-1.5B-Instruct (BF16) achieves 7/8 (88%) tool selection accuracy
+       and 7/8 (88%) JSON validity at 12.6 tokens/sec (6397ms P50),
+       while using only 3.01 GiB VRAM for the ENTIRE 4-model neural stack,
+       leaving 3.81 GiB of free VRAM for Minecraft!
+
+================================================================================
