@@ -16,6 +16,7 @@ import { DynamicMCPToolRegistry } from '../src/system2/mcp/toolRegistry';
 import { NeuroCraftMCPServer } from '../src/system2/mcp/mcpServer';
 import { registerBaseMCPTools } from '../src/system2/skills/baseSkills';
 import { ExecutedStepRecord, UnifiedLLMClient } from '../src/system2/llmClient';
+import { HierarchicalGoalPlanner } from '../src/system2/goalPlanner';
 import { SubtaskStatus } from '../src/types';
 import { generateTrainingVisuals, IterationRecord } from './generate_training_graphs';
 import { runVanillaDragonSurvivalRun } from './dragon_survival_run';
@@ -1098,6 +1099,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
           const sStepHistory: ExecutedStepRecord[] = [];
           const sExecutedTools: any[] = [];
+          const sGoalPlanner = new HierarchicalGoalPlanner();
+          sGoalPlanner.setMacroGoal(campaignGoal.prompt);
           let bestAdvCount = persistentUnlockedAdvancements.size;
           let finalEval = evaluateSurvivalAdvancements(
             (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase()),
@@ -1112,7 +1115,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const preState = sampleLiveRLTransitionState(survivalWorker.system1);
               const worldState = survivalWorker.system1.getLatestWorldState();
               const schemas = survivalWorker.registry.listSchemas();
-              const dynamicPrompt = `${campaignGoal.prompt} [Tech Tier: ${finalEval.techTier} | Unlocked: ${
+              const goalHeader = sIdx === 0 ? campaignGoal.prompt : sGoalPlanner.formatGoalHorizonContext(worldState);
+              const dynamicPrompt = `${goalHeader} [Tech Tier: ${finalEval.techTier} | Unlocked: ${
                 finalEval.unlocked.join(', ') || 'none'
               }]`;
 
@@ -1120,6 +1124,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 sIdx === 0
                   ? await survivalWorker.llm.generateCognitiveDecision('SurvivalDirector', dynamicPrompt, worldState, schemas, [])
                   : await survivalWorker.llm.generateGoalContinuationDecision(dynamicPrompt, sStepHistory, worldState, schemas, []);
+
+              if (sIdx === 0 && (dec.activeGoal || (Array.isArray(dec.planSteps) && dec.planSteps.length > 0))) {
+                sGoalPlanner.setMacroGoal(dec.activeGoal || campaignGoal.prompt, dec.planSteps);
+              }
 
               if (!dec.toolCall?.name) {
                 if (dec.goalCompleted && sIdx > 0) break;
@@ -1170,6 +1178,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               sExecutedTools.push({ name: toolName, arguments: toolArgs, args: toolArgs, success: ok, summary });
               sStepHistory.push({ stepNumber: sIdx + 1, toolName, args: toolArgs, success: ok, summary });
+              sGoalPlanner.advanceOrReplan(
+                { toolName, args: toolArgs, success: ok, summary },
+                null,
+                survivalWorker.system1.getLatestWorldState()
+              );
 
               const invNames = (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase());
               const nextEval = evaluateSurvivalAdvancements(invNames, sBlocksPlaced, sKills);
@@ -1187,6 +1200,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                       taskId: `campaign_${campaignGoal.id}`,
                       workerId: 99,
                       stepIdx: sIdx,
+                      toolName,
                       voxels: preState.voxels,
                       entities: preState.entities,
                       botState: preState.botState,
@@ -1522,6 +1536,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const stepHistory: ExecutedStepRecord[] = [];
           const executedTools: any[] = [];
           const episodeTransitions: any[] = [];
+          const goalPlanner = new HierarchicalGoalPlanner();
+          goalPlanner.setMacroGoal(task.prompt);
           let activeGoal = task.prompt;
 
           try {
@@ -1547,12 +1563,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 .replace(/\bMirrorAgent\b/g, worker.sparringPartner.username)
                 .replace(/\bCompanion_Player\b/g, worker.sparringPartner.username);
 
+              const continuationGoal = goalPlanner.formatGoalHorizonContext(worldState);
               const decision =
                 stepIdx === 0
                   ? await worker.llm.generateCognitiveDecision('Trainer', effectivePrompt, worldState, schemas, [])
-                  : await worker.llm.generateGoalContinuationDecision(activeGoal, stepHistory, worldState, schemas, []);
+                  : await worker.llm.generateGoalContinuationDecision(continuationGoal, stepHistory, worldState, schemas, []);
 
               if (decision.activeGoal) activeGoal = decision.activeGoal;
+              if (stepIdx === 0 && (decision.activeGoal || (Array.isArray(decision.planSteps) && decision.planSteps.length > 0))) {
+                goalPlanner.setMacroGoal(decision.activeGoal || effectivePrompt, decision.planSteps);
+              }
 
               if (!decision.toolCall || !decision.toolCall.name) {
                 if (decision.goalCompleted && stepIdx > 0) break;
@@ -1628,6 +1648,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     taskId: task.id,
                     workerId: worker.id,
                     stepIdx,
+                    toolName,
                     voxels: preRlState.voxels,
                     entities: preRlState.entities,
                     botState: preRlState.botState,
@@ -1675,6 +1696,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 success: stepSuccess,
                 summary: stepSummary,
               });
+              goalPlanner.advanceOrReplan(
+                { toolName, args: toolArgs, success: stepSuccess, summary: stepSummary },
+                null,
+                worker.system1.getLatestWorldState()
+              );
 
               if (decision.goalCompleted) break;
               if (deaths > 0) {
