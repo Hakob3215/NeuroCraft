@@ -737,11 +737,11 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
         `fill ${orig.x - 12} ${orig.y - 3} ${orig.z - 12} ${orig.x + 12} ${orig.y - 1} ${orig.z + 12} minecraft:stone`,
         `fill ${orig.x - 12} ${orig.y - 4} ${orig.z - 12} ${orig.x + 12} ${orig.y - 4} ${orig.z + 12} minecraft:bedrock`,
         `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 10} ${orig.z + 12} minecraft:air`,
+        `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 2} ${orig.z + 12} minecraft:glass outline`,
+        `fill ${orig.x - 11} ${orig.y} ${orig.z - 11} ${orig.x + 11} ${orig.y + 2} ${orig.z + 11} minecraft:air`,
         ...(t.setupCommands || [])
           .filter((cmd: string) => !cmd.startsWith('tp @p') && !cmd.startsWith('tp NeuroAgent'))
           .map((cmd: string) => resolveMinecraftCoordinates(cmd, orig)),
-        `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 2} ${orig.z + 12} minecraft:glass outline`,
-        `fill ${orig.x - 11} ${orig.y} ${orig.z - 11} ${orig.x + 11} ${orig.y + 2} ${orig.z + 11} minecraft:air`,
         `tp NeuroAgent ${orig.x} ${orig.y} ${orig.z} 0 0`,
       ],
     }));

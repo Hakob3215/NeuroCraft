@@ -2283,7 +2283,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
   registry.registerTool(
     {
       name: 'craft_item',
-      description: 'Crafts an item, tool, weapon, furnace, or armor piece (e.g. planks, stick, crafting_table, wooden_pickaxe, stone_pickaxe, furnace, iron_pickaxe, iron_helmet, iron_chestplate, iron_leggings, iron_boots). Automatically places a crafting_table, crafts prerequisite planks/sticks if needed, and reclaims the crafting_table into inventory!',
+      description: 'Crafts an item, tool, weapon, furnace, or armor piece (e.g. oak_planks, stick, crafting_table, wooden_pickaxe, stone_pickaxe, furnace, iron_pickaxe, iron_helmet, iron_chestplate, iron_leggings, iron_boots). Prerequisite materials (*_planks, stick, crafting_table) must be crafted in inventory first; if a 3x3 grid is needed, places an existing crafting_table from inventory and reclaims it afterward.',
       inputSchema: {
         type: 'object',
         properties: {
@@ -2355,7 +2355,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['smelt', 'furnace', 'iron_ingot', 'raw_iron', 'iron_ore', 'cook', 'coal'],
     },
     async (args, ctx) => {
-      const requestedInput = String(args.inputItem || args.itemName || args.item || 'raw_iron').toLowerCase();
+      const requestedInput = String(args.inputItem || args.itemToSmelt || args.oreType || args.itemName || args.item || 'raw_iron').toLowerCase();
       const targetCount = Math.min(32, Math.max(1, Number(args.count) || 4));
 
       const invItems = ctx.bot.inventory?.items() || [];
@@ -5361,29 +5361,115 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
   registry.registerTool(
     {
       name: 'use_tool_on_block',
-      description: 'Uses a held tool on a block (e.g. shovel on grass for path, shears on pumpkin for carving, flint and steel on TNT).',
+      description: 'Uses a held tool or item on a block or entity (e.g. axe on oak_log to strip bark, shovel on grass_block for dirt_path, shears on pumpkin/sheep, flint_and_steel on TNT, bone_meal on wheat, lead on animal).',
       inputSchema: {
         type: 'object',
         properties: {
-          tool: { type: 'string', description: 'Tool to use' },
-          targetBlock: { type: 'string', description: 'Target block to use tool on' },
+          tool: { type: 'string', description: 'Tool or item to use (e.g. "iron_axe", "shovel", "shears", "bone_meal", "lead")' },
+          targetBlock: { type: 'string', description: 'Target block or entity name to use the tool on' },
         },
       },
     },
     async (args, ctx) => {
-      const tool = args.tool || 'iron_shovel';
-      const rawTarget = String(args.targetBlock || args.blockType || args.target || 'grass_block').toLowerCase().trim();
+      const rawTarget = String(args.targetBlock || args.blockType || args.targetEntity || args.target || 'grass_block').toLowerCase().trim();
       const target = rawTarget.replace(/(_block|_portal_frame|_frame|_item)$/, '');
-      await ctx.kinematics.equipItemHumanized(tool, 'hand');
+      const invItems: any[] = ctx.bot.inventory?.items() || [];
+
+      const findBestToolByClass = (suffix: string): string | null => {
+        const tierOrder = ['netherite', 'diamond', 'iron', 'stone', 'golden', 'wooden'];
+        for (const tier of tierOrder) {
+          const match = invItems.find((it: any) => String(it.name || '').toLowerCase() === `${tier}_${suffix}`);
+          if (match) return match.name;
+        }
+        const anySuffix = invItems.find((it: any) => String(it.name || '').toLowerCase().endsWith(`_${suffix}`));
+        return anySuffix ? anySuffix.name : null;
+      };
+
+      const inferToolForTarget = (tgt: string): string => {
+        if (tgt.includes('log') || tgt.includes('wood') || tgt.includes('stem')) return 'axe';
+        if (tgt.includes('grass') || tgt.includes('dirt') || tgt.includes('path') || tgt.includes('campfire')) return 'shovel';
+        if (tgt.includes('pumpkin') || tgt.includes('sheep')) return 'shears';
+        if (tgt.includes('wheat') || tgt.includes('crop') || tgt.includes('carrot') || tgt.includes('potato')) return 'bone_meal';
+        if (tgt.includes('obsidian') || tgt.includes('tnt') || tgt.includes('portal')) return 'flint_and_steel';
+        if (tgt.includes('cow') || tgt.includes('pig') || tgt.includes('wolf') || tgt.includes('animal')) return 'lead';
+        return 'iron_shovel';
+      };
+
+      const requestedTool = String(args.tool || '').toLowerCase().trim() || inferToolForTarget(target);
+      let resolvedTool = requestedTool;
+      const exactMatch = invItems.find((it: any) => String(it.name || '').toLowerCase() === requestedTool);
+      if (exactMatch) {
+        resolvedTool = exactMatch.name;
+      } else {
+        const classMatch = ['axe', 'shovel', 'hoe', 'pickaxe', 'sword'].find(
+          (cls) => requestedTool === cls || requestedTool.endsWith(`_${cls}`)
+        );
+        if (classMatch) {
+          resolvedTool = findBestToolByClass(classMatch) || requestedTool;
+        }
+      }
+
+      await ctx.kinematics.equipItemHumanized(resolvedTool, 'hand');
+      await new Promise((r) => setTimeout(r, 100));
+
+      const entityTargets = ['sheep', 'cow', 'pig', 'wolf', 'chicken', 'animal', 'horse', 'goat', 'cat'];
+      const isEntityTarget = entityTargets.some((k) => target.includes(k) || rawTarget.includes(k));
+
+      const findMatchingEntity = () =>
+        Object.values(ctx.bot.entities || {})
+          .filter((e: any) => {
+            if (!e || e === ctx.bot.entity || !e.position || e.isValid === false) return false;
+            const en = String(e.name || e.displayName || '').toLowerCase();
+            if (target === 'animal' || rawTarget === 'animal') {
+              return entityTargets.some((k) => k !== 'animal' && en.includes(k));
+            }
+            return en === target || en.includes(target) || en === rawTarget;
+          })
+          .sort(
+            (a: any, b: any) =>
+              a.position.distanceTo(ctx.bot.entity.position) -
+              b.position.distanceTo(ctx.bot.entity.position)
+          )[0] as any;
+
+      const tryEntityActivate = async () => {
+        const ent = findMatchingEntity();
+        if (!ent || ent.position.distanceTo(ctx.bot.entity.position) > 16) return null;
+        await ctx.kinematics.pathfindTo(ent.position, 2.2);
+        await ctx.kinematics.lookAtSmooth?.(ent.position.offset(0, 0.8, 0), 120);
+        await ctx.bot.activateEntity(ent);
+        return {
+          success: true,
+          summary: `Used ${resolvedTool} on entity ${ent.name || target}!`,
+        };
+      };
+
+      if (isEntityTarget) {
+        try {
+          const entRes = await tryEntityActivate();
+          if (entRes) return entRes;
+        } catch (e: any) {
+          return { success: false, summary: `Could not use ${resolvedTool} on ${target}: ${e.message}` };
+        }
+      }
+
       const b = ctx.bot.findBlock({
         matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || target.includes(blk.name) || blk.name.includes(rawTarget)),
         maxDistance: 16,
       });
-      if (!b) return { success: false, summary: `Target block ${target} not found within 16m.` };
+      if (!b) {
+        try {
+          const entRes = await tryEntityActivate();
+          if (entRes) return entRes;
+        } catch (e: any) {
+          return { success: false, summary: `Could not use ${resolvedTool} on ${target}: ${e.message}` };
+        }
+        return { success: false, summary: `Target block or entity ${target} not found within 16m.` };
+      }
       await ctx.kinematics.pathfindTo(b.position, 2.5);
+      await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, 0.5, 0.5), 120);
       try {
         await ctx.bot.activateBlock(b);
-        return { success: true, summary: `Used ${tool} on ${target}!` };
+        return { success: true, summary: `Used ${resolvedTool} on ${target}!` };
       } catch (e: any) {
         return { success: false, summary: `Could not use tool on block: ${e.message}` };
       }
