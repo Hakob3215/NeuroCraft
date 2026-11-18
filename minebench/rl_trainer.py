@@ -97,6 +97,49 @@ def build_rl_batch_from_real_transitions(
     return voxels, entities, bot_state, target_actions, target_aim, positive_weights
 
 
+VALID_MCP_TOOLS = {
+    "follow_player", "come_here", "navigate_to_coordinates", "gather_resource",
+    "explore_or_dig_for_ores", "craft_item", "craft_recipe", "smelt_item",
+    "smelt_ores", "equip_armor_or_item", "engage_combat", "give_item_to_player",
+    "store_items_in_chest", "retrieve_items_from_chest", "scan_area_topology",
+    "build_simple_house", "neural_chunk_scan", "collect_dropped_items",
+    "tame_animal", "pillar_up", "eat_food", "shoot_bow", "till_and_farm",
+    "interact_block_or_puzzle", "navigate_parkour_or_bridge", "construct_modular_structure",
+    "triangulate_stronghold_coordinates", "loot_chest", "shear_sheep",
+    "breed_animals", "use_tool_on_block", "light_block_fire",
+}
+
+
+def is_valid_tool_for_task(task_id: str, prompt: str, tool_name: str) -> bool:
+    """Rejects hallucinated tools and cross-domain poisoned replay matches before QLoRA training."""
+    t = (tool_name or "").strip()
+    tid = (task_id or "").lower()
+    p = (prompt or "").lower()
+
+    if not t or t not in VALID_MCP_TOOLS:
+        return False
+    if t == "follow_player" and "follow" not in p:
+        return False
+
+    # Prevent equip_armor_or_item pollution onto food, sheepshearing, mobs, or crafting tasks
+    if t == "equip_armor_or_item":
+        if tid.startswith("omni_food_") or tid.startswith("omni_mob_") or tid.startswith("omni_craft_"):
+            return False
+        if not (tid.startswith("omni_equip_") or "equip" in p or "armor" in p or "shield" in p or "wear" in p):
+            return False
+
+    # Prevent explore_or_dig_for_ores pollution onto food, mob, shears, lead, or path tasks
+    if t == "explore_or_dig_for_ores":
+        if tid.startswith("omni_food_") or tid.startswith("omni_mob_") or "shear" in tid or "leash" in tid:
+            return False
+
+    # Prevent crafting/harvesting pollution when consuming food
+    if tid.startswith("omni_food_") and t not in {"eat_food", "craft_item", "smelt_item", "gather_resource"}:
+        return False
+
+    return True
+
+
 def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: int = None) -> Dict:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
@@ -217,8 +260,22 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         torch.save(policy.state_dict(), loop_path)
 
     # Export GRPO trajectories: Stratified Reservoir Sampling (Task Gold Bank)
-    # 1. Load any existing verified trajectories
+    # 1. Load & scrub existing verified trajectories (filter out cross-domain poison & hallucinations)
     task_gold_bank: Dict[Tuple[str, int], Dict] = {}
+    gold_seed_samples: List[Dict] = []
+
+    def _extract_tool_and_prompt(entry: Dict) -> Tuple[str, str]:
+        msgs = entry.get("messages", [])
+        u_msg = str(msgs[1].get("content", "")) if len(msgs) > 1 else ""
+        a_msg = str(msgs[2].get("content", "")) if len(msgs) > 2 else ""
+        t_name = ""
+        try:
+            parsed_a = json.loads(a_msg)
+            t_name = str(parsed_a.get("toolCall", {}).get("name", ""))
+        except Exception:
+            pass
+        return u_msg, t_name
+
     if GRPO_DATASET_PATH.exists():
         with open(GRPO_DATASET_PATH, "r", encoding="utf-8") as f:
             for line in f:
@@ -227,14 +284,38 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                         d = json.loads(line)
                         tid = d.get("taskId")
                         step = int(d.get("step", 0))
-                        if tid:
+                        u_msg, t_name = _extract_tool_and_prompt(d)
+                        if not tid or not is_valid_tool_for_task(tid, u_msg, t_name):
+                            continue
+                        prov = d.get("provider", "")
+                        if prov in ("gold_curriculum", "gold_continuation"):
+                            gold_seed_samples.append(d)
+                        else:
                             key = (tid, step)
                             if key not in task_gold_bank or float(d.get("rawReward", 0)) > float(task_gold_bank[key].get("rawReward", 0)):
                                 task_gold_bank[key] = d
                     except Exception:
                         pass
 
-    # 2. Mine all verified passed trajectories across replay buffer records
+    # Also seed from omniscience_gold_dataset.jsonl if present and not yet in bank
+    omni_gold_path = RESULTS_DIR / "omniscience_gold_dataset.jsonl"
+    if omni_gold_path.exists():
+        with open(omni_gold_path, "r", encoding="utf-8") as f:
+            for line in f:
+                if line.strip():
+                    try:
+                        d = json.loads(line)
+                        tid = d.get("taskId")
+                        step = int(d.get("step", 0))
+                        u_msg, t_name = _extract_tool_and_prompt(d)
+                        if tid and is_valid_tool_for_task(tid, u_msg, t_name):
+                            key = (tid, step)
+                            if key not in task_gold_bank:
+                                task_gold_bank[key] = d
+                    except Exception:
+                        pass
+
+    # 2. Mine all clean verified passed trajectories across replay buffer records
     rewards_list = [float(r.get("rawReward", 0.0)) for r in records]
     mean_rew = sum(rewards_list) / max(1, len(rewards_list))
     var_rew = sum((x - mean_rew) ** 2 for x in rewards_list) / max(1, len(rewards_list))
@@ -242,27 +323,47 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
 
     recent_verified: List[Dict] = []
 
-    # Process historical and recent records to populate and upgrade the task gold bank
     for r_idx, r in enumerate(records):
         if not r.get("passed", False):
             continue
 
         raw_r = float(r.get("rawReward", 0.0))
         tid = r.get("taskId")
+        prompt = str(r.get("prompt", "Execute task."))
         if not tid:
             continue
 
         adv = (raw_r - mean_rew) / std_rew
         exec_tools = r.get("executedTools", [])
         is_recent = r_idx >= len(records) - 300
+        prior_steps: List[Dict] = []
 
         for step_idx, tool_entry in enumerate(exec_tools):
-            tool_name = tool_entry.get("name", "idle")
+            tool_name = str(tool_entry.get("name", ""))
             tool_args = tool_entry.get("args") or tool_entry.get("arguments") or {}
+            step_ok = bool(tool_entry.get("success", True))
+            step_summary = str(tool_entry.get("summary") or f"Executed {tool_name}")
 
-            # STRICT PURITY: Reject idle and follow_player on non-follow tasks
-            if tool_name in ["idle", "follow_player", "none"] and "follow" not in str(r.get("prompt", "")).lower():
+            # STRICT PURITY: Only teach successful, task-valid tool invocations
+            if not step_ok or not is_valid_tool_for_task(tid, prompt, tool_name):
+                prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
                 continue
+
+            if len(prior_steps) == 0:
+                user_content = (
+                    f'Player "Trainer" says: "{prompt}"\n'
+                    'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
+                )
+            else:
+                history_lines = "\n".join(
+                    f"Step {i + 1}: {ps['name']}({json.dumps(ps['args'])}) -> {'SUCCESS' if ps['ok'] else 'FAILED'}: {ps['summary']}"
+                    for i, ps in enumerate(prior_steps[-10:])
+                )
+                user_content = (
+                    f'Active Goal: "{prompt}"\n'
+                    f'Recent Steps:\n{history_lines}\n'
+                    'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
+                )
 
             sample = {
                 "provider": r.get("provider", "local_gpu"),
@@ -274,18 +375,19 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion.",
+                        "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion. Respond ONLY with valid JSON.",
                     },
-                    {"role": "user", "content": r.get("prompt", "Execute task.")},
+                    {"role": "user", "content": user_content},
                     {
                         "role": "assistant",
                         "content": json.dumps(
                             {
-                                "thought": f"Executing {tool_name} to achieve the objective.",
+                                "thought": f"Executing {tool_name} to progress toward objective.",
                                 "toolCall": {
                                     "name": tool_name,
                                     "arguments": tool_args,
                                 },
+                                "goalCompleted": step_idx == len(exec_tools) - 1,
                             }
                         ),
                     },
@@ -300,15 +402,17 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             if is_recent:
                 recent_verified.append(sample)
 
-    # 3. Assemble stratified balanced dataset: all task anchors + recent rollouts
+            prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
+
+    # 3. Assemble clean balanced dataset: canonical gold seeds + task bank anchors + recent verified rollouts
     bank_samples = list(task_gold_bank.values())
-    combined_dataset = bank_samples + recent_verified[-80:]
+    combined_dataset = gold_seed_samples + bank_samples + recent_verified[-80:]
 
     with open(GRPO_DATASET_PATH, "w", encoding="utf-8") as gf:
         for s in combined_dataset:
             gf.write(json.dumps(s) + "\n")
 
-    print(f"[RL Trainer] Stratified Task Bank: {len(task_gold_bank)} distinct task-step anchors, {len(combined_dataset)} total training samples saved.")
+    print(f"[RL Trainer] Clean Stratified Task Bank: {len(gold_seed_samples)} seeds + {len(task_gold_bank)} task anchors = {len(combined_dataset)} pure samples saved.")
 
     metrics = {
         "device": gpu_name,

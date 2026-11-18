@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>NeuroCraft AI Agent — Autonomous Training & Convergence Dashboard</title>
+  <title>NeuroCraft AI Agent — Decomposed 4-Panel Training Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     :root {
@@ -28,7 +28,8 @@
     .stat-val { font-size: 1.8rem; font-weight: 800; color: var(--text); }
     .stat-val.highlight { color: var(--green); }
     .stat-sub { font-size: 0.75rem; color: var(--muted); margin-top: 0.25rem; }
-    .chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; margin-bottom: 2rem; height: 380px; }
+    .grid-charts { display: grid; grid-template-columns: repeat(auto-fit, minmax(560px, 1fr)); gap: 1.5rem; margin-bottom: 2rem; }
+    .chart-container { background: var(--card); border: 1px solid var(--border); border-radius: 8px; padding: 1.5rem; height: 390px; }
     table { width: 100%; border-collapse: collapse; margin-top: 1rem; background: var(--card); border-radius: 8px; overflow: hidden; font-size: 0.85rem; }
     th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
     th { background: #0f172a; color: var(--muted); font-weight: 600; text-transform: uppercase; font-size: 0.75rem; }
@@ -41,20 +42,25 @@
 <body>
 
   <header>
-    <h1>🧠 NeuroCraft Autonomous Training & Convergence Dashboard <span class="badge">Live RTX 5060 + Mojang 1.20.4</span></h1>
-    <p class="subtitle">Continuously tracked performance curves across System 1 (80.8M Action Chunking Transformer) & System 2 (Qwen2.5-Coder 1.5B QLoRA).</p>
+    <h1>NeuroCraft Decomposed Dual-Track Training Studio <span class="badge">Live RTX 5060 + Mojang 1.20.4</span></h1>
+    <p class="subtitle">Isolated Standardized Exam, Per-Domain Bar Breakdowns, Open-World Survival Campaign, & Dual-Brain Neural Convergence.</p>
   </header>
 
   <div class="grid-stats">
     <div class="card-stat">
-      <div class="stat-title">Current Iteration</div>
-      <div class="stat-val">#51</div>
-      <div class="stat-sub">Session Count: 18</div>
+      <div class="stat-title">Completed Iterations</div>
+      <div class="stat-val">#53</div>
+      <div class="stat-sub">4372 Total Episodes (Session #20)</div>
     </div>
     <div class="card-stat">
-      <div class="stat-title">All-Time Best Score</div>
+      <div class="stat-title">Exam Best Score</div>
       <div class="stat-val highlight">42.6 / 100</div>
-      <div class="stat-sub">Best Pass Rate: 34.5% (Best Score Iter #1)</div>
+      <div class="stat-sub">Best Pass Rate: 34.5% (Iter #1)</div>
+    </div>
+    <div class="card-stat">
+      <div class="stat-title">Open-World Survival Tier</div>
+      <div class="stat-val" style="color: #10b981;">Wood</div>
+      <div class="stat-sub">2 Advancements | Craft & Equip Diamond Armory</div>
     </div>
     <div class="card-stat">
       <div class="stat-title">Vanilla Dragon Survival</div>
@@ -62,604 +68,623 @@
       <div class="stat-sub">0 / 8 Milestones Passed</div>
     </div>
     <div class="card-stat">
-      <div class="stat-title">SLM Loss Low</div>
+      <div class="stat-title">SLM Loss & ACT Aim</div>
       <div class="stat-val" style="color: #60a5fa;">0.0000</div>
-      <div class="stat-sub">Down from 0.4623 initial loss</div>
-    </div>
-    <div class="card-stat">
-      <div class="stat-title">Action Head Specs</div>
-      <div class="stat-val">80.8M</div>
-      <div class="stat-sub">8-Tick (400ms) Chunk Trajectory</div>
-    </div>
-    <div class="card-stat">
-      <div class="stat-title">GPU VRAM Resident</div>
-      <div class="stat-val" style="color: #a78bfa;">3.6 GB</div>
-      <div class="stat-sub">4.2 GB Headroom on RTX 5060</div>
+      <div class="stat-sub">Init: 0.4623 | ACT Err: 1.94°</div>
     </div>
   </div>
 
-  <div class="chart-container">
-    <canvas id="scoreChart"></canvas>
+  <div class="grid-charts">
+    <div class="chart-container">
+      <canvas id="scoreChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="domainBarChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="survivalChart"></canvas>
+    </div>
+    <div class="chart-container">
+      <canvas id="neuralChart"></canvas>
+    </div>
   </div>
 
-  <div class="chart-container">
-    <canvas id="lossChart"></canvas>
-  </div>
-
-  <h2 style="margin-bottom: 0.5rem; font-size: 1.2rem;">Training Iteration Logs</h2>
+  <h2 style="margin-bottom: 0.5rem; font-size: 1.2rem;">Training Iteration Telemetry Logs</h2>
   <table>
     <thead>
       <tr>
         <th>Iter</th>
-        <th>Phase / Note</th>
         <th>Mean Score</th>
         <th>Pass Rate</th>
-        <th>Tasks Passed</th>
-        <th>SLM Final Loss</th>
-        <th>Dragon Survival</th>
-        <th>Milestone / Breakthrough</th>
+        <th>Crafting%</th>
+        <th>Combat%</th>
+        <th>SLM Loss</th>
+        <th>ACT Aim Err</th>
+        <th>Survival Campaign</th>
       </tr>
     </thead>
     <tbody>
       
         <tr>
+          <td><strong>#53</strong></td>
+          <td><strong>24.6</strong> / 100</td>
+          <td><span class="tag ">15.9%</span> (7/44)</td>
+          <td>0%</td>
+          <td>50%</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0658</td>
+          <td style="color: #38bdf8; font-family: monospace;">1.94°</td>
+          <td><span class="tag tag-amber">Wood (2 Adv)</span></td>
+        </tr>
+      
+        <tr>
+          <td><strong>#52</strong></td>
+          <td><strong>8.5</strong> / 100</td>
+          <td><span class="tag ">6.8%</span> (3/44)</td>
+          <td>0%</td>
+          <td>0%</td>
+          <td style="color: #f43f5e; font-family: monospace;">0.0676</td>
+          <td style="color: #38bdf8; font-family: monospace;">2.04°</td>
+          <td><span class="tag tag-amber">Raw (1 Adv)</span></td>
+        </tr>
+      
+        <tr>
           <td><strong>#51</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.3</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>27.3%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0056</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#50</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>39.6</strong> / 100</td>
-          <td><span class="tag ">33.3%</span></td>
-          <td>28 / 84</td>
+          <td><span class="tag ">33.3%</span> (28/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0059</td>
-          <td><span class="tag tag-amber">0% (0/8)</span></td>
-          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
+          <td><span class="tag tag-amber">Dragon Run: 0% (0/8)</span></td>
         </tr>
       
         <tr>
           <td><strong>#49</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.9</strong> / 100</td>
-          <td><span class="tag ">33.3%</span></td>
-          <td>28 / 84</td>
+          <td><span class="tag ">33.3%</span> (28/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0124</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#48</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.6</strong> / 100</td>
-          <td><span class="tag ">29.8%</span></td>
-          <td>25 / 84</td>
+          <td><span class="tag ">29.8%</span> (25/84)</td>
+          <td>0%</td>
+          <td>18.2%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0101</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#47</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.7</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0088</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#46</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>26.2</strong> / 100</td>
-          <td><span class="tag ">17.9%</span></td>
-          <td>15 / 84</td>
+          <td><span class="tag ">17.9%</span> (15/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0086</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#45</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.7</strong> / 100</td>
-          <td><span class="tag ">29.8%</span></td>
-          <td>25 / 84</td>
+          <td><span class="tag ">29.8%</span> (25/84)</td>
+          <td>0%</td>
+          <td>27.3%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0062</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#44</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.3</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0065</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#43</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.6</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0028</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#42</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.8</strong> / 100</td>
-          <td><span class="tag ">29.8%</span></td>
-          <td>25 / 84</td>
+          <td><span class="tag ">29.8%</span> (25/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0021</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#41</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.7</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0062</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#40</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.4</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0044</td>
-          <td><span class="tag tag-amber">0% (0/8)</span></td>
-          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
+          <td><span class="tag tag-amber">Dragon Run: 0% (0/8)</span></td>
         </tr>
       
         <tr>
           <td><strong>#39</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>33.7</strong> / 100</td>
-          <td><span class="tag ">26.2%</span></td>
-          <td>22 / 84</td>
+          <td><span class="tag ">26.2%</span> (22/84)</td>
+          <td>0%</td>
+          <td>4.5%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0123</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#38</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>33.9</strong> / 100</td>
-          <td><span class="tag ">25%</span></td>
-          <td>21 / 84</td>
+          <td><span class="tag ">25%</span> (21/84)</td>
+          <td>0%</td>
+          <td>9.1%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0125</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#37</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.6</strong> / 100</td>
-          <td><span class="tag ">33.3%</span></td>
-          <td>28 / 84</td>
+          <td><span class="tag ">33.3%</span> (28/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0154</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#36</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>39.2</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0161</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#35</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>39.3</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>27.3%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0118</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#34</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.3</strong> / 100</td>
-          <td><span class="tag ">27.4%</span></td>
-          <td>23 / 84</td>
+          <td><span class="tag ">27.4%</span> (23/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0178</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#33</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.1</strong> / 100</td>
-          <td><span class="tag ">33.3%</span></td>
-          <td>28 / 84</td>
+          <td><span class="tag ">33.3%</span> (28/84)</td>
+          <td>0%</td>
+          <td>45.5%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0351</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#32</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>27.1</strong> / 100</td>
-          <td><span class="tag ">19%</span></td>
-          <td>16 / 84</td>
+          <td><span class="tag ">19%</span> (16/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0083</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#31</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>24.7</strong> / 100</td>
-          <td><span class="tag ">17.9%</span></td>
-          <td>15 / 84</td>
+          <td><span class="tag ">17.9%</span> (15/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#30</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.3</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td><span class="tag tag-amber">0% (0/8)</span></td>
-          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
+          <td><span class="tag tag-amber">Dragon Run: 0% (0/8)</span></td>
         </tr>
       
         <tr>
           <td><strong>#29</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>27.2</strong> / 100</td>
-          <td><span class="tag ">17.9%</span></td>
-          <td>15 / 84</td>
+          <td><span class="tag ">17.9%</span> (15/84)</td>
+          <td>0%</td>
+          <td>4.5%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#28</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>22.8</strong> / 100</td>
-          <td><span class="tag ">14.3%</span></td>
-          <td>12 / 84</td>
+          <td><span class="tag ">14.3%</span> (12/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#27</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>38.1</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#26</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>32.2</strong> / 100</td>
-          <td><span class="tag ">23.8%</span></td>
-          <td>20 / 84</td>
+          <td><span class="tag ">23.8%</span> (20/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0000</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#25</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>32.9</strong> / 100</td>
-          <td><span class="tag ">25%</span></td>
-          <td>21 / 84</td>
+          <td><span class="tag ">25%</span> (21/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0031</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#24</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36</strong> / 100</td>
-          <td><span class="tag ">27.4%</span></td>
-          <td>23 / 84</td>
+          <td><span class="tag ">27.4%</span> (23/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0057</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#23</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>28.9</strong> / 100</td>
-          <td><span class="tag ">19%</span></td>
-          <td>16 / 84</td>
+          <td><span class="tag ">19%</span> (16/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0006</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#22</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>33.5</strong> / 100</td>
-          <td><span class="tag ">21.4%</span></td>
-          <td>18 / 84</td>
+          <td><span class="tag ">21.4%</span> (18/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0078</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#21</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>40.7</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0290</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#20</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>32.2</strong> / 100</td>
-          <td><span class="tag ">25%</span></td>
-          <td>21 / 84</td>
+          <td><span class="tag ">25%</span> (21/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0189</td>
-          <td><span class="tag tag-amber">0% (0/8)</span></td>
-          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
+          <td><span class="tag tag-amber">Dragon Run: 0% (0/8)</span></td>
         </tr>
       
         <tr>
           <td><strong>#19</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>30.5</strong> / 100</td>
-          <td><span class="tag ">21.4%</span></td>
-          <td>18 / 84</td>
+          <td><span class="tag ">21.4%</span> (18/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0116</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#18</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>39.8</strong> / 100</td>
-          <td><span class="tag ">33.3%</span></td>
-          <td>28 / 84</td>
+          <td><span class="tag ">33.3%</span> (28/84)</td>
+          <td>0%</td>
+          <td>45.5%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0113</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#17</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>22.8</strong> / 100</td>
-          <td><span class="tag ">13.1%</span></td>
-          <td>11 / 84</td>
+          <td><span class="tag ">13.1%</span> (11/84)</td>
+          <td>0%</td>
+          <td>18.2%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0058</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#16</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>28.2</strong> / 100</td>
-          <td><span class="tag ">21.4%</span></td>
-          <td>18 / 84</td>
+          <td><span class="tag ">21.4%</span> (18/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0009</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#15</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.9</strong> / 100</td>
-          <td><span class="tag ">31%</span></td>
-          <td>26 / 84</td>
+          <td><span class="tag ">31%</span> (26/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0002</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#14</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>23</strong> / 100</td>
-          <td><span class="tag ">14.3%</span></td>
-          <td>12 / 84</td>
+          <td><span class="tag ">14.3%</span> (12/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0085</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#13</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>35.8</strong> / 100</td>
-          <td><span class="tag ">29.8%</span></td>
-          <td>25 / 84</td>
+          <td><span class="tag ">29.8%</span> (25/84)</td>
+          <td>0%</td>
+          <td>40.9%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0049</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#12</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>40</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0101</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#11</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>24.6</strong> / 100</td>
-          <td><span class="tag ">14.3%</span></td>
-          <td>12 / 84</td>
+          <td><span class="tag ">14.3%</span> (12/84)</td>
+          <td>0%</td>
+          <td>18.2%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0377</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#10</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>27.2</strong> / 100</td>
-          <td><span class="tag ">16.7%</span></td>
-          <td>14 / 84</td>
+          <td><span class="tag ">16.7%</span> (14/84)</td>
+          <td>0%</td>
+          <td>4.5%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0071</td>
-          <td><span class="tag tag-amber">0% (0/8)</span></td>
-          <td><span class="tag tag-amber">⭐ Dragon Run: 0% (0/8)</span></td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
+          <td><span class="tag tag-amber">Dragon Run: 0% (0/8)</span></td>
         </tr>
       
         <tr>
           <td><strong>#9</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>36.2</strong> / 100</td>
-          <td><span class="tag ">28.6%</span></td>
-          <td>24 / 84</td>
+          <td><span class="tag ">28.6%</span> (24/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0144</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#8</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>28.9</strong> / 100</td>
-          <td><span class="tag ">20.2%</span></td>
-          <td>17 / 84</td>
+          <td><span class="tag ">20.2%</span> (17/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0303</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#7</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.7</strong> / 100</td>
-          <td><span class="tag ">29.8%</span></td>
-          <td>25 / 84</td>
+          <td><span class="tag ">29.8%</span> (25/84)</td>
+          <td>0%</td>
+          <td>22.7%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0419</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#6</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>41.5</strong> / 100</td>
-          <td><span class="tag ">34.5%</span></td>
-          <td>29 / 84</td>
+          <td><span class="tag ">34.5%</span> (29/84)</td>
+          <td>0%</td>
+          <td>30.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0644</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#5</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>37.2</strong> / 100</td>
-          <td><span class="tag ">28.6%</span></td>
-          <td>24 / 84</td>
+          <td><span class="tag ">28.6%</span> (24/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0638</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#4</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>23.4</strong> / 100</td>
-          <td><span class="tag ">13.1%</span></td>
-          <td>11 / 84</td>
+          <td><span class="tag ">13.1%</span> (11/84)</td>
+          <td>0%</td>
+          <td>13.6%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.0723</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#3</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>26.6</strong> / 100</td>
-          <td><span class="tag ">17.9%</span></td>
-          <td>15 / 84</td>
+          <td><span class="tag ">17.9%</span> (15/84)</td>
+          <td>0%</td>
+          <td>36.4%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.1290</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#2</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>35.7</strong> / 100</td>
-          <td><span class="tag ">26.2%</span></td>
-          <td>22 / 84</td>
+          <td><span class="tag ">26.2%</span> (22/84)</td>
+          <td>0%</td>
+          <td>27.3%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.1674</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
         <tr>
           <td><strong>#1</strong></td>
-          <td>Exhaustive Loop (84 Tasks across 3 Sharded Bots)</td>
           <td><strong>42.6</strong> / 100</td>
-          <td><span class="tag ">32.1%</span></td>
-          <td>27 / 84</td>
+          <td><span class="tag ">32.1%</span> (27/84)</td>
+          <td>0%</td>
+          <td>31.8%</td>
           <td style="color: #f43f5e; font-family: monospace;">0.4623</td>
-          <td>-</td>
+          <td style="color: #38bdf8; font-family: monospace;">-</td>
           <td>-</td>
         </tr>
       
@@ -667,48 +692,34 @@
   </table>
 
   <script>
-    const historyData = [{"iteration":1,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:33:54.659Z","meanScore":42.6,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":5426,"durationSeconds":810,"slmInitialLoss":2.1911,"slmFinalLoss":0.4623},{"iteration":2,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:54:38.735Z","meanScore":35.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2872.8,"durationSeconds":867,"slmInitialLoss":0.319,"slmFinalLoss":0.1674},{"iteration":3,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:07:23.139Z","meanScore":26.6,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":2107.8,"durationSeconds":764,"slmInitialLoss":0.1018,"slmFinalLoss":0.129},{"iteration":4,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:19:20.944Z","meanScore":23.4,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1803.5,"durationSeconds":718,"slmInitialLoss":0.0996,"slmFinalLoss":0.0723},{"iteration":5,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T09:53:52.118Z","meanScore":37.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2564.2,"durationSeconds":986,"slmInitialLoss":0.0889,"slmFinalLoss":0.0638},{"iteration":6,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:19:18.752Z","meanScore":41.5,"passRate":34.5,"tasksPassed":29,"totalTasks":84,"rawReward":3477.6,"durationSeconds":925,"slmInitialLoss":0.0778,"slmFinalLoss":0.0644},{"iteration":7,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:32:15.069Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2688.5,"durationSeconds":776,"slmInitialLoss":0.0293,"slmFinalLoss":0.0419},{"iteration":8,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:50:59.760Z","meanScore":28.9,"passRate":20.2,"tasksPassed":17,"totalTasks":84,"rawReward":2218.9,"durationSeconds":1125,"slmInitialLoss":0.0316,"slmFinalLoss":0.0303},{"iteration":9,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:09:17.946Z","meanScore":36.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2708.5,"durationSeconds":828,"slmInitialLoss":0.0221,"slmFinalLoss":0.0144},{"iteration":10,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:30:23.015Z","meanScore":27.2,"passRate":16.7,"tasksPassed":14,"totalTasks":84,"rawReward":1991.8,"durationSeconds":1265,"slmInitialLoss":0.0273,"slmFinalLoss":0.0071,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":11,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:48:00.530Z","meanScore":24.6,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1718.5,"durationSeconds":1058,"slmInitialLoss":0.0115,"slmFinalLoss":0.0377},{"iteration":12,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:04:43.318Z","meanScore":40,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3084.5,"durationSeconds":786,"slmInitialLoss":0.0194,"slmFinalLoss":0.0101},{"iteration":13,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:18:48.472Z","meanScore":35.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2728.9,"durationSeconds":845,"slmInitialLoss":0.0116,"slmFinalLoss":0.0049},{"iteration":14,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:42:44.612Z","meanScore":23,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1138.5,"durationSeconds":1436,"slmInitialLoss":0.0057,"slmFinalLoss":0.0085},{"iteration":15,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:01:46.108Z","meanScore":36.9,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2988.5,"durationSeconds":901,"slmInitialLoss":0.0002,"slmFinalLoss":0.0002},{"iteration":16,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:19:30.012Z","meanScore":28.2,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2195.2,"durationSeconds":1064,"slmInitialLoss":0.0079,"slmFinalLoss":0.0009},{"iteration":17,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:40:28.200Z","meanScore":22.8,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1353.4,"durationSeconds":1258,"slmInitialLoss":0.0064,"slmFinalLoss":0.0058},{"iteration":18,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:56:19.400Z","meanScore":39.8,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2938.5,"durationSeconds":794,"slmInitialLoss":0.0098,"slmFinalLoss":0.0113},{"iteration":19,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:15:00.796Z","meanScore":30.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2078.5,"durationSeconds":1121,"slmInitialLoss":0.0008,"slmFinalLoss":0.0116},{"iteration":20,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:35:44.701Z","meanScore":32.2,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2548.5,"durationSeconds":1244,"slmInitialLoss":0.0027,"slmFinalLoss":0.0189,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":21,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:53:30.762Z","meanScore":40.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3213.5,"durationSeconds":824,"slmInitialLoss":0.003,"slmFinalLoss":0.029},{"iteration":22,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:18:29.330Z","meanScore":33.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2575.2,"durationSeconds":1499,"slmInitialLoss":0.011,"slmFinalLoss":0.0078},{"iteration":23,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:34:19.881Z","meanScore":28.9,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":1863.5,"durationSeconds":951,"slmInitialLoss":0.0141,"slmFinalLoss":0.0006},{"iteration":24,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:51:15.919Z","meanScore":36,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2678.5,"durationSeconds":834,"slmInitialLoss":0.0001,"slmFinalLoss":0.0057},{"iteration":25,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:17:17.656Z","meanScore":32.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2403.5,"durationSeconds":1562,"slmInitialLoss":0.0005,"slmFinalLoss":0.0031},{"iteration":26,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:40:59.743Z","meanScore":32.2,"passRate":23.8,"tasksPassed":20,"totalTasks":84,"rawReward":2448.6,"durationSeconds":1422,"slmInitialLoss":0.0003,"slmFinalLoss":0},{"iteration":27,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:58:55.226Z","meanScore":38.1,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3054.1,"durationSeconds":844,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":28,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:14:09.426Z","meanScore":22.8,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1788.5,"durationSeconds":914,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":29,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:38:15.194Z","meanScore":27.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1328.5,"durationSeconds":1446,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":30,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:57:45.408Z","meanScore":37.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2738.5,"durationSeconds":1015,"slmInitialLoss":0,"slmFinalLoss":0,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":31,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:19:54.921Z","meanScore":24.7,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1971,"durationSeconds":1329,"slmInitialLoss":0,"slmFinalLoss":0},{"iteration":32,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:28:32.616Z","meanScore":27.1,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":2031,"durationSeconds":518,"slmInitialLoss":0.0601,"slmFinalLoss":0.0083},{"iteration":33,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:42:24.669Z","meanScore":38.1,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2963.5,"durationSeconds":660,"slmInitialLoss":0.0138,"slmFinalLoss":0.0351},{"iteration":34,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T19:04:45.176Z","meanScore":36.3,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2903.5,"durationSeconds":1340,"slmInitialLoss":0.0369,"slmFinalLoss":0.0178},{"iteration":35,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T10:47:24.868Z","meanScore":39.3,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3028.5,"durationSeconds":957,"slmInitialLoss":0.0154,"slmFinalLoss":0.0118},{"iteration":36,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:02:44.959Z","meanScore":39.2,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3038.5,"durationSeconds":920,"slmInitialLoss":0.04,"slmFinalLoss":0.0161},{"iteration":37,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:18:19.099Z","meanScore":38.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3028.5,"durationSeconds":650,"slmInitialLoss":0.0178,"slmFinalLoss":0.0154},{"iteration":38,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:41:42.190Z","meanScore":33.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2038.5,"durationSeconds":1403,"slmInitialLoss":0.0087,"slmFinalLoss":0.0125},{"iteration":39,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:03:48.503Z","meanScore":33.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2608.5,"durationSeconds":1326,"slmInitialLoss":0.007,"slmFinalLoss":0.0123},{"iteration":40,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:30:03.367Z","meanScore":37.4,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2718.5,"durationSeconds":1575,"slmInitialLoss":0.014,"slmFinalLoss":0.0044,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":41,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:51:17.879Z","meanScore":36.7,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2953.5,"durationSeconds":1274,"slmInitialLoss":0.002,"slmFinalLoss":0.0062},{"iteration":42,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:05:57.783Z","meanScore":36.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2978.5,"durationSeconds":628,"slmInitialLoss":0.006,"slmFinalLoss":0.0021},{"iteration":43,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:29:45.863Z","meanScore":37.6,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2897.1,"durationSeconds":1428,"slmInitialLoss":0.0077,"slmFinalLoss":0.0028},{"iteration":44,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:01:00.866Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2973,"durationSeconds":737,"slmInitialLoss":0.0101,"slmFinalLoss":0.0065},{"iteration":45,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:24:14.598Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2383.5,"durationSeconds":1394,"slmInitialLoss":0.0061,"slmFinalLoss":0.0062},{"iteration":46,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:47:13.820Z","meanScore":26.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1940.5,"durationSeconds":1379,"slmInitialLoss":0.0033,"slmFinalLoss":0.0086},{"iteration":47,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:11:10.514Z","meanScore":36.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3008.5,"durationSeconds":1437,"slmInitialLoss":0.0148,"slmFinalLoss":0.0088},{"iteration":48,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:26:36.729Z","meanScore":37.6,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":3063.5,"durationSeconds":579,"slmInitialLoss":0.0062,"slmFinalLoss":0.0101},{"iteration":49,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:48:40.282Z","meanScore":38.9,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3048.5,"durationSeconds":1324,"slmInitialLoss":0.0059,"slmFinalLoss":0.0124},{"iteration":50,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:17:00.533Z","meanScore":39.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2968.5,"durationSeconds":1700,"slmInitialLoss":0.0087,"slmFinalLoss":0.0059,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)"},{"iteration":51,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:39:33.450Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":3043.5,"durationSeconds":1353,"slmInitialLoss":0.0085,"slmFinalLoss":0.0056}];
-    const labels = historyData.map(h => 'Iter ' + h.iteration);
-    const scores = historyData.map(h => h.meanScore);
-    const passRates = historyData.map(h => h.passRate);
-    const slmLosses = historyData.map(h => h.slmFinalLoss !== undefined ? h.slmFinalLoss : null);
-    const dragonScores = historyData.map(h => typeof h.dragonSurvivalScore === 'number' ? h.dragonSurvivalScore : null);
+    const historyData = [{"iteration":1,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:33:54.659Z","meanScore":42.6,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":5426,"durationSeconds":810,"slmInitialLoss":2.1911,"slmFinalLoss":0.4623,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":19.5},"Building & 3D":{"passed":2,"total":3,"passRate":66.7,"meanScore":64.3},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":58},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":71.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":10},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":2,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:54:38.735Z","meanScore":35.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2872.8,"durationSeconds":867,"slmInitialLoss":0.319,"slmFinalLoss":0.1674,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":0},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":37.7},"Tactical Combat":{"passed":6,"total":22,"passRate":27.3,"meanScore":52.4},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":62.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":3,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:07:23.139Z","meanScore":26.6,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":2107.8,"durationSeconds":764,"slmInitialLoss":0.1018,"slmFinalLoss":0.129,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":58},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":33.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":4,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T00:19:20.944Z","meanScore":23.4,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1803.5,"durationSeconds":718,"slmInitialLoss":0.0996,"slmFinalLoss":0.0723,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":33.3},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":39.1},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":35.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":5,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T09:53:52.118Z","meanScore":37.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2564.2,"durationSeconds":986,"slmInitialLoss":0.0889,"slmFinalLoss":0.0638,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":37.7},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":53.9},"Survival & Affordances":{"passed":16,"total":27,"passRate":59.3,"meanScore":64.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":2.5},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":6,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:19:18.752Z","meanScore":41.5,"passRate":34.5,"tasksPassed":29,"totalTasks":84,"rawReward":3477.6,"durationSeconds":925,"slmInitialLoss":0.0778,"slmFinalLoss":0.0644,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":4,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":2,"total":6,"passRate":33.3,"meanScore":30},"Tactical Combat":{"passed":8,"total":26,"passRate":30.8,"meanScore":48.1},"Survival & Affordances":{"passed":20,"total":35,"passRate":57.1,"meanScore":65.1},"Puzzles & Tooling":{"passed":0,"total":4,"passRate":0,"meanScore":28.3},"Crafting & Tech":{"passed":0,"total":13,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":7,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:32:15.069Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2688.5,"durationSeconds":776,"slmInitialLoss":0.0293,"slmFinalLoss":0.0419,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":49.5},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":70.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":8,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:50:59.760Z","meanScore":28.9,"passRate":20.2,"tasksPassed":17,"totalTasks":84,"rawReward":2218.9,"durationSeconds":1125,"slmInitialLoss":0.0316,"slmFinalLoss":0.0303,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":40.7},"Survival & Affordances":{"passed":13,"total":27,"passRate":48.1,"meanScore":50.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":9,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:09:17.946Z","meanScore":36.2,"passRate":28.6,"tasksPassed":24,"totalTasks":84,"rawReward":2708.5,"durationSeconds":828,"slmInitialLoss":0.0221,"slmFinalLoss":0.0144,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":55},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":61.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":10,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:30:23.015Z","meanScore":27.2,"passRate":16.7,"tasksPassed":14,"totalTasks":84,"rawReward":1991.8,"durationSeconds":1265,"slmInitialLoss":0.0273,"slmFinalLoss":0.0071,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":1,"total":22,"passRate":4.5,"meanScore":33.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Survival & Affordances":{"passed":12,"total":27,"passRate":44.4,"meanScore":51.1},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":11,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T11:48:00.530Z","meanScore":24.6,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1718.5,"durationSeconds":1058,"slmInitialLoss":0.0115,"slmFinalLoss":0.0377,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":4,"total":22,"passRate":18.2,"meanScore":45.2},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":33.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":12,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:04:43.318Z","meanScore":40,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3084.5,"durationSeconds":786,"slmInitialLoss":0.0194,"slmFinalLoss":0.0101,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":33.3},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":60},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":69.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":13,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:18:48.472Z","meanScore":35.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2728.9,"durationSeconds":845,"slmInitialLoss":0.0116,"slmFinalLoss":0.0049,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":54.5},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":60.2},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":14,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:42:44.612Z","meanScore":23,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1138.5,"durationSeconds":1436,"slmInitialLoss":0.0057,"slmFinalLoss":0.0085,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":44.8},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":32.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":15,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:01:46.108Z","meanScore":36.9,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2988.5,"durationSeconds":901,"slmInitialLoss":0.0002,"slmFinalLoss":0.0002,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":56.8},"Survival & Affordances":{"passed":16,"total":27,"passRate":59.3,"meanScore":61.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":16,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:19:30.012Z","meanScore":28.2,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2195.2,"durationSeconds":1064,"slmInitialLoss":0.0079,"slmFinalLoss":0.0009,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":51.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Survival & Affordances":{"passed":10,"total":27,"passRate":37,"meanScore":43.6},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":17,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:40:28.200Z","meanScore":22.8,"passRate":13.1,"tasksPassed":11,"totalTasks":84,"rawReward":1353.4,"durationSeconds":1258,"slmInitialLoss":0.0064,"slmFinalLoss":0.0058,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":4,"total":22,"passRate":18.2,"meanScore":41.2},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":34.8},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":18,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:56:19.400Z","meanScore":39.8,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2938.5,"durationSeconds":794,"slmInitialLoss":0.0098,"slmFinalLoss":0.0113,"domainBreakdown":{"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":10,"total":22,"passRate":45.5,"meanScore":64.1},"Survival & Affordances":{"passed":17,"total":27,"passRate":63,"meanScore":65.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":19,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:15:00.796Z","meanScore":30.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2078.5,"durationSeconds":1121,"slmInitialLoss":0.0008,"slmFinalLoss":0.0116,"domainBreakdown":{"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":37.3},"Survival & Affordances":{"passed":14,"total":27,"passRate":51.9,"meanScore":58.5},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":20,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:35:44.701Z","meanScore":32.2,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2548.5,"durationSeconds":1244,"slmInitialLoss":0.0027,"slmFinalLoss":0.0189,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":45.5},"Survival & Affordances":{"passed":16,"total":27,"passRate":59.3,"meanScore":60.6},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":21,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T14:53:30.762Z","meanScore":40.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3213.5,"durationSeconds":824,"slmInitialLoss":0.003,"slmFinalLoss":0.029,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":61.6},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":69.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":12.5},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":22,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:18:29.330Z","meanScore":33.5,"passRate":21.4,"tasksPassed":18,"totalTasks":84,"rawReward":2575.2,"durationSeconds":1499,"slmInitialLoss":0.011,"slmFinalLoss":0.0078,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":48.2},"Survival & Affordances":{"passed":13,"total":27,"passRate":48.1,"meanScore":57},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":15},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":23,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:34:19.881Z","meanScore":28.9,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":1863.5,"durationSeconds":951,"slmInitialLoss":0.0141,"slmFinalLoss":0.0006,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":36.6},"Survival & Affordances":{"passed":13,"total":27,"passRate":48.1,"meanScore":55.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":5},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":24,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:51:15.919Z","meanScore":36,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2678.5,"durationSeconds":834,"slmInitialLoss":0.0001,"slmFinalLoss":0.0057,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":62.5},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":59.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":25,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:17:17.656Z","meanScore":32.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2403.5,"durationSeconds":1562,"slmInitialLoss":0.0005,"slmFinalLoss":0.0031,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":35},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":70.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":26,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:40:59.743Z","meanScore":32.2,"passRate":23.8,"tasksPassed":20,"totalTasks":84,"rawReward":2448.6,"durationSeconds":1422,"slmInitialLoss":0.0003,"slmFinalLoss":0,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":44.5},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":60.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":27,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T16:58:55.226Z","meanScore":38.1,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3054.1,"durationSeconds":844,"slmInitialLoss":0,"slmFinalLoss":0,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":56.4},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":70.2},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":28,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:14:09.426Z","meanScore":22.8,"passRate":14.3,"tasksPassed":12,"totalTasks":84,"rawReward":1788.5,"durationSeconds":914,"slmInitialLoss":0,"slmFinalLoss":0,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":35},"Survival & Affordances":{"passed":9,"total":27,"passRate":33.3,"meanScore":39.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":29,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:38:15.194Z","meanScore":27.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1328.5,"durationSeconds":1446,"slmInitialLoss":0,"slmFinalLoss":0,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":1,"total":22,"passRate":4.5,"meanScore":30.5},"Survival & Affordances":{"passed":14,"total":27,"passRate":51.9,"meanScore":57.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":30,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:57:45.408Z","meanScore":37.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2738.5,"durationSeconds":1015,"slmInitialLoss":0,"slmFinalLoss":0,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":57.7},"Survival & Affordances":{"passed":17,"total":27,"passRate":63,"meanScore":66.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":31,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:19:54.921Z","meanScore":24.7,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1971,"durationSeconds":1329,"slmInitialLoss":0,"slmFinalLoss":0,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":34.5},"Survival & Affordances":{"passed":12,"total":27,"passRate":44.4,"meanScore":45.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":32,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:28:32.616Z","meanScore":27.1,"passRate":19,"tasksPassed":16,"totalTasks":84,"rawReward":2031,"durationSeconds":518,"slmInitialLoss":0.0601,"slmFinalLoss":0.0083,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":41.6},"Survival & Affordances":{"passed":11,"total":27,"passRate":40.7,"meanScore":48.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":33,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T18:42:24.669Z","meanScore":38.1,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2963.5,"durationSeconds":660,"slmInitialLoss":0.0138,"slmFinalLoss":0.0351,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Tactical Combat":{"passed":10,"total":22,"passRate":45.5,"meanScore":61.6},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":66.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":34,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T19:04:45.176Z","meanScore":36.3,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2903.5,"durationSeconds":1340,"slmInitialLoss":0.0369,"slmFinalLoss":0.0178,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":44.8},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":35,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T10:47:24.868Z","meanScore":39.3,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3028.5,"durationSeconds":957,"slmInitialLoss":0.0154,"slmFinalLoss":0.0118,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":6,"total":22,"passRate":27.3,"meanScore":52.7},"Survival & Affordances":{"passed":21,"total":27,"passRate":77.8,"meanScore":76.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":36,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:02:44.959Z","meanScore":39.2,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3038.5,"durationSeconds":920,"slmInitialLoss":0.04,"slmFinalLoss":0.0161,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":55.7},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":37,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:18:19.099Z","meanScore":38.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3028.5,"durationSeconds":650,"slmInitialLoss":0.0178,"slmFinalLoss":0.0154,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":55.9},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":72.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":38,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:41:42.190Z","meanScore":33.9,"passRate":25,"tasksPassed":21,"totalTasks":84,"rawReward":2038.5,"durationSeconds":1403,"slmInitialLoss":0.0087,"slmFinalLoss":0.0125,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":2,"total":22,"passRate":9.1,"meanScore":37},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":72.8},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":39,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:03:48.503Z","meanScore":33.7,"passRate":26.2,"tasksPassed":22,"totalTasks":84,"rawReward":2608.5,"durationSeconds":1326,"slmInitialLoss":0.007,"slmFinalLoss":0.0123,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":1,"total":22,"passRate":4.5,"meanScore":31.4},"Survival & Affordances":{"passed":21,"total":27,"passRate":77.8,"meanScore":76.9},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":40,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:30:03.367Z","meanScore":37.4,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2718.5,"durationSeconds":1575,"slmInitialLoss":0.014,"slmFinalLoss":0.0044,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":3,"total":22,"passRate":13.6,"meanScore":39.1},"Survival & Affordances":{"passed":23,"total":27,"passRate":85.2,"meanScore":82.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":41,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:51:17.879Z","meanScore":36.7,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2953.5,"durationSeconds":1274,"slmInitialLoss":0.002,"slmFinalLoss":0.0062,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":44.5},"Survival & Affordances":{"passed":21,"total":27,"passRate":77.8,"meanScore":75.8},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":42,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:05:57.783Z","meanScore":36.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2978.5,"durationSeconds":628,"slmInitialLoss":0.006,"slmFinalLoss":0.0021,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":46.4},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":43,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T13:29:45.863Z","meanScore":37.6,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2897.1,"durationSeconds":1428,"slmInitialLoss":0.0077,"slmFinalLoss":0.0028,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":55.9},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":69},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":44,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:01:00.866Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2973,"durationSeconds":737,"slmInitialLoss":0.0101,"slmFinalLoss":0.0065,"domainBreakdown":{"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":26.7},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":49.1},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":45,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:24:14.598Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2383.5,"durationSeconds":1394,"slmInitialLoss":0.0061,"slmFinalLoss":0.0062,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":6,"total":22,"passRate":27.3,"meanScore":52.5},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":72},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":46,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T11:47:13.820Z","meanScore":26.2,"passRate":17.9,"tasksPassed":15,"totalTasks":84,"rawReward":1940.5,"durationSeconds":1379,"slmInitialLoss":0.0033,"slmFinalLoss":0.0086,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":30},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":49.5},"Survival & Affordances":{"passed":7,"total":27,"passRate":25.9,"meanScore":35.8},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":47,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:11:10.514Z","meanScore":36.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3008.5,"durationSeconds":1437,"slmInitialLoss":0.0148,"slmFinalLoss":0.0088,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":51.4},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":70},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":48,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:26:36.729Z","meanScore":37.6,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":3063.5,"durationSeconds":579,"slmInitialLoss":0.0062,"slmFinalLoss":0.0101,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":4,"total":22,"passRate":18.2,"meanScore":50.2},"Survival & Affordances":{"passed":21,"total":27,"passRate":77.8,"meanScore":73.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":49,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:48:40.282Z","meanScore":38.9,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":3048.5,"durationSeconds":1324,"slmInitialLoss":0.0059,"slmFinalLoss":0.0124,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":57},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":71.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":50,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:17:00.533Z","meanScore":39.6,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2968.5,"durationSeconds":1700,"slmInitialLoss":0.0087,"slmFinalLoss":0.0059,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":57},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":51,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T13:39:33.450Z","meanScore":38.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":3043.5,"durationSeconds":1353,"slmInitialLoss":0.0085,"slmFinalLoss":0.0056,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":6,"total":22,"passRate":27.3,"meanScore":52},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":52,"phase":"Exhaustive Loop (44 Tasks across 3 Sharded Bots + Survival)","timestamp":"2026-11-18T19:38:55.552Z","meanScore":8.5,"passRate":6.8,"tasksPassed":3,"totalTasks":44,"rawReward":313.7,"durationSeconds":628,"slmInitialLoss":0.7583,"slmFinalLoss":0.0676,"actAimErrorDeg":2.04,"actDiscreteAccPct":96.6,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":0,"total":4,"passRate":0,"meanScore":1.8},"Survival & Affordances":{"passed":2,"total":12,"passRate":16.7,"meanScore":14.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":3,"passRate":0,"meanScore":8.3},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}},"survivalCampaign":{"goalId":"ocean_sponges","goalTitle":"Collect Ocean Monument Sponges","techTierReached":"Raw","advancementsUnlocked":["Homesteader & Hunter"],"survivalSteps":2,"score":29}},{"iteration":53,"phase":"Exhaustive Loop (44 Tasks across 3 Sharded Bots + Survival)","timestamp":"2026-11-18T19:49:48.366Z","meanScore":24.6,"passRate":15.9,"tasksPassed":7,"totalTasks":44,"rawReward":1079.1,"durationSeconds":455,"slmInitialLoss":0.0464,"slmFinalLoss":0.0658,"actAimErrorDeg":1.94,"actDiscreteAccPct":96.59,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":21},"Building & 3D":{"passed":2,"total":3,"passRate":66.7,"meanScore":83},"Tactical Combat":{"passed":2,"total":4,"passRate":50,"meanScore":80.8},"Survival & Affordances":{"passed":3,"total":12,"passRate":25,"meanScore":26.5},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":50},"Crafting & Tech":{"passed":0,"total":3,"passRate":0,"meanScore":16.7},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}},"survivalCampaign":{"goalId":"diamond_armory","goalTitle":"Craft & Equip Diamond Armory","techTierReached":"Wood","advancementsUnlocked":["Wood Age","Homesteader & Hunter"],"survivalSteps":1,"score":44}}];
+    const sampledDomains = [{"iteration":1,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-14T23:33:54.659Z","meanScore":42.6,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":5426,"durationSeconds":810,"slmInitialLoss":2.1911,"slmFinalLoss":0.4623,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":19.5},"Building & 3D":{"passed":2,"total":3,"passRate":66.7,"meanScore":64.3},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":58},"Survival & Affordances":{"passed":18,"total":27,"passRate":66.7,"meanScore":71.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":10},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":7,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T10:32:15.069Z","meanScore":37.7,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2688.5,"durationSeconds":776,"slmInitialLoss":0.0293,"slmFinalLoss":0.0419,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":49.5},"Survival & Affordances":{"passed":19,"total":27,"passRate":70.4,"meanScore":70.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":13,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T12:18:48.472Z","meanScore":35.8,"passRate":29.8,"tasksPassed":25,"totalTasks":84,"rawReward":2728.9,"durationSeconds":845,"slmInitialLoss":0.0116,"slmFinalLoss":0.0049,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":54.5},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":60.2},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":31.5},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":18,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T13:56:19.400Z","meanScore":39.8,"passRate":33.3,"tasksPassed":28,"totalTasks":84,"rawReward":2938.5,"durationSeconds":794,"slmInitialLoss":0.0098,"slmFinalLoss":0.0113,"domainBreakdown":{"Building & 3D":{"passed":1,"total":3,"passRate":33.3,"meanScore":36.7},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":10,"total":22,"passRate":45.5,"meanScore":64.1},"Survival & Affordances":{"passed":17,"total":27,"passRate":63,"meanScore":65.4},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":24,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T15:51:15.919Z","meanScore":36,"passRate":27.4,"tasksPassed":23,"totalTasks":84,"rawReward":2678.5,"durationSeconds":834,"slmInitialLoss":0.0001,"slmFinalLoss":0.0057,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":8,"total":22,"passRate":36.4,"meanScore":62.5},"Survival & Affordances":{"passed":15,"total":27,"passRate":55.6,"meanScore":59.1},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":30,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-15T17:57:45.408Z","meanScore":37.3,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2738.5,"durationSeconds":1015,"slmInitialLoss":0,"slmFinalLoss":0,"dragonSurvivalScore":0,"dragonMilestones":0,"milestone":"Dragon Run: 0% (0/8)","domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":9,"total":22,"passRate":40.9,"meanScore":57.7},"Survival & Affordances":{"passed":17,"total":27,"passRate":63,"meanScore":66.7},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":36,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T11:02:44.959Z","meanScore":39.2,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3038.5,"durationSeconds":920,"slmInitialLoss":0.04,"slmFinalLoss":0.0161,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":55.7},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":74.3},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":41,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-17T12:51:17.879Z","meanScore":36.7,"passRate":31,"tasksPassed":26,"totalTasks":84,"rawReward":2953.5,"durationSeconds":1274,"slmInitialLoss":0.002,"slmFinalLoss":0.0062,"domainBreakdown":{"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":0},"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Tactical Combat":{"passed":5,"total":22,"passRate":22.7,"meanScore":44.5},"Survival & Affordances":{"passed":21,"total":27,"passRate":77.8,"meanScore":75.8},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":47,"phase":"Exhaustive Loop (84 Tasks across 3 Sharded Bots)","timestamp":"2026-11-18T12:11:10.514Z","meanScore":36.7,"passRate":32.1,"tasksPassed":27,"totalTasks":84,"rawReward":3008.5,"durationSeconds":1437,"slmInitialLoss":0.0148,"slmFinalLoss":0.0088,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":2.5},"Building & 3D":{"passed":0,"total":3,"passRate":0,"meanScore":3.3},"Tactical Combat":{"passed":7,"total":22,"passRate":31.8,"meanScore":51.4},"Survival & Affordances":{"passed":20,"total":27,"passRate":74.1,"meanScore":70},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":25},"Crafting & Tech":{"passed":0,"total":10,"passRate":0,"meanScore":0},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}}},{"iteration":53,"phase":"Exhaustive Loop (44 Tasks across 3 Sharded Bots + Survival)","timestamp":"2026-11-18T19:49:48.366Z","meanScore":24.6,"passRate":15.9,"tasksPassed":7,"totalTasks":44,"rawReward":1079.1,"durationSeconds":455,"slmInitialLoss":0.0464,"slmFinalLoss":0.0658,"actAimErrorDeg":1.94,"actDiscreteAccPct":96.59,"domainBreakdown":{"Agility & Parkour":{"passed":0,"total":2,"passRate":0,"meanScore":21},"Building & 3D":{"passed":2,"total":3,"passRate":66.7,"meanScore":83},"Tactical Combat":{"passed":2,"total":4,"passRate":50,"meanScore":80.8},"Survival & Affordances":{"passed":3,"total":12,"passRate":25,"meanScore":26.5},"Puzzles & Tooling":{"passed":0,"total":2,"passRate":0,"meanScore":50},"Crafting & Tech":{"passed":0,"total":3,"passRate":0,"meanScore":16.7},"Multiplayer":{"passed":0,"total":18,"passRate":0,"meanScore":0}},"survivalCampaign":{"goalId":"diamond_armory","goalTitle":"Craft & Equip Diamond Armory","techTierReached":"Wood","advancementsUnlocked":["Wood Age","Homesteader & Hunter"],"survivalSteps":1,"score":44}}];
+    const domainBuckets = ["Tactical Combat","Crafting & Tech","Agility & Parkour","Building & 3D","Survival & Affordances","Puzzles & Tooling","Multiplayer"];
+    const domainColors = {"Tactical Combat":"#ef4444","Crafting & Tech":"#f59e0b","Agility & Parkour":"#10b981","Building & 3D":"#8b5cf6","Survival & Affordances":"#3b82f6","Puzzles & Tooling":"#06b6d4","Multiplayer":"#ec4899"};
 
-    // Chart 1: Scores & Pass Rate
+    const labels = historyData.map(h => 'Iter ' + h.iteration);
+
+    // 1. Standardized Exam Trajectory
     new Chart(document.getElementById('scoreChart'), {
       type: 'line',
       data: {
-        labels: labels,
+        labels,
         datasets: [
           {
-            label: 'Benchmark Mean Score (0-100)',
-            data: scores,
+            label: 'Exam Mean Score (0-100)',
+            data: historyData.map(h => h.meanScore),
             borderColor: '#3b82f6',
-            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+            backgroundColor: 'rgba(59, 130, 246, 0.12)',
             borderWidth: 3,
             fill: true,
             tension: 0.2,
           },
           {
-            label: 'Pass Rate (%)',
-            data: passRates,
+            label: 'Exam Pass Rate (%)',
+            data: historyData.map(h => h.passRate),
             borderColor: '#10b981',
             borderWidth: 2,
             borderDash: [5, 5],
-            fill: false,
-            tension: 0.2,
-          },
-          {
-            label: 'Vanilla Dragon Survival (%)',
-            data: dragonScores,
-            borderColor: '#f59e0b',
-            backgroundColor: 'rgba(245, 158, 11, 0.2)',
-            borderWidth: 2.5,
-            pointRadius: 6,
-            pointBackgroundColor: '#f59e0b',
-            pointBorderColor: '#ffffff',
-            pointBorderWidth: 2,
-            spanGaps: true,
             tension: 0.2,
           }
         ]
@@ -717,7 +728,7 @@
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: 'Benchmark Score, Pass Rate & Dragon Survival Trajectory', color: '#f8fafc', font: { size: 16 } },
+          title: { display: true, text: 'Panel 1: Standardized MINEbench Exam over Time (t)', color: '#f8fafc', font: { size: 15 } },
           legend: { labels: { color: '#94a3b8' } }
         },
         scales: {
@@ -727,19 +738,94 @@
       }
     });
 
-    // Chart 2: Loss
-    new Chart(document.getElementById('lossChart'), {
-      type: 'line',
+    // 2. Per-Domain Skill Breakdown Grouped Bar Chart at Time Increments t
+    new Chart(document.getElementById('domainBarChart'), {
+      type: 'bar',
       data: {
-        labels: labels,
+        labels: sampledDomains.map(h => 'Iter ' + h.iteration),
+        datasets: domainBuckets.map(dom => ({
+          label: dom,
+          data: sampledDomains.map(h => h.domainBreakdown?.[dom]?.passRate ?? 0),
+          backgroundColor: domainColors[dom] || '#64748b',
+          borderRadius: 3,
+        }))
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Panel 2: Per-Domain Pass Rate (%) Grouped Bars across Increments (t)', color: '#f8fafc', font: { size: 15 } },
+          legend: { labels: { color: '#94a3b8', boxWidth: 12 } }
+        },
+        scales: {
+          y: { min: 0, max: 100, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // 3. Open-World Survival Campaign & Advancements Tracker
+    const tierScale = { Raw: 10, Wood: 25, Stone: 45, Iron: 65, Diamond: 80, Nether: 92, End: 100 };
+    new Chart(document.getElementById('survivalChart'), {
+      type: 'bar',
+      data: {
+        labels,
         datasets: [
           {
-            label: 'System 2 SLM Cross-Entropy Loss',
-            data: slmLosses,
+            label: 'Tech Tier Depth Score (0-100)',
+            data: historyData.map(h => h.survivalCampaign ? (tierScale[h.survivalCampaign.techTierReached] ?? h.survivalCampaign.score) : (h.dragonSurvivalScore ?? null)),
+            backgroundColor: 'rgba(16, 185, 129, 0.65)',
+            borderColor: '#10b981',
+            borderWidth: 1,
+          },
+          {
+            label: 'Advancements Unlocked (Count x 10)',
+            data: historyData.map(h => h.survivalCampaign ? (h.survivalCampaign.advancementsUnlocked.length * 10) : null),
+            type: 'line',
+            borderColor: '#f59e0b',
+            backgroundColor: '#f59e0b',
+            borderWidth: 3,
+            spanGaps: true,
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          title: { display: true, text: 'Panel 3: Persistent Open-World Survival & Campaign Progress', color: '#f8fafc', font: { size: 15 } },
+          legend: { labels: { color: '#94a3b8' } }
+        },
+        scales: {
+          y: { min: 0, max: 100, grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
+        }
+      }
+    });
+
+    // 4. Dual-Brain Neural Telemetry (SLM Loss + ACT Aim Error)
+    new Chart(document.getElementById('neuralChart'), {
+      type: 'line',
+      data: {
+        labels,
+        datasets: [
+          {
+            label: 'System 2 SLM Loss',
+            data: historyData.map(h => h.slmFinalLoss ?? null),
             borderColor: '#f43f5e',
             backgroundColor: 'rgba(244, 63, 94, 0.1)',
-            borderWidth: 3,
+            borderWidth: 2.5,
             fill: true,
+            yAxisID: 'yLoss',
+            tension: 0.2,
+          },
+          {
+            label: 'System 1 ACT Aim Error (deg)',
+            data: historyData.map(h => h.actAimErrorDeg ?? null),
+            borderColor: '#38bdf8',
+            borderWidth: 2.5,
+            spanGaps: true,
+            yAxisID: 'yAim',
             tension: 0.2,
           }
         ]
@@ -748,11 +834,12 @@
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: 'System 2 SLM Convergence (QLoRA Fine-Tuning Loss)', color: '#f8fafc', font: { size: 16 } },
+          title: { display: true, text: 'Panel 4: Dual-Brain Neural Telemetry (SLM Loss & ACT 80.8M Aim Error)', color: '#f8fafc', font: { size: 15 } },
           legend: { labels: { color: '#94a3b8' } }
         },
         scales: {
-          y: { grid: { color: '#334155' }, ticks: { color: '#94a3b8' } },
+          yLoss: { type: 'linear', position: 'left', min: 0, grid: { color: '#334155' }, ticks: { color: '#f43f5e' } },
+          yAim: { type: 'linear', position: 'right', min: 0, grid: { drawOnChartArea: false }, ticks: { color: '#38bdf8' } },
           x: { grid: { color: '#1e293b' }, ticks: { color: '#94a3b8' } }
         }
       }

@@ -1,103 +1,57 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 700" width="1100" height="700" style="background-color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
-  <defs>
-    <linearGradient id="scoreGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.4"/>
-      <stop offset="100%" stop-color="#3b82f6" stop-opacity="0.0"/>
-    </linearGradient>
-    <linearGradient id="lossGrad" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#ef4444" stop-opacity="0.3"/>
-      <stop offset="100%" stop-color="#ef4444" stop-opacity="0.0"/>
-    </linearGradient>
-  </defs>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 940" width="1200" height="940" style="background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+  <text x="70" y="34" fill="#f8fafc" font-size="20" font-weight="bold">NeuroCraft Decomposed Dual-Track Training Telemetry</text>
+  <text x="70" y="54" fill="#94a3b8" font-size="12">Iterations: 53 | Peak Score: 42.6/100 | Open-World Tier: Wood</text>
 
-  <!-- Title & Subtitle -->
-  <text x="70" y="35" fill="#f8fafc" font-size="20" font-weight="bold">NeuroCraft Autonomous Training & Convergence Trajectory</text>
-  <text x="70" y="55" fill="#94a3b8" font-size="12">Dual-Tier Progress across 51 Training Epochs & Live Mojang 1.20.4 Simulations | Best Score: 42.6/100</text>
+  <!-- Panel 1: Standardized Exam -->
+  <rect x="70" y="75" width="1070" height="220" fill="#1e293b" rx="6"/>
+  <text x="82" y="95" fill="#f8fafc" font-size="13" font-weight="bold">1. Standardized MINEbench Exam (Pass Rate % &amp; Mean Score)</text>
+  <line x1="70" y1="295" x2="1140" y2="295" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="299" fill="#64748b" font-size="10" text-anchor="end">0</text><line x1="70" y1="240" x2="1140" y2="240" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="244" fill="#64748b" font-size="10" text-anchor="end">25</text><line x1="70" y1="185" x2="1140" y2="185" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="189" fill="#64748b" font-size="10" text-anchor="end">50</text><line x1="70" y1="130" x2="1140" y2="130" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="134" fill="#64748b" font-size="10" text-anchor="end">75</text><line x1="70" y1="75" x2="1140" y2="75" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="79" fill="#64748b" font-size="10" text-anchor="end">100</text>
+  <path d="M 90.2 224.4 L 110.4 237.4 L 130.6 255.6 L 150.8 266.2 L 170.9 232.1 L 191.1 219.1 L 211.3 229.4 L 231.5 250.6 L 251.7 232.1 L 271.9 258.3 L 292.1 263.5 L 312.3 224.4 L 332.5 229.4 L 352.6 263.5 L 372.8 226.8 L 393.0 247.9 L 413.2 266.2 L 433.4 221.7 L 453.6 247.9 L 473.8 240.0 L 494.0 224.4 L 514.2 247.9 L 534.3 253.2 L 554.5 234.7 L 574.7 240.0 L 594.9 242.6 L 615.1 224.4 L 635.3 263.5 L 655.5 255.6 L 675.7 226.8 L 695.8 255.6 L 716.0 253.2 L 736.2 221.7 L 756.4 234.7 L 776.6 224.4 L 796.8 224.4 L 817.0 221.7 L 837.2 240.0 L 857.4 237.4 L 877.5 226.8 L 897.7 226.8 L 917.9 229.4 L 938.1 226.8 L 958.3 226.8 L 978.5 229.4 L 998.7 255.6 L 1018.9 224.4 L 1039.1 229.4 L 1059.2 221.7 L 1079.4 221.7 L 1099.6 226.8 L 1119.8 280.0 L 1140.0 260.0" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>
+  <path d="M 90.2 201.3 L 110.4 216.5 L 130.6 236.5 L 150.8 243.5 L 170.9 213.2 L 191.1 203.7 L 211.3 212.1 L 231.5 231.4 L 251.7 215.4 L 271.9 235.2 L 292.1 240.9 L 312.3 207.0 L 332.5 216.2 L 352.6 244.4 L 372.8 213.8 L 393.0 233.0 L 413.2 244.8 L 433.4 207.4 L 453.6 227.9 L 473.8 224.2 L 494.0 205.5 L 514.2 221.3 L 534.3 231.4 L 554.5 215.8 L 574.7 222.6 L 594.9 224.2 L 615.1 211.2 L 635.3 244.8 L 655.5 235.2 L 675.7 212.9 L 695.8 240.7 L 716.0 235.4 L 736.2 211.2 L 756.4 215.1 L 776.6 208.5 L 796.8 208.8 L 817.0 210.1 L 837.2 220.4 L 857.4 220.9 L 877.5 212.7 L 897.7 214.3 L 917.9 214.0 L 938.1 212.3 L 958.3 210.7 L 978.5 212.1 L 998.7 237.4 L 1018.9 214.3 L 1039.1 212.3 L 1059.2 209.4 L 1079.4 207.9 L 1099.6 210.7 L 1119.8 276.3 L 1140.0 240.9" fill="none" stroke="#3b82f6" stroke-width="3"/>
 
-  <!-- Legend -->
-  <g transform="translate(640, 25)">
-    <line x1="0" y1="10" x2="25" y2="10" stroke="#3b82f6" stroke-width="3"/>
-    <text x="32" y="14" fill="#93c5fd" font-size="12">Mean Score (0-100)</text>
-
-    <line x1="160" y1="10" x2="185" y2="10" stroke="#10b981" stroke-width="3" stroke-dasharray="4,3"/>
-    <text x="192" y="14" fill="#6ee7b7" font-size="12">Pass Rate (%)</text>
-
-    <line x1="280" y1="10" x2="305" y2="10" stroke="#f43f5e" stroke-width="3"/>
-    <text x="312" y="14" fill="#fda4af" font-size="12">SLM Loss</text>
-  </g>
-
-  <!-- CHART 1: Scores & Pass Rate -->
-  <rect x="70" y="70" width="950" height="240" fill="#1e293b" rx="6"/>
-  <!-- Gridlines -->
+  <!-- Panel 2: Domain Bar Breakdown -->
+  <rect x="70" y="360" width="1070" height="220" fill="#1e293b" rx="6"/>
+  <text x="82" y="380" fill="#f8fafc" font-size="13" font-weight="bold">2. Latest Per-Domain Skill Breakdown (Iter #53: Dim=Score, Solid=Pass%)</text>
   
-      <line x1="70" y1="310" x2="1020" y2="310" stroke="#334155" stroke-width="1" stroke-dasharray="0"/>
-      <text x="60" y="314" fill="#64748b" font-size="11" text-anchor="end">0</text>
+      <rect x="82" y="410.52" width="60" height="149.48" fill="#ef4444" fill-opacity="0.35" rx="3"/>
+      <rect x="146" y="467.5" width="60" height="92.5" fill="#ef4444" rx="3"/>
+      <text x="146" y="405.52" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">50%</text>
+      <text x="146" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Tactical</text>
     
-      <line x1="70" y1="250" x2="1020" y2="250" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="254" fill="#64748b" font-size="11" text-anchor="end">25</text>
+      <rect x="234.85714285714286" y="529.105" width="60" height="30.894999999999996" fill="#f59e0b" fill-opacity="0.35" rx="3"/>
+      <rect x="298.8571428571429" y="560" width="60" height="0" fill="#f59e0b" rx="3"/>
+      <text x="298.8571428571429" y="524.105" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <text x="298.8571428571429" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Crafting</text>
     
-      <line x1="70" y1="190" x2="1020" y2="190" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="194" fill="#64748b" font-size="11" text-anchor="end">50</text>
+      <rect x="387.7142857142857" y="521.15" width="60" height="38.85" fill="#10b981" fill-opacity="0.35" rx="3"/>
+      <rect x="451.7142857142857" y="560" width="60" height="0" fill="#10b981" rx="3"/>
+      <text x="451.7142857142857" y="516.15" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <text x="451.7142857142857" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Agility</text>
     
-      <line x1="70" y1="130" x2="1020" y2="130" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="134" fill="#64748b" font-size="11" text-anchor="end">75</text>
+      <rect x="540.5714285714286" y="406.45000000000005" width="60" height="153.54999999999998" fill="#8b5cf6" fill-opacity="0.35" rx="3"/>
+      <rect x="604.5714285714286" y="436.605" width="60" height="123.39500000000001" fill="#8b5cf6" rx="3"/>
+      <text x="604.5714285714286" y="401.45000000000005" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">67%</text>
+      <text x="604.5714285714286" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Building</text>
     
-      <line x1="70" y1="70" x2="1020" y2="70" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="74" fill="#64748b" font-size="11" text-anchor="end">100</text>
+      <rect x="693.4285714285714" y="510.975" width="60" height="49.025000000000006" fill="#3b82f6" fill-opacity="0.35" rx="3"/>
+      <rect x="757.4285714285714" y="513.75" width="60" height="46.25" fill="#3b82f6" rx="3"/>
+      <text x="757.4285714285714" y="505.975" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">25%</text>
+      <text x="757.4285714285714" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Survival</text>
     
-
-  <!-- Paths -->
-  <path d="M 88.6 233.0 L 107.3 247.1 L 125.9 267.0 L 144.5 278.6 L 163.1 241.4 L 181.8 227.2 L 200.4 238.5 L 219.0 261.5 L 237.6 241.4 L 256.3 269.9 L 274.9 275.7 L 293.5 233.0 L 312.2 238.5 L 330.8 275.7 L 349.4 235.6 L 368.0 258.6 L 386.7 278.6 L 405.3 230.1 L 423.9 258.6 L 442.5 250.0 L 461.2 233.0 L 479.8 258.6 L 498.4 264.4 L 517.1 244.2 L 535.7 250.0 L 554.3 252.9 L 572.9 233.0 L 591.6 275.7 L 610.2 267.0 L 628.8 235.6 L 647.5 267.0 L 666.1 264.4 L 684.7 230.1 L 703.3 244.2 L 722.0 233.0 L 740.6 233.0 L 759.2 230.1 L 777.8 250.0 L 796.5 247.1 L 815.1 235.6 L 833.7 235.6 L 852.4 238.5 L 871.0 235.6 L 889.6 235.6 L 908.2 238.5 L 926.9 267.0 L 945.5 233.0 L 964.1 238.5 L 982.7 230.1 L 1001.4 230.1 L 1020.0 235.6" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>
-  <path d="M 88.6 207.8 L 107.3 224.3 L 125.9 246.2 L 144.5 253.8 L 163.1 220.7 L 181.8 210.4 L 200.4 219.5 L 219.0 240.6 L 237.6 223.1 L 256.3 244.7 L 274.9 251.0 L 293.5 214.0 L 312.2 224.1 L 330.8 254.8 L 349.4 221.4 L 368.0 242.3 L 386.7 255.3 L 405.3 214.5 L 423.9 236.8 L 442.5 232.7 L 461.2 212.3 L 479.8 229.6 L 498.4 240.6 L 517.1 223.6 L 535.7 231.0 L 554.3 232.7 L 572.9 218.6 L 591.6 255.3 L 610.2 244.7 L 628.8 220.5 L 647.5 250.7 L 666.1 245.0 L 684.7 218.6 L 703.3 222.9 L 722.0 215.7 L 740.6 215.9 L 759.2 217.4 L 777.8 228.6 L 796.5 229.1 L 815.1 220.2 L 833.7 221.9 L 852.4 221.7 L 871.0 219.8 L 889.6 218.1 L 908.2 219.5 L 926.9 247.1 L 945.5 221.9 L 964.1 219.8 L 982.7 216.6 L 1001.4 215.0 L 1020.0 218.1" fill="none" stroke="#3b82f6" stroke-width="3"/>
-
-  <!-- Data Points for Scores -->
-  <circle cx="88.62745098039215" cy="207.76" r="3.5" fill="#3b82f6"/><circle cx="107.25490196078431" cy="224.32" r="3.5" fill="#3b82f6"/><circle cx="125.88235294117646" cy="246.16" r="3.5" fill="#3b82f6"/><circle cx="144.50980392156862" cy="253.84" r="3.5" fill="#3b82f6"/><circle cx="163.13725490196077" cy="220.71999999999997" r="3.5" fill="#3b82f6"/><circle cx="181.76470588235293" cy="210.4" r="3.5" fill="#3b82f6"/><circle cx="200.3921568627451" cy="219.51999999999998" r="3.5" fill="#3b82f6"/><circle cx="219.01960784313727" cy="240.64" r="3.5" fill="#3b82f6"/><circle cx="237.64705882352942" cy="223.12" r="3.5" fill="#3b82f6"/><circle cx="256.27450980392155" cy="244.72" r="3.5" fill="#3b82f6"/><circle cx="274.9019607843137" cy="250.95999999999998" r="3.5" fill="#3b82f6"/><circle cx="293.52941176470586" cy="214" r="3.5" fill="#3b82f6"/><circle cx="312.156862745098" cy="224.07999999999998" r="3.5" fill="#3b82f6"/><circle cx="330.7843137254902" cy="254.8" r="3.5" fill="#3b82f6"/><circle cx="349.4117647058824" cy="221.44" r="3.5" fill="#3b82f6"/><circle cx="368.03921568627453" cy="242.32" r="3.5" fill="#3b82f6"/><circle cx="386.66666666666663" cy="255.28" r="3.5" fill="#3b82f6"/><circle cx="405.29411764705884" cy="214.48000000000002" r="3.5" fill="#3b82f6"/><circle cx="423.921568627451" cy="236.8" r="3.5" fill="#3b82f6"/><circle cx="442.54901960784315" cy="232.72" r="3.5" fill="#3b82f6"/><circle cx="461.17647058823525" cy="212.32" r="3.5" fill="#3b82f6"/><circle cx="479.80392156862746" cy="229.6" r="3.5" fill="#3b82f6"/><circle cx="498.4313725490196" cy="240.64" r="3.5" fill="#3b82f6"/><circle cx="517.0588235294117" cy="223.60000000000002" r="3.5" fill="#3b82f6"/><circle cx="535.686274509804" cy="231.04000000000002" r="3.5" fill="#3b82f6"/><circle cx="554.313725490196" cy="232.72" r="3.5" fill="#3b82f6"/><circle cx="572.9411764705883" cy="218.56" r="3.5" fill="#3b82f6"/><circle cx="591.5686274509804" cy="255.28" r="3.5" fill="#3b82f6"/><circle cx="610.1960784313725" cy="244.72" r="3.5" fill="#3b82f6"/><circle cx="628.8235294117648" cy="220.48000000000002" r="3.5" fill="#3b82f6"/><circle cx="647.4509803921568" cy="250.72" r="3.5" fill="#3b82f6"/><circle cx="666.0784313725491" cy="244.95999999999998" r="3.5" fill="#3b82f6"/><circle cx="684.7058823529412" cy="218.56" r="3.5" fill="#3b82f6"/><circle cx="703.3333333333333" cy="222.88" r="3.5" fill="#3b82f6"/><circle cx="721.9607843137255" cy="215.68" r="3.5" fill="#3b82f6"/><circle cx="740.5882352941177" cy="215.92000000000002" r="3.5" fill="#3b82f6"/><circle cx="759.2156862745098" cy="217.36" r="3.5" fill="#3b82f6"/><circle cx="777.843137254902" cy="228.64000000000001" r="3.5" fill="#3b82f6"/><circle cx="796.470588235294" cy="229.12" r="3.5" fill="#3b82f6"/><circle cx="815.0980392156863" cy="220.24" r="3.5" fill="#3b82f6"/><circle cx="833.7254901960785" cy="221.92" r="3.5" fill="#3b82f6"/><circle cx="852.3529411764705" cy="221.68" r="3.5" fill="#3b82f6"/><circle cx="870.9803921568628" cy="219.76" r="3.5" fill="#3b82f6"/><circle cx="889.6078431372549" cy="218.08" r="3.5" fill="#3b82f6"/><circle cx="908.2352941176471" cy="219.51999999999998" r="3.5" fill="#3b82f6"/><circle cx="926.8627450980392" cy="247.12" r="3.5" fill="#3b82f6"/><circle cx="945.4901960784313" cy="221.92" r="3.5" fill="#3b82f6"/><circle cx="964.1176470588235" cy="219.76" r="3.5" fill="#3b82f6"/><circle cx="982.7450980392157" cy="216.64" r="3.5" fill="#3b82f6"/><circle cx="1001.3725490196078" cy="214.95999999999998" r="3.5" fill="#3b82f6"/><circle cx="1020" cy="218.08" r="3.5" fill="#3b82f6"/>
-
-  <!-- Milestone Pins -->
-  
-        <circle cx="256.27450980392155" cy="244.72" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
-        <text x="256.27450980392155" y="232.72" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle">Dragon Run: 0% (0/8)</text>
-      
-
-        <circle cx="442.54901960784315" cy="232.72" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
-        <text x="442.54901960784315" y="220.72" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle">Dragon Run: 0% (0/8)</text>
-      
-
-        <circle cx="628.8235294117648" cy="220.48000000000002" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
-        <text x="628.8235294117648" y="208.48000000000002" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle">Dragon Run: 0% (0/8)</text>
-      
-
-        <circle cx="815.0980392156863" cy="220.24" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
-        <text x="815.0980392156863" y="208.24" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle">Dragon Run: 0% (0/8)</text>
-      
-
-        <circle cx="1001.3725490196078" cy="214.95999999999998" r="6" fill="#f59e0b" stroke="#ffffff" stroke-width="2"/>
-        <text x="1001.3725490196078" y="202.95999999999998" fill="#f59e0b" font-size="11" font-weight="bold" text-anchor="middle">Dragon Run: 0% (0/8)</text>
-      
-
-  <!-- CHART 2: SLM Training Loss -->
-  <rect x="70" y="370" width="950" height="200" fill="#1e293b" rx="6"/>
-  <text x="85" y="395" fill="#f8fafc" font-size="13" font-weight="bold">System 2 Qwen2.5-Coder SLM Cross-Entropy Loss</text>
-
-  <!-- Gridlines for Loss -->
-  
-      <line x1="70" y1="570" x2="1020" y2="570" stroke="#334155" stroke-width="1" stroke-dasharray="0"/>
-      <text x="60" y="574" fill="#64748b" font-size="11" text-anchor="end">0.00</text>
+      <rect x="846.2857142857143" y="467.5" width="60" height="92.5" fill="#06b6d4" fill-opacity="0.35" rx="3"/>
+      <rect x="910.2857142857143" y="560" width="60" height="0" fill="#06b6d4" rx="3"/>
+      <text x="910.2857142857143" y="462.5" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <text x="910.2857142857143" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Puzzles</text>
     
-      <line x1="70" y1="526.7380488860048" x2="1020" y2="526.7380488860048" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="530.7380488860048" fill="#64748b" font-size="11" text-anchor="end">0.10</text>
-    
-      <line x1="70" y1="483.4760977720095" x2="1020" y2="483.4760977720095" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="487.4760977720095" fill="#64748b" font-size="11" text-anchor="end">0.20</text>
-    
-      <line x1="70" y1="440.21414665801433" x2="1020" y2="440.21414665801433" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/>
-      <text x="60" y="444.21414665801433" fill="#64748b" font-size="11" text-anchor="end">0.30</text>
+      <rect x="999.1428571428571" y="560" width="60" height="0" fill="#ec4899" fill-opacity="0.35" rx="3"/>
+      <rect x="1063.142857142857" y="560" width="60" height="0" fill="#ec4899" rx="3"/>
+      <text x="1063.142857142857" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <text x="1063.142857142857" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Multiplayer</text>
     
 
-  <!-- Loss Path -->
-  <path d="M 88.6 370.0 L 107.3 497.6 L 125.9 514.2 L 144.5 538.7 L 163.1 542.4 L 181.8 542.1 L 200.4 551.9 L 219.0 556.9 L 237.6 563.8 L 256.3 566.9 L 274.9 553.7 L 293.5 565.6 L 312.2 567.9 L 330.8 566.3 L 349.4 569.9 L 368.0 569.6 L 386.7 567.5 L 405.3 565.1 L 423.9 565.0 L 442.5 561.8 L 461.2 557.5 L 479.8 566.6 L 498.4 569.7 L 517.1 567.5 L 535.7 568.7 L 554.3 570.0 L 572.9 570.0 L 591.6 570.0 L 610.2 570.0 L 628.8 570.0 L 647.5 570.0 L 666.1 566.4 L 684.7 554.8 L 703.3 562.3 L 722.0 564.9 L 740.6 563.0 L 759.2 563.3 L 777.8 564.6 L 796.5 564.7 L 815.1 568.1 L 833.7 567.3 L 852.4 569.1 L 871.0 568.8 L 889.6 567.2 L 908.2 567.3 L 926.9 566.3 L 945.5 566.2 L 964.1 565.6 L 982.7 564.6 L 1001.4 567.4 L 1020.0 567.6" fill="none" stroke="#f43f5e" stroke-width="3"/>
-  <circle cx="88.62745098039215" cy="370" r="3" fill="#f43f5e"/><circle cx="107.25490196078431" cy="497.57949383517195" r="3" fill="#f43f5e"/><circle cx="125.88235294117646" cy="514.1920830629462" r="3" fill="#f43f5e"/><circle cx="144.50980392156862" cy="538.7216093445815" r="3" fill="#f43f5e"/><circle cx="163.13725490196077" cy="542.398875189271" r="3" fill="#f43f5e"/><circle cx="181.76470588235293" cy="542.139303482587" r="3" fill="#f43f5e"/><circle cx="200.3921568627451" cy="551.873242483236" r="3" fill="#f43f5e"/><circle cx="219.01960784313727" cy="556.8916288124594" r="3" fill="#f43f5e"/><circle cx="237.64705882352942" cy="563.7702790395847" r="3" fill="#f43f5e"/><circle cx="256.27450980392155" cy="566.9284014709064" r="3" fill="#f43f5e"/><circle cx="274.9019607843137" cy="553.6902444300238" r="3" fill="#f43f5e"/><circle cx="293.52941176470586" cy="565.6305429374864" r="3" fill="#f43f5e"/><circle cx="312.156862745098" cy="567.8801643954142" r="3" fill="#f43f5e"/><circle cx="330.7843137254902" cy="566.3227341553104" r="3" fill="#f43f5e"/><circle cx="349.4117647058824" cy="569.913476097772" r="3" fill="#f43f5e"/><circle cx="368.03921568627453" cy="569.6106424399741" r="3" fill="#f43f5e"/><circle cx="386.66666666666663" cy="567.4908068353883" r="3" fill="#f43f5e"/><circle cx="405.29411764705884" cy="565.1113995241185" r="3" fill="#f43f5e"/><circle cx="423.921568627451" cy="564.9816136707766" r="3" fill="#f43f5e"/><circle cx="442.54901960784315" cy="561.8234912394549" r="3" fill="#f43f5e"/><circle cx="461.17647058823525" cy="557.4540341769414" r="3" fill="#f43f5e"/><circle cx="479.80392156862746" cy="566.6255678131083" r="3" fill="#f43f5e"/><circle cx="498.4313725490196" cy="569.740428293316" r="3" fill="#f43f5e"/><circle cx="517.0588235294117" cy="567.5340687865023" r="3" fill="#f43f5e"/><circle cx="535.686274509804" cy="568.6588795154662" r="3" fill="#f43f5e"/><circle cx="554.313725490196" cy="570" r="3" fill="#f43f5e"/><circle cx="572.9411764705883" cy="570" r="3" fill="#f43f5e"/><circle cx="591.5686274509804" cy="570" r="3" fill="#f43f5e"/><circle cx="610.1960784313725" cy="570" r="3" fill="#f43f5e"/><circle cx="628.8235294117648" cy="570" r="3" fill="#f43f5e"/><circle cx="647.4509803921568" cy="570" r="3" fill="#f43f5e"/><circle cx="666.0784313725491" cy="566.4092580575384" r="3" fill="#f43f5e"/><circle cx="684.7058823529412" cy="554.8150551589877" r="3" fill="#f43f5e"/><circle cx="703.3333333333333" cy="562.2993727017089" r="3" fill="#f43f5e"/><circle cx="721.9607843137255" cy="564.8950897685486" r="3" fill="#f43f5e"/><circle cx="740.5882352941177" cy="563.0348258706467" r="3" fill="#f43f5e"/><circle cx="759.2156862745098" cy="563.3376595284448" r="3" fill="#f43f5e"/><circle cx="777.843137254902" cy="564.5922561107506" r="3" fill="#f43f5e"/><circle cx="796.470588235294" cy="564.6787800129786" r="3" fill="#f43f5e"/><circle cx="815.0980392156863" cy="568.0964741509842" r="3" fill="#f43f5e"/><circle cx="833.7254901960785" cy="567.3177590309323" r="3" fill="#f43f5e"/><circle cx="852.3529411764705" cy="569.0914990266061" r="3" fill="#f43f5e"/><circle cx="870.9803921568628" cy="568.7886653688081" r="3" fill="#f43f5e"/><circle cx="889.6078431372549" cy="567.1879731775903" r="3" fill="#f43f5e"/><circle cx="908.2352941176471" cy="567.3177590309323" r="3" fill="#f43f5e"/><circle cx="926.8627450980392" cy="566.2794722041964" r="3" fill="#f43f5e"/><circle cx="945.4901960784313" cy="566.1929483019684" r="3" fill="#f43f5e"/><circle cx="964.1176470588235" cy="565.6305429374864" r="3" fill="#f43f5e"/><circle cx="982.7450980392157" cy="564.6355180618646" r="3" fill="#f43f5e"/><circle cx="1001.3725490196078" cy="567.4475448842743" r="3" fill="#f43f5e"/><circle cx="1020" cy="567.5773307376163" r="3" fill="#f43f5e"/>
-
-  <!-- X Axis Labels -->
-  <text x="88.62745098039215" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 1</text><text x="163.13725490196077" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 5</text><text x="237.64705882352942" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 9</text><text x="312.156862745098" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 13</text><text x="386.66666666666663" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 17</text><text x="461.17647058823525" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 21</text><text x="535.686274509804" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 25</text><text x="610.1960784313725" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 29</text><text x="684.7058823529412" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 33</text><text x="759.2156862745098" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 37</text><text x="833.7254901960785" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 41</text><text x="908.2352941176471" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 45</text><text x="982.7450980392157" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 49</text><text x="1020" y="595" fill="#94a3b8" font-size="11" text-anchor="middle">Iter 51</text>
+  <!-- Panel 3: SLM Loss -->
+  <rect x="70" y="645" width="1070" height="180" fill="#1e293b" rx="6"/>
+  <text x="82" y="665" fill="#f8fafc" font-size="13" font-weight="bold">3. System 2 Qwen2.5-Coder SLM Cross-Entropy Loss</text>
+  <path d="M 90.2 645.0 L 110.4 759.8 L 130.6 774.8 L 150.8 796.8 L 170.9 800.2 L 191.1 799.9 L 211.3 808.7 L 231.5 813.2 L 251.7 819.4 L 271.9 822.2 L 292.1 810.3 L 312.3 821.1 L 332.5 823.1 L 352.6 821.7 L 372.8 824.9 L 393.0 824.6 L 413.2 822.7 L 433.4 820.6 L 453.6 820.5 L 473.8 817.6 L 494.0 813.7 L 514.2 822.0 L 534.3 824.8 L 554.5 822.8 L 574.7 823.8 L 594.9 825.0 L 615.1 825.0 L 635.3 825.0 L 655.5 825.0 L 675.7 825.0 L 695.8 825.0 L 716.0 821.8 L 736.2 811.3 L 756.4 818.1 L 776.6 820.4 L 796.8 818.7 L 817.0 819.0 L 837.2 820.1 L 857.4 820.2 L 877.5 823.3 L 897.7 822.6 L 917.9 824.2 L 938.1 823.9 L 958.3 822.5 L 978.5 822.6 L 998.7 821.7 L 1018.9 821.6 L 1039.1 821.1 L 1059.2 820.2 L 1079.4 822.7 L 1099.6 822.8 L 1119.8 798.7 L 1140.0 799.4" fill="none" stroke="#f43f5e" stroke-width="3"/>
+  <text x="90.18867924528303" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 1</text><text x="170.9433962264151" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 5</text><text x="251.69811320754715" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 9</text><text x="332.45283018867923" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 13</text><text x="413.2075471698113" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 17</text><text x="493.96226415094344" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 21</text><text x="574.7169811320755" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 25</text><text x="655.4716981132075" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 29</text><text x="736.2264150943396" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 33</text><text x="816.9811320754717" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 37</text><text x="897.7358490566038" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 41</text><text x="978.4905660377359" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 45</text><text x="1059.245283018868" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 49</text><text x="1140" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 53</text>
 </svg>

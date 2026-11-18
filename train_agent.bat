@@ -53,10 +53,14 @@ if %ERRORLEVEL% NEQ 0 (
     echo [Daemon] Starting RTX 5060 Neural Daemon in background...
     start /B "" ".\neural_lab\.venv\Scripts\python.exe" ".\neural_lab\neural_daemon.py"
     echo [Daemon] Waiting for Qwen2.5-Coder to load into VRAM...
-    ping 127.0.0.1 -n 12 >nul
+    for /L %%i in (1,1,30) do (
+        curl.exe -s http://127.0.0.1:8765/health >nul 2>&1 && goto :daemon_ready
+        ping 127.0.0.1 -n 2 >nul
+    )
 ) else (
     echo [Daemon] RTX 5060 Neural Stack is already resident in VRAM!
 )
+:daemon_ready
 
 if "%1"=="--dragon-run" (
     echo [3/3] Launching Tier 3 Autonomous Vanilla Dragon Survival Run...

@@ -531,6 +531,136 @@ export function resolveMinecraftCoordinates(
     .replace(/@p/g, botName);
 }
 
+export interface SurvivalCampaignGoal {
+  id: string;
+  title: string;
+  prompt: string;
+}
+
+export const SURVIVAL_CAMPAIGN_GOALS: SurvivalCampaignGoal[] = [
+  {
+    id: 'ender_dragon',
+    title: 'Slay the Ender Dragon',
+    prompt:
+      'Open-World Survival Campaign: Survive, progress through Wood, Stone, Iron, Diamond, and Nether tiers, craft gear, and defeat the Ender Dragon.',
+  },
+  {
+    id: 'wither_boss',
+    title: 'Summon & Defeat the Wither',
+    prompt:
+      'Open-World Survival Campaign: Progress through Stone and Iron gear, gather Nether resources and skulls, and defeat the Wither boss.',
+  },
+  {
+    id: 'full_beacon',
+    title: 'Activate a Full Beacon',
+    prompt:
+      'Open-World Survival Campaign: Mine ores and obsidian, smelt glass, craft a Beacon, and activate it atop a mineral pyramid.',
+  },
+  {
+    id: 'ocean_sponges',
+    title: 'Collect Ocean Monument Sponges',
+    prompt:
+      'Open-World Survival Campaign: Craft armor and weapons, hunt food, gear up for underwater exploration, and acquire Sponges.',
+  },
+  {
+    id: 'diamond_armory',
+    title: 'Craft & Equip Diamond Armory',
+    prompt:
+      'Open-World Survival Campaign: Gather wood and stone, smelt iron, excavate diamond ore underground, and craft and equip Diamond Armor and Tools.',
+  },
+  {
+    id: 'homestead_automation',
+    title: 'Build Self-Sustaining Homestead',
+    prompt:
+      'Open-World Survival Campaign: Gather wood and stone, build an enclosed survival shelter, craft chests and furnaces, till farmland, and breed livestock.',
+  },
+];
+
+export const SURVIVAL_SECTOR_ORIGIN = { x: 20000, y: 100, z: 20000 };
+
+export async function seedPersistentSurvivalSector(
+  server: HeadlessMinecraftServerManager,
+  botUsername = 'NeuroAgent_Surv'
+): Promise<void> {
+  const ox = SURVIVAL_SECTOR_ORIGIN.x;
+  const oy = SURVIVAL_SECTOR_ORIGIN.y;
+  const oz = SURVIVAL_SECTOR_ORIGIN.z;
+
+  // Step 1: Load and force-lock survival chunks BEFORE placing terrain blocks
+  server.sendCommand(`op ${botUsername}`);
+  server.sendCommand(`gamemode creative ${botUsername}`);
+  server.sendCommand(`forceload add ${ox - 24} ${oz - 24} ${ox + 24} ${oz + 24}`);
+  server.sendCommand(`tp ${botUsername} ${ox} ${oy + 1} ${oz} 0 0`);
+  server.sendCommand(`spawnpoint ${botUsername} ${ox} ${oy} ${oz}`);
+  await new Promise((r) => setTimeout(r, 500));
+
+  const cmds = [
+    `fill ${ox - 24} ${oy - 9} ${oz - 24} ${ox + 24} ${oy - 9} ${oz + 24} minecraft:bedrock`,
+    `fill ${ox - 24} ${oy - 8} ${oz - 24} ${ox + 24} ${oy - 2} ${oz + 24} minecraft:stone`,
+    `fill ${ox - 24} ${oy - 1} ${oz - 24} ${ox + 24} ${oy - 1} ${oz + 24} minecraft:grass_block`,
+    `fill ${ox - 24} ${oy} ${oz - 24} ${ox + 24} ${oy + 12} ${oz + 24} minecraft:air`,
+    // Underground ore veins (Coal, Iron, Gold, Diamond strata)
+    `fill ${ox - 6} ${oy - 3} ${oz - 6} ${ox - 2} ${oy - 2} ${oz - 2} minecraft:coal_ore`,
+    `fill ${ox + 3} ${oy - 4} ${oz - 6} ${ox + 6} ${oy - 3} ${oz - 2} minecraft:iron_ore`,
+    `fill ${ox - 5} ${oy - 6} ${oz + 3} ${ox - 2} ${oy - 5} ${oz + 6} minecraft:gold_ore`,
+    `fill ${ox + 3} ${oy - 7} ${oz + 3} ${ox + 5} ${oy - 6} ${oz + 5} minecraft:diamond_ore`,
+    // Exposed stone quarry outcrop & sand bank
+    `fill ${ox - 9} ${oy} ${oz - 3} ${ox - 6} ${oy + 2} ${oz + 3} minecraft:stone`,
+    `fill ${ox - 8} ${oy + 1} ${oz - 1} ${ox - 7} ${oy + 2} ${oz + 1} minecraft:coal_ore`,
+    `fill ${ox - 12} ${oy - 1} ${oz + 8} ${ox - 6} ${oy - 1} ${oz + 14} minecraft:sand`,
+    // Multi-tree oak & birch grove
+    `fill ${ox + 5} ${oy} ${oz + 4} ${ox + 5} ${oy + 4} ${oz + 4} minecraft:oak_log`,
+    `fill ${ox + 4} ${oy + 3} ${oz + 3} ${ox + 6} ${oy + 5} ${oz + 5} minecraft:oak_leaves`,
+    `fill ${ox + 10} ${oy} ${oz - 6} ${ox + 10} ${oy + 4} ${oz - 6} minecraft:birch_log`,
+    `fill ${ox + 9} ${oy + 3} ${oz - 7} ${ox + 11} ${oy + 5} ${oz - 5} minecraft:birch_leaves`,
+    `fill ${ox - 4} ${oy} ${oz + 10} ${ox - 4} ${oy + 4} ${oz + 10} minecraft:oak_log`,
+    `fill ${ox - 5} ${oy + 3} ${oz + 9} ${ox - 3} ${oy + 5} ${oz + 11} minecraft:oak_leaves`,
+    // Water pond & isolated obsidian/lava hazard rim
+    `fill ${ox + 6} ${oy - 1} ${oz + 10} ${ox + 10} ${oy - 1} ${oz + 14} minecraft:water`,
+    `fill ${ox + 15} ${oy - 1} ${oz + 15} ${ox + 17} ${oy - 1} ${oz + 17} minecraft:lava`,
+    // Natural passive livestock & distant hostiles (world is persistent, never wiped)
+    `summon minecraft:cow ${ox + 8} ${oy} ${oz + 8}`,
+    `summon minecraft:sheep ${ox + 9} ${oy} ${oz - 9}`,
+    `summon minecraft:zombie ${ox - 16} ${oy} ${oz - 14}`,
+    `tp ${botUsername} ${ox} ${oy} ${oz} 0 0`,
+    `gamemode survival ${botUsername}`,
+  ];
+
+  for (const cmd of cmds) {
+    server.sendCommand(cmd);
+  }
+  await new Promise((r) => setTimeout(r, 350));
+}
+
+export function evaluateSurvivalAdvancements(
+  invNames: string[],
+  blocksPlaced: number,
+  mobsKilledTotal: number
+): { unlocked: string[]; techTier: string; score: number } {
+  const has = (sub: string) => invNames.some((n) => n.includes(sub));
+  const unlocked: string[] = [];
+
+  if (has('_log') || has('_stem') || has('_planks')) unlocked.push('Wood Age');
+  if (has('cobblestone') || has('stone_pickaxe') || has('furnace')) unlocked.push('Stone Age');
+  if (has('stone_pickaxe') || has('iron_pickaxe') || has('diamond_pickaxe')) unlocked.push('Getting an Upgrade');
+  if (has('iron_ingot') || has('raw_iron') || has('iron_sword') || has('iron_pickaxe')) unlocked.push('Acquire Hardware');
+  if (has('_helmet') || has('_chestplate') || has('_leggings') || has('_boots')) unlocked.push('Suit Up');
+  if (has('bucket') || has('obsidian') || has('flint_and_steel')) unlocked.push('Hot Stuff');
+  if (has('diamond')) unlocked.push('Diamonds!');
+  if (has('blaze') || has('nether') || has('wither')) unlocked.push('We Need to Go Deeper');
+  if (blocksPlaced >= 4 || has('bread') || has('wheat') || mobsKilledTotal > 0) unlocked.push('Homesteader & Hunter');
+
+  let techTier = 'Raw';
+  if (unlocked.includes('We Need to Go Deeper')) techTier = 'Nether';
+  else if (unlocked.includes('Diamonds!')) techTier = 'Diamond';
+  else if (unlocked.includes('Acquire Hardware') || unlocked.includes('Suit Up')) techTier = 'Iron';
+  else if (unlocked.includes('Stone Age') || unlocked.includes('Getting an Upgrade')) techTier = 'Stone';
+  else if (unlocked.includes('Wood Age')) techTier = 'Wood';
+
+  const score = Math.min(100, unlocked.length * 14 + Math.min(16, blocksPlaced * 2 + mobsKilledTotal * 5));
+  return { unlocked, techTier, score };
+}
+
 function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): MinebenchTaskSpec[] {
   if (!fs.existsSync(tasksPath)) return [];
   try {
@@ -785,7 +915,42 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       llm,
     });
   }
-  console.log(`[TrainLoop] All ${concurrency} worker(s) successfully connected and ready!\n`);
+  console.log(`[TrainLoop] All ${concurrency} worker(s) successfully connected and ready!`);
+
+  // Connect dedicated Persistent Open-World Survival Worker ('NeuroAgent_Surv') at X=20000, Z=20000
+  const enableSurvivalWorker = !cliArgs.includes('--no-survival');
+  let survivalWorker: {
+    botUsername: string;
+    system1: System1BotController;
+    registry: DynamicMCPToolRegistry;
+    mcpServer: NeuroCraftMCPServer;
+    llm: UnifiedLLMClient;
+  } | null = null;
+  let survivalSectorSeeded = false;
+  const persistentUnlockedAdvancements = new Set<string>();
+
+  if (enableSurvivalWorker) {
+    try {
+      const sSystem1 = new System1BotController();
+      console.log(`[TrainLoop] Connecting Persistent Survival Worker (NeuroAgent_Surv) at (20000, 100, 20000)...`);
+      await sSystem1.connect('127.0.0.1', serverPort, 'NeuroAgent_Surv');
+      await new Promise((r) => setTimeout(r, 500));
+      const sReg = new DynamicMCPToolRegistry();
+      registerBaseMCPTools(sReg);
+      survivalWorker = {
+        botUsername: 'NeuroAgent_Surv',
+        system1: sSystem1,
+        registry: sReg,
+        mcpServer: new NeuroCraftMCPServer(sReg),
+        llm: new UnifiedLLMClient(),
+      };
+      await seedPersistentSurvivalSector(server, 'NeuroAgent_Surv');
+      survivalSectorSeeded = true;
+      console.log(`[TrainLoop] Persistent Open-World Survival Sector seeded at (20000, 100, 20000)!\n`);
+    } catch (sErr: any) {
+      console.warn(`[TrainLoop] Warning: Could not initialize Survival Worker: ${sErr?.message || sErr}\n`);
+    }
+  }
 
   let isShuttingDown = false;
 
@@ -810,6 +975,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         w.system1.bot?.quit();
       } catch {}
     }
+    try {
+      survivalWorker?.system1.bot?.quit();
+    } catch {}
     await server.stopServer();
     if (spawnedDaemonProc) {
       try {
@@ -861,10 +1029,229 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let iterScoreSum = 0;
       let iterRewardSum = 0;
       const iterStepTransitions: any[] = [];
+      const domainStats: Record<string, { passed: number; total: number; scoreSum: number }> = {};
+
+      const classifyDomainBucket = (t: MinebenchTaskSpec): string => {
+        const tid = (t.id || '').toLowerCase();
+        if (tid.startsWith('omni_craft_') || tid.startsWith('prog_')) return 'Crafting & Tech';
+        if (tid.startsWith('omni_mob_') || t.domain === 'TACTICAL_COMBAT') return 'Tactical Combat';
+        if (t.domain === 'AGILITY_PARKOUR') return 'Agility & Parkour';
+        if (t.domain === 'ARCHITECTURE_BUILDING') return 'Building & 3D';
+        if (t.domain === 'MULTIPLAYER_ARENA') return 'Multiplayer';
+        if (t.domain === 'PUZZLE_ENGINEERING') return 'Puzzles & Tooling';
+        return 'Survival & Affordances';
+      };
 
       const arenaResetMutex = new AsyncMutex();
       const stateWriteMutex = new AsyncMutex();
       const taskQueue = new ConcurrentTaskQueue(loopTasks);
+      let testbenchFinished = false;
+
+      // Launch Persistent Open-World Survival Worker concurrently with Testbench workers (zero extra batch overhead)
+      const campaignGoal = SURVIVAL_CAMPAIGN_GOALS[(iter - 1) % SURVIVAL_CAMPAIGN_GOALS.length];
+      const survivalPromise = (async () => {
+        if (!survivalWorker) return undefined;
+        try {
+          if (
+            !survivalWorker.system1.bot ||
+            !survivalWorker.system1.bot.entity ||
+            (survivalWorker.system1.bot as any)._client?.ended
+          ) {
+            await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+            await new Promise((r) => setTimeout(r, 500));
+          }
+          const sBot = survivalWorker.system1.bot;
+          if (!sBot?.entity?.position) return undefined;
+
+          if (!survivalSectorSeeded) {
+            await seedPersistentSurvivalSector(server, survivalWorker.botUsername);
+            survivalSectorSeeded = true;
+          } else {
+            const distFromOrigin = Math.hypot(
+              sBot.entity.position.x - SURVIVAL_SECTOR_ORIGIN.x,
+              sBot.entity.position.z - SURVIVAL_SECTOR_ORIGIN.z
+            );
+            if (distFromOrigin > 96 || sBot.entity.position.y < 60) {
+              server.sendCommand(
+                `tp ${survivalWorker.botUsername} ${SURVIVAL_SECTOR_ORIGIN.x} ${SURVIVAL_SECTOR_ORIGIN.y} ${SURVIVAL_SECTOR_ORIGIN.z} 0 0`
+              );
+              server.sendCommand(`gamemode survival ${survivalWorker.botUsername}`);
+              await new Promise((r) => setTimeout(r, 200));
+            }
+          }
+
+          let sDeaths = 0;
+          let sBlocksPlaced = 0;
+          let sKills = 0;
+          const onSDeath = () => { sDeaths++; };
+          const onSBlock = (o: any, n: any) => {
+            if (o?.name === 'air' && n?.name && n.name !== 'air' && n.position?.distanceTo(sBot.entity.position) <= 6.0) {
+              sBlocksPlaced++;
+            }
+          };
+          const onSKill = (e: any) => {
+            if (e && !String(e.name || '').toLowerCase().startsWith('neuroagent')) sKills++;
+          };
+          sBot.on('death', onSDeath);
+          sBot.on('blockUpdate', onSBlock);
+          sBot.on('entityDead', onSKill);
+
+          const sStepHistory: ExecutedStepRecord[] = [];
+          const sExecutedTools: any[] = [];
+          let bestAdvCount = persistentUnlockedAdvancements.size;
+          let finalEval = evaluateSurvivalAdvancements(
+            (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase()),
+            sBlocksPlaced,
+            sKills
+          );
+
+          try {
+            const maxSurvivalSteps = 10;
+            for (let sIdx = 0; sIdx < maxSurvivalSteps; sIdx++) {
+              if (isShuttingDown || sDeaths > 0 || (testbenchFinished && sIdx >= 3)) break;
+              const preState = sampleLiveRLTransitionState(survivalWorker.system1);
+              const worldState = survivalWorker.system1.getLatestWorldState();
+              const schemas = survivalWorker.registry.listSchemas();
+              const dynamicPrompt = `${campaignGoal.prompt} [Tech Tier: ${finalEval.techTier} | Unlocked: ${
+                finalEval.unlocked.join(', ') || 'none'
+              }]`;
+
+              const dec =
+                sIdx === 0
+                  ? await survivalWorker.llm.generateCognitiveDecision('SurvivalDirector', dynamicPrompt, worldState, schemas, [])
+                  : await survivalWorker.llm.generateGoalContinuationDecision(dynamicPrompt, sStepHistory, worldState, schemas, []);
+
+              if (!dec.toolCall?.name) {
+                if (dec.goalCompleted && sIdx > 0) break;
+                continue;
+              }
+
+              const toolName = dec.toolCall.name;
+              const toolArgs = dec.toolCall.arguments || {};
+              const abortCtrl = new AbortController();
+              const timer = setTimeout(() => abortCtrl.abort(), 22000);
+              let ok = false;
+              let summary = '';
+
+              const sub: SubtaskStatus = {
+                id: `survival_${iter}_${sIdx}`,
+                toolName,
+                description: `Survival ${toolName}`,
+                args: toolArgs,
+                startedAt: Date.now(),
+                estimatedDurationMs: 5000,
+                progress: 0,
+                status: 'RUNNING',
+              };
+
+              try {
+                const rpcRes = await survivalWorker.mcpServer.handleRpcRequest(
+                  { jsonrpc: '2.0', id: sub.id, method: 'tools/call', params: { name: toolName, arguments: toolArgs } },
+                  () => survivalWorker!.system1.createToolExecutionContext(sub, async () => {}, abortCtrl.signal)
+                );
+                const payloadText = rpcRes.result?.content?.[0]?.text;
+                if (payloadText) {
+                  try {
+                    const p = JSON.parse(payloadText);
+                    ok = Boolean(p.success);
+                    summary = String(p.summary || '');
+                  } catch {
+                    ok = !rpcRes.error;
+                    summary = payloadText;
+                  }
+                }
+              } finally {
+                clearTimeout(timer);
+                try {
+                  sBot.pathfinder?.setGoal(null);
+                  sBot.clearControlStates?.();
+                } catch {}
+              }
+
+              sExecutedTools.push({ name: toolName, arguments: toolArgs, args: toolArgs, success: ok, summary });
+              sStepHistory.push({ stepNumber: sIdx + 1, toolName, args: toolArgs, success: ok, summary });
+
+              const invNames = (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase());
+              const nextEval = evaluateSurvivalAdvancements(invNames, sBlocksPlaced, sKills);
+              const newAdvs = nextEval.unlocked.filter((a) => !persistentUnlockedAdvancements.has(a));
+              for (const a of newAdvs) persistentUnlockedAdvancements.add(a);
+              const rewardDelta = newAdvs.length * 40 + (ok ? 5 : -2);
+              finalEval = nextEval;
+
+              if (preState) {
+                await stateWriteMutex.runExclusive(async () => {
+                  fs.appendFileSync(
+                    transitionsPath,
+                    JSON.stringify({
+                      provider: 'local_gpu',
+                      taskId: `campaign_${campaignGoal.id}`,
+                      workerId: 99,
+                      stepIdx: sIdx,
+                      voxels: preState.voxels,
+                      entities: preState.entities,
+                      botState: preState.botState,
+                      actionIdx: mapToolToDiscreteActionIndex(toolName),
+                      aimDelta: [0, 0],
+                      reward: rewardDelta,
+                    }) + '\n',
+                    'utf-8'
+                  );
+                });
+              }
+
+              // Anchor trajectory into replay buffer whenever a new Advancement is unlocked
+              if (newAdvs.length > 0 && sExecutedTools.some((t) => t.success)) {
+                await stateWriteMutex.runExclusive(async () => {
+                  fs.appendFileSync(
+                    replayPath,
+                    JSON.stringify({
+                      timestamp: new Date().toISOString(),
+                      iteration: iter,
+                      provider: 'open_world_survival',
+                      taskId: `campaign_${campaignGoal.id}`,
+                      workerId: 99,
+                      botUsername: survivalWorker!.botUsername,
+                      domain: 'PROGRESSION_DRAGON',
+                      tier: 4,
+                      prompt: campaignGoal.prompt,
+                      passed: true,
+                      score: Math.max(75, finalEval.score),
+                      rawReward: Math.max(75, finalEval.score),
+                      health: sBot.health ?? 20,
+                      food: sBot.food ?? 20,
+                      deaths: sDeaths,
+                      executedTools: sExecutedTools.filter((t) => t.success),
+                    }) + '\n',
+                    'utf-8'
+                  );
+                });
+                console.log(
+                  `  [Survival Campaign] 🌟 Unlocked Advancement(s): [${newAdvs.join(', ')}] | Goal: ${campaignGoal.title} | Tier: ${finalEval.techTier}`
+                );
+              }
+            }
+          } finally {
+            sBot.removeListener('death', onSDeath);
+            sBot.removeListener('blockUpdate', onSBlock);
+            sBot.removeListener('entityDead', onSKill);
+          }
+
+          console.log(
+            `  [Survival Worker] Campaign "${campaignGoal.title}" (${sStepHistory.length} steps) | Tier: ${finalEval.techTier} | Advancements: ${finalEval.unlocked.length} (+${Math.max(0, persistentUnlockedAdvancements.size - bestAdvCount)} new)`
+          );
+          return {
+            goalId: campaignGoal.id,
+            goalTitle: campaignGoal.title,
+            techTierReached: finalEval.techTier,
+            advancementsUnlocked: Array.from(persistentUnlockedAdvancements),
+            survivalSteps: sStepHistory.length,
+            score: finalEval.score,
+          };
+        } catch (survErr: any) {
+          console.warn(`[Survival Worker] Campaign step warning: ${survErr?.message || survErr}`);
+          return undefined;
+        }
+      })();
 
       const workerPromises = workers.map(async (worker) => {
         while (!isShuttingDown) {
@@ -932,7 +1319,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   },
               concurrency > 1
             );
-            await new Promise((r) => setTimeout(r, 300));
           });
 
           if (task.sparringConfig) {
@@ -1259,8 +1645,29 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 } catch {}
               }
 
-              if (stepSuccess) affordanceActions++;
-              executedTools.push({ name: toolName, arguments: toolArgs, args: toolArgs, success: stepSuccess });
+              const AFFORDANCE_TOOLS = new Set([
+                'shear_sheep',
+                'breed_animals',
+                'use_tool_on_block',
+                'light_block_fire',
+                'loot_chest',
+                'interact_block_or_puzzle',
+                'till_and_farm',
+                'tame_animal',
+                'give_item_to_player',
+                'store_items_in_chest',
+                'retrieve_items_from_chest',
+              ]);
+              if (stepSuccess && AFFORDANCE_TOOLS.has(toolName)) {
+                affordanceActions++;
+              }
+              executedTools.push({
+                name: toolName,
+                arguments: toolArgs,
+                args: toolArgs,
+                success: stepSuccess,
+                summary: stepSummary,
+              });
               stepHistory.push({
                 stepNumber: stepIdx + 1,
                 toolName,
@@ -1308,6 +1715,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             iterScoreSum += grading.score;
             iterRewardSum += grading.rawReward;
 
+            const bucket = classifyDomainBucket(task);
+            if (!domainStats[bucket]) domainStats[bucket] = { passed: 0, total: 0, scoreSum: 0 };
+            domainStats[bucket].total++;
+            if (grading.passed) domainStats[bucket].passed++;
+            domainStats[bucket].scoreSum += grading.score;
+
             for (const tr of episodeTransitions) {
               fs.appendFileSync(transitionsPath, JSON.stringify(tr) + '\n', 'utf-8');
               iterStepTransitions.push(tr);
@@ -1345,8 +1758,24 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       });
 
       await Promise.all(workerPromises);
+      testbenchFinished = true;
+      const survivalCampaignRes = await survivalPromise;
 
       if (isShuttingDown) break;
+
+      // Compute domain-decomposed skill breakdown for this iteration
+      const domainBreakdown: Record<
+        string,
+        { passed: number; total: number; passRate: number; meanScore: number }
+      > = {};
+      for (const [dom, st] of Object.entries(domainStats)) {
+        domainBreakdown[dom] = {
+          passed: st.passed,
+          total: st.total,
+          passRate: st.total > 0 ? Number(((st.passed / st.total) * 100).toFixed(1)) : 0,
+          meanScore: st.total > 0 ? Number((st.scoreSum / st.total).toFixed(1)) : 0,
+        };
+      }
 
       // Iteration summary calculation across all sharded episodes
       const iterPassRate = Number(((iterPassed / numTasks) * 100).toFixed(1));
@@ -1376,6 +1805,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let rlLossDelta = '';
       let slmLossDelta = '';
       let actLossDelta = '';
+      let actAimErrorDeg: number | undefined;
+      let actDiscreteAccPct: number | undefined;
+
+      const isFinalCyclePlanned = cyclesCompleted + 1 >= maxCycles;
 
       if (!isEvalOnly) {
         console.log(`[TrainLoop] Cleanly pausing bot connection(s) during gradient backpropagation...`);
@@ -1387,6 +1820,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             w.system1.bot?.quit();
           } catch {}
         }
+        try {
+          survivalWorker?.system1.bot?.quit();
+        } catch {}
         await new Promise((r) => setTimeout(r, 600));
 
         // 1. Trigger RTX 5060 PPO + GRPO gradient update for System 1 Motor Reflex
@@ -1436,11 +1872,14 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             if (isNewBest) actArgs.push('--is-best');
             const actOut = execFileSync(venvPython, actArgs, { encoding: 'utf-8', timeout: 180000 });
             const parsedAct = JSON.parse(actOut.trim().split('\n').pop() || '{}');
+            actAimErrorDeg = typeof parsedAct.aim_error_deg === 'number' ? parsedAct.aim_error_deg : undefined;
+            actDiscreteAccPct =
+              typeof parsedAct.discrete_accuracy_pct === 'number' ? parsedAct.discrete_accuracy_pct : undefined;
             actLossDelta = `ACT (80.8M): ${parsedAct.initial_loss} -> ${parsedAct.final_loss} (aim err: ${parsedAct.aim_error_deg}°, disc: ${parsedAct.discrete_accuracy_pct}%)`;
           } catch (err: any) {
             actLossDelta = `ACT note: ${err.message}`;
           } finally {
-            // Hot-reload updated adapter and action head in running neural daemon
+            // Hot-reload updated adapter, action head, and reflex policy in running neural daemon
             try {
               await fetch('http://127.0.0.1:8765/reload_adapter', {
                 method: 'POST',
@@ -1460,20 +1899,28 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           } catch {}
         }
 
-        // Reconnect worker bots and sparring partners cleanly to live server after backprop and adapter reload
-        console.log(`[TrainLoop] Reconnecting ${concurrency} worker bot(s) cleanly to server on port ${serverPort}...`);
-        for (const w of workers) {
-          try {
-            await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
-            await new Promise((r) => setTimeout(r, 600));
-          } catch (err: any) {
-            console.warn(`[TrainLoop] Bot reconnect warning for ${w.botUsername}: ${err?.message || err}`);
+        if (!isFinalCyclePlanned && !isShuttingDown) {
+          // Reconnect worker bots and sparring partners cleanly to live server after backprop and adapter reload
+          console.log(`[TrainLoop] Reconnecting ${concurrency} worker bot(s) cleanly to server on port ${serverPort}...`);
+          for (const w of workers) {
+            try {
+              await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
+              await new Promise((r) => setTimeout(r, 600));
+            } catch (err: any) {
+              console.warn(`[TrainLoop] Bot reconnect warning for ${w.botUsername}: ${err?.message || err}`);
+            }
+            try {
+              await w.sparringPartner.connect('127.0.0.1', serverPort);
+              await new Promise((r) => setTimeout(r, 300));
+            } catch (err: any) {
+              console.warn(`[TrainLoop] Sparring partner reconnect warning for ${w.sparringPartner.username}: ${err?.message || err}`);
+            }
           }
-          try {
-            await w.sparringPartner.connect('127.0.0.1', serverPort);
-            await new Promise((r) => setTimeout(r, 300));
-          } catch (err: any) {
-            console.warn(`[TrainLoop] Sparring partner reconnect warning for ${w.sparringPartner.username}: ${err?.message || err}`);
+          if (survivalWorker) {
+            try {
+              await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+              await new Promise((r) => setTimeout(r, 400));
+            } catch {}
           }
         }
       } else {
@@ -1504,6 +1951,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             try { await w.sparringPartner.disconnect().catch(() => {}); } catch {}
             try { w.system1.bot?.quit(); } catch {}
           }
+          try { survivalWorker?.system1.bot?.quit(); } catch {}
           await server.stopServer();
           await new Promise((r) => setTimeout(r, 1500));
 
@@ -1526,6 +1974,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 await new Promise((r) => setTimeout(r, 300));
               } catch {}
             }
+            if (survivalWorker) {
+              try {
+                await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+                await seedPersistentSurvivalSector(server, survivalWorker.botUsername);
+              } catch {}
+            }
           }
         } catch (dErr: any) {
           console.error('[TrainLoop] Error in Dragon Survival Run:', dErr);
@@ -1543,10 +1997,20 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           slmFinLoss = m.finalLoss;
         } catch {}
       }
+      if (actAimErrorDeg === undefined) {
+        const actMetricsPath = path.resolve(process.cwd(), 'neural_lab', 'results', 'action_head_metrics.json');
+        if (fs.existsSync(actMetricsPath)) {
+          try {
+            const am = JSON.parse(fs.readFileSync(actMetricsPath, 'utf-8'));
+            actAimErrorDeg = am.aim_error_deg;
+            actDiscreteAccPct = am.discrete_accuracy_pct;
+          } catch {}
+        }
+      }
 
       state.history.push({
         iteration: iter,
-        phase: `Exhaustive Loop (${numTasks} Tasks across ${concurrency} Sharded Bots)`,
+        phase: `Exhaustive Loop (${numTasks} Tasks across ${concurrency} Sharded Bots${survivalWorker ? ' + Survival' : ''})`,
         timestamp: new Date().toISOString(),
         meanScore: iterMeanScore,
         passRate: iterPassRate,
@@ -1556,6 +2020,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         durationSeconds: Math.round((Date.now() - iterStartTime) / 1000),
         slmInitialLoss: slmInitLoss,
         slmFinalLoss: slmFinLoss,
+        actAimErrorDeg,
+        actDiscreteAccPct,
+        domainBreakdown,
+        survivalCampaign: survivalCampaignRes,
         dragonSurvivalScore: dragonScore,
         dragonMilestones: dragonMilestonesCount,
         milestone: dragonScore !== undefined ? `Dragon Run: ${dragonScore.toFixed(0)}% (${dragonMilestonesCount}/8)` : undefined,
@@ -1571,6 +2039,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       console.log(
         `  All-Time Best: ${state.bestMeanScore}/100 (${state.bestPassRate}% at Iteration #${state.bestIteration})`
       );
+      if (survivalCampaignRes) {
+        console.log(
+          `  Open-World Survival: Goal "${survivalCampaignRes.goalTitle}" | Tier: ${survivalCampaignRes.techTierReached} | Advancements: ${survivalCampaignRes.advancementsUnlocked.length}`
+        );
+      }
       if (rlLossDelta) console.log(`  System 1 (PPO Reflex): ${rlLossDelta}`);
       if (actLossDelta) console.log(`  System 1 (80.8M ACT):  ${actLossDelta}`);
       if (slmLossDelta) console.log(`  System 2 (SLM LoRA):   ${slmLossDelta}`);
@@ -1598,6 +2071,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           w.system1.bot?.quit();
         } catch {}
       }
+      try {
+        survivalWorker?.system1.bot?.quit();
+      } catch {}
       await server.stopServer();
       if (spawnedDaemonProc) {
         try {

@@ -204,6 +204,96 @@ def generate_temporal_action_dataset(
     return latents, proprios, voxels, target_aim, target_move, target_discrete, target_values
 
 
+def load_real_transitions_dataset(
+    max_samples: int = 2000,
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor] | None:
+    """Loads recent real Mojang server transitions into 8-tick temporal chunks."""
+    trans_path = ROOT_DIR / "minebench" / "results" / "real_rl_transitions.jsonl"
+    if not trans_path.exists():
+        return None
+
+    records = []
+    try:
+        with open(trans_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()[-max_samples:]
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                if len(rec.get("voxels", [])) == 3375 and len(rec.get("botState", [])) >= 10:
+                    records.append(rec)
+            except Exception:
+                pass
+    except Exception:
+        return None
+
+    if not records:
+        return None
+
+    n = len(records)
+    latents = torch.randn(n, LATENT_DIM, device=device) * 0.1
+    proprios = torch.zeros(n, PROPRIOCEPTION_DIM, device=device)
+    voxels = torch.zeros(n, 15, 15, 15, device=device)
+    tgt_aim = torch.zeros(n, CHUNK_SIZE, 2, device=device)
+    tgt_move = torch.zeros(n, CHUNK_SIZE, 2, device=device)
+    tgt_disc = torch.zeros(n, CHUNK_SIZE, 6, device=device)
+    tgt_val = torch.zeros(n, device=device)
+
+    for i, r in enumerate(records):
+        bs = r["botState"]
+        proprios[i, 0] = float(bs[0])  # health
+        proprios[i, 1] = float(bs[1])  # food
+        proprios[i, 4] = float(bs[2])  # vx
+        proprios[i, 5] = float(bs[3])  # vy
+        proprios[i, 6] = float(bs[4])  # vz
+        proprios[i, 7] = float(bs[8])  # onGround
+        proprios[i, 8] = float(bs[9])  # inWater
+
+        # Nearest hostile entity into proprio slots 9..12
+        ents = r.get("entities", [])
+        if ents and len(ents[0]) >= 8 and ents[0][7] > 0.5:
+            proprios[i, 9] = max(-1.0, min(1.0, float(ents[0][0]) * 2.0))
+            proprios[i, 10] = max(-1.0, min(1.0, float(ents[0][1]) * 2.0))
+            proprios[i, 11] = max(-1.0, min(1.0, float(ents[0][2]) * 2.0))
+            proprios[i, 12] = float(ents[0][3])
+            proprios[i, 13] = float(ents[0][11]) if len(ents[0]) > 11 else 0.0
+
+        vox_t = torch.tensor(r["voxels"], dtype=torch.float32, device=device).view(15, 15, 15)
+        voxels[i] = (vox_t > 0).float()
+
+        aim = r.get("aimDelta", [0.0, 0.0])
+        dyaw_deg = max(-180.0, min(180.0, float(aim[0]) * 180.0 / math.pi))
+        dpitch_deg = max(-90.0, min(90.0, float(aim[1]) * 180.0 / math.pi))
+        act_idx = int(r.get("actionIdx", 1))
+
+        # Match semantic slice conditioning
+        if act_idx == 3:  # melee combat
+            latents[i, 32:64] += 1.5
+            tgt_move[i, :, 1] = 1.0
+            tgt_disc[i, 2:5, 3] = 1.0  # attack
+        elif act_idx == 2:  # parkour/navigation
+            latents[i, 64:96] += 1.5
+            tgt_move[i, :, 1] = 1.0
+            tgt_disc[i, :, 1] = 1.0  # sprint
+            tgt_disc[i, 2:5, 0] = 1.0  # jump
+        elif act_idx == 4:  # bow / build / use
+            latents[i, 192:224] += 1.5
+            tgt_disc[i, 0:6, 4] = 1.0  # use_item
+        else:
+            latents[i, 96:128] += 1.0
+            tgt_move[i, :, 1] = 0.5
+
+        tgt_aim[i, :, 0] = dyaw_deg
+        tgt_aim[i, :, 1] = dpitch_deg
+        rew = float(r.get("reward", 0.0))
+        tgt_val[i] = 1.0 / (1.0 + math.exp(-max(-5.0, min(5.0, rew / 25.0))))
+
+    return latents, proprios, voxels, tgt_aim, tgt_move, tgt_disc, tgt_val
+
+
 def train_action_transformer(
     epochs: int = 4,
     batch_size: int = 64,
@@ -225,22 +315,43 @@ def train_action_transformer(
 
     t0 = time.perf_counter()
 
-    # 1. Instantiate the 80.8M parameter Action Transformer
+    # 1. Instantiate or resume the 80.8M parameter Action Transformer
     dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
     model = MinecraftActionHead().to(device=device, dtype=dtype)
+    ckpt_path = CHECKPOINT_DIR / "action_head_latest.pt"
+    effective_lr = lr
+    if ckpt_path.exists():
+        try:
+            model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True))
+            model.to(device=device, dtype=dtype)
+            effective_lr = min(lr, 1e-4)
+            print(f"[Action Head] Resumed existing weights from {ckpt_path} (fine-tune lr={effective_lr:.1e})")
+        except Exception as e:
+            print(f"[Action Head] Could not resume checkpoint ({e}); starting from scratch.")
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"[Action Head] Instantiated model with {total_params:,} parameters ({total_params * 2 / 1e6:.1f} MB in BF16).")
+    print(f"[Action Head] Model has {total_params:,} parameters ({total_params * 2 / 1e6:.1f} MB in BF16).")
 
-    # 2. Generate physically grounded training dataset
-    print("[Action Head] Generating 8,000 temporal action trajectory samples...")
+    # 2. Generate physically grounded training dataset + real server transitions
+    print("[Action Head] Generating 4,000 synthetic + loading real Mojang server transitions...")
     latents, proprios, voxels, tgt_aim, tgt_move, tgt_discrete, tgt_val = generate_temporal_action_dataset(
-        num_samples=8000, device=str(device)
+        num_samples=4000, device=str(device)
     )
+    real_ds = load_real_transitions_dataset(max_samples=2000, device=str(device))
+    if real_ds is not None:
+        r_lat, r_prop, r_vox, r_aim, r_move, r_disc, r_val = real_ds
+        print(f"[Action Head] Appended {r_lat.shape[0]} real server transition trajectories!")
+        latents = torch.cat([latents, r_lat], dim=0)
+        proprios = torch.cat([proprios, r_prop], dim=0)
+        voxels = torch.cat([voxels, r_vox], dim=0)
+        tgt_aim = torch.cat([tgt_aim, r_aim], dim=0)
+        tgt_move = torch.cat([tgt_move, r_move], dim=0)
+        tgt_discrete = torch.cat([tgt_discrete, r_disc], dim=0)
+        tgt_val = torch.cat([tgt_val, r_val], dim=0)
 
     dataset = TensorDataset(latents, proprios, voxels, tgt_aim, tgt_move, tgt_discrete, tgt_val)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
-    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=effective_lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
 
     criterion_mse = nn.MSELoss()

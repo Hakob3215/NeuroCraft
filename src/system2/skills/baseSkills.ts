@@ -2966,9 +2966,13 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             continue;
           }
 
-          // 80.8M Action Chunking Transformer: execute neural motor chunk for active aiming, sprint-strikes, and dodging
+          // 80.8M Action Chunking Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
           if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function' && dist <= 12.0) {
-            await ctx.kinematics.executeNeuralMotorChunk(`Engage and attack ${targetEntity.name || 'hostile mob'} in combat`);
+            await ctx.kinematics.executeNeuralMotorChunk(
+              `Engage and attack ${targetEntity.name || 'hostile mob'} in combat`,
+              targetEntity.position,
+              2
+            );
           }
 
           if (dist > 3.1) {
@@ -4775,12 +4779,22 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return { success: false, summary: `No ${goalBlockName} goal marker found within 48m.` };
       }
 
-      // 1. Engage 80.8M Action Chunking Transformer for neural parkour motor chunks
+      // 1. Engage 80.8M Action Chunking Transformer for target-oriented neural parkour motor chunks
       if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function') {
         for (let chunkIdx = 0; chunkIdx < 3; chunkIdx++) {
           if (ctx.bot.entity.position.distanceTo(goalPos) <= 2.2) break;
-          await ctx.kinematics.executeNeuralMotorChunk(`Sprint jump across parkour blocks towards ${goalBlockName}`);
+          try {
+            await ctx.bot.lookAt(goalPos.offset(0, 1, 0), true);
+          } catch {}
+          await ctx.kinematics.executeNeuralMotorChunk(
+            `Sprint jump across parkour blocks towards ${goalBlockName}`,
+            goalPos,
+            2
+          );
         }
+        try {
+          ctx.bot.clearControlStates?.();
+        } catch {}
         if (ctx.bot.entity.position.distanceTo(goalPos) <= 2.5) {
           return {
             success: true,

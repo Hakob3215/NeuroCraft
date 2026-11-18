@@ -18,6 +18,7 @@ export class ReflexEngine {
   private isExecutingReflex = false;
   private lastNeuralCheckTime = 0;
   private isEvaluatingNeuralReflex = false;
+  private hasActiveSubtask = false;
 
   constructor(
     private readonly bot: any,
@@ -115,14 +116,23 @@ export class ReflexEngine {
       }
     }
 
+    this.hasActiveSubtask = Boolean(state.activeSubtask);
+
     // 6. System 1 Closed-Loop Neural Voxel Reflex (~2ms on RTX 5060)
-    // Periodically checks VoxelReflexPolicy for sub-tick shield blocking & evasions
+    // Periodically checks VoxelReflexPolicy for sub-tick shield blocking & evasions against real hostiles
     if (
       !this.isExecutingReflex &&
       !this.isEvaluatingNeuralReflex &&
       now - this.lastNeuralCheckTime > 250 &&
       state.visibleEntities &&
-      state.visibleEntities.some((e) => e.type === 'hostile' || (e as any).isHostile || e.distance < 6.0)
+      state.visibleEntities.some(
+        (e) =>
+          e.type === 'hostile' ||
+          (e as any).isHostile ||
+          ['creeper', 'skeleton', 'zombie', 'spider', 'enderman', 'warden', 'blaze', 'wither', 'witch', 'pillager', 'drowned', 'piglin'].includes(
+            e.name?.toLowerCase?.() || ''
+          )
+      )
     ) {
       this.lastNeuralCheckTime = now;
       this.isEvaluatingNeuralReflex = true;
@@ -149,15 +159,17 @@ export class ReflexEngine {
               this.combat.raiseShield();
             }
 
-            // 3. Directional movement states
-            this.bot.setControlState('forward', Boolean(reflexOut.actions.move_forward));
-            this.bot.setControlState('back', Boolean(reflexOut.actions.move_back));
-            this.bot.setControlState('left', Boolean(reflexOut.actions.strafe_left));
-            this.bot.setControlState('right', Boolean(reflexOut.actions.strafe_right));
-            this.bot.setControlState('sprint', Boolean(reflexOut.actions.sprint));
-            this.bot.setControlState('sneak', Boolean(reflexOut.actions.sneak));
-            if (reflexOut.actions.jump && this.bot.entity.onGround) {
-              this.bot.setControlState('jump', true);
+            // 3. Directional movement states (only override locomotion when no active subtask/pathfinder holds control)
+            if (!this.hasActiveSubtask && !this.bot.pathfinder?.isMoving?.()) {
+              this.bot.setControlState('forward', Boolean(reflexOut.actions.move_forward));
+              this.bot.setControlState('back', Boolean(reflexOut.actions.move_back));
+              this.bot.setControlState('left', Boolean(reflexOut.actions.strafe_left));
+              this.bot.setControlState('right', Boolean(reflexOut.actions.strafe_right));
+              this.bot.setControlState('sprint', Boolean(reflexOut.actions.sprint));
+              this.bot.setControlState('sneak', Boolean(reflexOut.actions.sneak));
+              if (reflexOut.actions.jump && this.bot.entity.onGround) {
+                this.bot.setControlState('jump', true);
+              }
             }
 
             // 4. Attack nearest hostile or rival opponent in reach
@@ -185,10 +197,10 @@ export class ReflexEngine {
               }
             }
 
-            // Reset control states after 200ms sub-tick window
+            // Reset control states after 200ms sub-tick window only if no active subtask/pathfinder owns movement
             setTimeout(() => {
               try {
-                if (this.bot?.entity) {
+                if (this.bot?.entity && !this.hasActiveSubtask && !this.bot.pathfinder?.isMoving?.()) {
                   this.bot.setControlState('forward', false);
                   this.bot.setControlState('back', false);
                   this.bot.setControlState('left', false);

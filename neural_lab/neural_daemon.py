@@ -206,6 +206,8 @@ class NeuralStackServer:
         self.slm_model: Any = None
         self.active_adapter: str | None = None
         self.llm_lock: asyncio.Lock | None = None
+        self.bot_latents: Dict[str, torch.Tensor] = {}
+        self.latest_latent_h: torch.Tensor = torch.zeros(1, 1536, dtype=torch.float32, device=self.device)
 
         self.telemetry = {
             "reflex_calls": 0,
@@ -297,8 +299,8 @@ class NeuralStackServer:
                 from peft import PeftModel
                 self.slm_model = PeftModel.from_pretrained(self.slm_model, adapter_dir)
                 try:
-                    self.slm_model = self.slm_model.merge_and_unload()
-                    print(f"[System 2] Successfully fused 'Minecraft Savant' LoRA weights directly into base model (32.5+ tok/s)")
+                    self.slm_model.merge_adapter()
+                    print(f"[System 2] Merged 'Minecraft Savant' LoRA weights reversibly into PeftModel (32.5+ tok/s)")
                 except Exception as fe:
                     print(f"[System 2] Warning: Could not merge LoRA weights at startup: {fe}")
                 self.slm_model = self.slm_model.to(dtype=target_dtype).to(self.device)
@@ -518,6 +520,7 @@ class NeuralStackServer:
         temperature: float = 0.0,
         top_p: float = 1.0,
         do_sample: bool = False,
+        bot_id: str = "default",
     ):
         messages = [
             {"role": "system", "content": system_prompt},
@@ -538,6 +541,8 @@ class NeuralStackServer:
             "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             "eos_token_id": [self.tokenizer.eos_token_id, 151643, 151645],
             "repetition_penalty": repetition_penalty,
+            "return_dict_in_generate": True,
+            "output_hidden_states": True,
             "stopping_criteria": stop_criteria,
         }
         if do_sample and temperature > 0.0:
@@ -548,13 +553,20 @@ class NeuralStackServer:
             gen_kwargs["do_sample"] = False
 
         with torch.inference_mode():
-            generated_ids = self.slm_model.generate(
+            gen_outputs = self.slm_model.generate(
                 **model_inputs,
                 **gen_kwargs,
             )
 
-        new_tokens = generated_ids[0][input_len:]
+        new_tokens = gen_outputs.sequences[0][input_len:]
         num_tokens = len(new_tokens)
+
+        if gen_outputs.hidden_states and len(gen_outputs.hidden_states) > 0:
+            last_step_states = gen_outputs.hidden_states[-1]
+            latent_h = last_step_states[-1][:, -1, :].detach().to(dtype=torch.float32, device=self.device)
+            self.latest_latent_h = latent_h
+            self.bot_latents[bot_id] = latent_h
+
         response_text = self.tokenizer.decode(new_tokens, skip_special_tokens=False).strip()
         response_text = (
             response_text.replace("<|im_end|>", "")
@@ -574,6 +586,7 @@ class NeuralStackServer:
         user_prompt = data.get("user_prompt", "")
         max_new_tokens = int(data.get("max_new_tokens", 160))
         repetition_penalty = float(data.get("repetition_penalty", 1.1))
+        bot_id = str(data.get("bot_id", "default"))
 
         default_temp = float(os.environ.get("SLM_TEMPERATURE", "0.0"))
         default_top_p = float(os.environ.get("SLM_TOP_P", "1.0"))
@@ -590,7 +603,7 @@ class NeuralStackServer:
             t0 = time.perf_counter()
             wait_ms = (t0 - t_enqueue) * 1000.0
             response_text, num_tokens, input_len = await asyncio.to_thread(
-                self._run_slm_sync, system_prompt, user_prompt, max_new_tokens, repetition_penalty, temperature, top_p, do_sample
+                self._run_slm_sync, system_prompt, user_prompt, max_new_tokens, repetition_penalty, temperature, top_p, do_sample, bot_id
             )
             dt_ms = (time.perf_counter() - t0) * 1000.0
 
@@ -687,7 +700,10 @@ class NeuralStackServer:
                 # Extract last hidden state (1536-dim)
                 if gen_outputs.hidden_states and len(gen_outputs.hidden_states) > 0:
                     last_step_states = gen_outputs.hidden_states[-1]
-                    latent_h = last_step_states[-1][:, -1, :]  # [1, 1536]
+                    latent_h = last_step_states[-1][:, -1, :].detach().to(dtype=torch.float32, device=self.device)  # [1, 1536]
+                    bot_id = str(data.get("bot_id", "default"))
+                    self.latest_latent_h = latent_h
+                    self.bot_latents[bot_id] = latent_h
                 else:
                     latent_h = torch.zeros(1, 1536, device=self.device)
 
@@ -706,6 +722,50 @@ class NeuralStackServer:
             "raw_text": response_text,
             "tokens_generated": num_tokens,
             "latency_ms": round(dt_ms, 1),
+        })
+
+    async def handle_act_chunk(self, request: web.Request) -> web.Response:
+        """
+        Lock-free ultra-low-latency (~1.5ms) 20Hz continuous 8-tick Action Chunk inference.
+        Cross-attends to the bot's cached 1,536-dim System 2 SLM latent vector + live proprioception + 3D voxels
+        without acquiring self.llm_lock or running autoregressive LLM decoding!
+        """
+        if self.action_head is None:
+            return web.json_response({"error": "ActionHead not loaded"}, status=503)
+
+        t0 = time.perf_counter()
+        data = await request.json()
+        bot_id = str(data.get("bot_id", "default"))
+        intent = str(data.get("intent", "")).lower()
+        proprio_list = data.get("proprioception", [0.0] * 24)
+        voxels_list = data.get("voxels", None)
+
+        base_latent = self.bot_latents.get(bot_id, self.latest_latent_h)
+        latent_h = (base_latent * 0.1).clone()  # Keep normalized SLM residual magnitude aligned with ACT head scale
+
+        # Condition latent semantic slices aligned with train_action_head.py representations
+        if "kite" in intent or "creeper" in intent:
+            latent_h[:, 0:32] += 1.5
+        elif "combat" in intent or "attack" in intent or "engage" in intent or "slay" in intent:
+            latent_h[:, 32:64] += 1.5
+        elif "parkour" in intent or "navigate" in intent or "bridge" in intent or "sprint" in intent:
+            latent_h[:, 64:96] += 1.5
+        elif "mine" in intent or "gather" in intent or "dig" in intent or "chop" in intent:
+            latent_h[:, 96:128] += 1.5
+        else:
+            latent_h[:, 224:256] += 1.0
+
+        proprio_tensor = torch.tensor(proprio_list, dtype=torch.float32, device=self.device)
+        voxel_tensor = None
+        if isinstance(voxels_list, list) and len(voxels_list) == 3375:
+            voxel_tensor = torch.tensor(voxels_list, dtype=torch.float32, device=self.device).view(1, 15, 15, 15)
+
+        motor_controls = self.action_head.predict_action_dict(latent_h, proprio_tensor, voxels=voxel_tensor)
+        dt_ms = (time.perf_counter() - t0) * 1000.0
+
+        return web.json_response({
+            "motor_controls": motor_controls,
+            "latency_ms": round(dt_ms, 2),
         })
 
     async def handle_shutdown(self, request: web.Request) -> web.Response:
@@ -750,20 +810,24 @@ class NeuralStackServer:
                 target_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
 
                 if has_adapter:
+                    # Reversibly unmerge & unload previous PeftModel so base weights W_0 NEVER stack across loops
                     if isinstance(self.slm_model, PeftModel):
                         try:
-                            self.slm_model.load_adapter(adapter_dir, adapter_name="savant_reloaded")
-                            self.slm_model.set_adapter("savant_reloaded")
+                            if hasattr(self.slm_model, "unmerge_adapter"):
+                                self.slm_model.unmerge_adapter()
+                        except Exception:
+                            pass
+                        try:
+                            base = self.slm_model.unload()
                         except Exception:
                             base = self.slm_model.get_base_model()
-                            self.slm_model = PeftModel.from_pretrained(base, adapter_dir)
+                        self.slm_model = PeftModel.from_pretrained(base, adapter_dir)
                     else:
                         self.slm_model = PeftModel.from_pretrained(self.slm_model, adapter_dir)
 
-                    # Fuse adapter weights directly into base linear layers for peak inference speed (32.5+ tok/s)
                     try:
-                        self.slm_model = self.slm_model.merge_and_unload()
-                        print(f"[System 2] Fused reloaded LoRA adapter weights directly into base model (32.5+ tok/s).")
+                        self.slm_model.merge_adapter()
+                        print(f"[System 2] Merged reloaded LoRA adapter reversibly into PeftModel (zero weight stacking).")
                     except Exception as fe:
                         print(f"[System 2] Warning: Could not merge reloaded LoRA: {fe}")
 
@@ -775,7 +839,7 @@ class NeuralStackServer:
                     self.active_adapter = adapter_dir
                 param_device = next(self.slm_model.parameters()).device
 
-                # Also hot-reload 80.8M Action Head weights if updated
+                # Hot-reload 80.8M Action Head weights if updated
                 head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
                 if self.action_head is not None and os.path.exists(head_ckpt):
                     try:
@@ -787,6 +851,19 @@ class NeuralStackServer:
                     except Exception as he:
                         print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}")
 
+                # Hot-reload System 1 PPO VoxelReflexPolicy weights if updated
+                reflex_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "voxel_reflex_policy_latest.pt")
+                reflex_reloaded = False
+                if self.reflex_policy is not None and os.path.exists(reflex_ckpt):
+                    try:
+                        self.reflex_policy.load_state_dict(torch.load(reflex_ckpt, map_location=self.device, weights_only=True))
+                        self.reflex_policy.to(self.device)
+                        self.reflex_policy.eval()
+                        reflex_reloaded = True
+                        print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}")
+                    except Exception as re_err:
+                        print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}")
+
                 vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
                 print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)")
                 return web.json_response({
@@ -794,6 +871,7 @@ class NeuralStackServer:
                     "active_adapter": adapter_dir,
                     "slm_device": str(param_device),
                     "action_head_reloaded": bool(self.action_head is not None),
+                    "reflex_reloaded": reflex_reloaded,
                     "vram_allocated_mb": round(vram_mb, 1),
                     "reloaded_at": time.time(),
                 })
@@ -855,6 +933,7 @@ def main():
     app.router.add_post("/chunk_scan", server.handle_chunk_scan)
     app.router.add_post("/llm/chat", server.handle_llm_chat)
     app.router.add_post("/vla/predict", server.handle_vla_predict)
+    app.router.add_post("/act/chunk", server.handle_act_chunk)
     app.router.add_post("/dqn_sparring/predict", server.handle_dqn_sparring_predict)
     app.router.add_post("/pause_slm", server.handle_pause_slm)
     app.router.add_post("/reload_adapter", server.handle_reload_adapter)
