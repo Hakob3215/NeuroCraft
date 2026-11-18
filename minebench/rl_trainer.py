@@ -321,24 +321,57 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
     var_rew = sum((x - mean_rew) ** 2 for x in rewards_list) / max(1, len(rewards_list))
     std_rew = max(1e-3, math.sqrt(var_rew))
 
+    def _build_fallback_grounded_system_prompt(rec: Dict, prior: List[Dict]) -> str:
+        recent_str = (
+            ", ".join(
+                f"{ps['name']}({'OK' if ps['ok'] else 'FAIL'})" for ps in prior[-3:]
+            )
+            if prior
+            else "none"
+        )
+        hp = rec.get("health", 20)
+        food = rec.get("food", 20)
+        dom = rec.get("domain", "SURVIVAL")
+        return (
+            "You are NeuroAgent, an autonomous Minecraft AI companion.\n"
+            f"State: Domain:{dom} HP:{hp}/20 Food:{food}/20\n"
+            f"Recent Actions: [{recent_str}]\n"
+            "Respond ONLY with valid JSON."
+        )
+
     recent_verified: List[Dict] = []
 
     for r_idx, r in enumerate(records):
-        if not r.get("passed", False):
+        is_passed = bool(r.get("passed", False))
+        score_val = float(r.get("score", 0.0))
+        raw_r = float(r.get("rawReward", 0.0))
+        if not is_passed and score_val < 25.0 and raw_r < 25.0:
             continue
 
-        raw_r = float(r.get("rawReward", 0.0))
         tid = r.get("taskId")
         prompt = str(r.get("prompt", "Execute task."))
         if not tid:
             continue
 
-        adv = (raw_r - mean_rew) / std_rew
         exec_tools = r.get("executedTools", [])
+        max_valid_step_idx = len(exec_tools) - 1
+        if not is_passed:
+            # Distill only verified productive prefixes for partial milestone episodes
+            max_valid_step_idx = -1
+            for s_i, t_entry in enumerate(exec_tools):
+                if bool(t_entry.get("success", False)) and float(t_entry.get("stepReward", 0.0)) > 0.0:
+                    max_valid_step_idx = s_i
+            if max_valid_step_idx < 0:
+                continue
+
+        adv = (raw_r - mean_rew) / std_rew
         is_recent = r_idx >= len(records) - 300
         prior_steps: List[Dict] = []
 
         for step_idx, tool_entry in enumerate(exec_tools):
+            if not is_passed and step_idx > max_valid_step_idx:
+                break
+
             tool_name = str(tool_entry.get("name", ""))
             tool_args = tool_entry.get("args") or tool_entry.get("arguments") or {}
             step_ok = bool(tool_entry.get("success", True))
@@ -365,6 +398,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                     'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                 )
 
+            recorded_sys_prompt = str(tool_entry.get("systemPrompt") or "").strip()
+            sys_content = (
+                recorded_sys_prompt
+                if recorded_sys_prompt
+                else _build_fallback_grounded_system_prompt(r, prior_steps)
+            )
+
             sample = {
                 "provider": r.get("provider", "local_gpu"),
                 "taskId": tid,
@@ -375,7 +415,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 "messages": [
                     {
                         "role": "system",
-                        "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion. Respond ONLY with valid JSON.",
+                        "content": sys_content,
                     },
                     {"role": "user", "content": user_content},
                     {
@@ -387,7 +427,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                                     "name": tool_name,
                                     "arguments": tool_args,
                                 },
-                                "goalCompleted": step_idx == len(exec_tools) - 1,
+                                "goalCompleted": bool(is_passed and step_idx == len(exec_tools) - 1),
                             }
                         ),
                     },

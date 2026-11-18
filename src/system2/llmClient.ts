@@ -681,6 +681,19 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
   }
 
   /**
+   * Returns the compact state-grounded system prompt (including Inventory, Gear & Durability,
+   * Workstations Nearby, Immediately Craftable, Smeltable, Resource Clusters, and 360° Entities)
+   * so RL replay buffers and QLoRA training trajectories preserve the exact live sensory state.
+   */
+  public buildGroundedTrainingSystemPrompt(
+    tools: MCPToolSchema[],
+    state: SanitizedWorldState,
+    stepHistory?: ExecutedStepRecord[]
+  ): string {
+    return this.buildCompactLocalSystemPrompt(tools, state, [], stepHistory);
+  }
+
+  /**
    * Ultra-compact system prompt (~320 tokens vs ~3,800 tokens) tailored specifically for the
    * Local RTX 5060 SLM (Qwen2.5-Coder) so prefill + generation completes in ~1.8 - 2.5 seconds.
    */

@@ -678,14 +678,369 @@ MULTI_STEP_GOLD_SPEC = [
             },
         ],
     },
+    {
+        "taskId": "prog_tier2_iron_pickaxe",
+        "domain": "PROGRESSION_DRAGON",
+        "activeGoal": "Mine iron_ore with stone_pickaxe, smelt raw_iron in a furnace, and craft an iron_pickaxe!",
+        "steps": [
+            {
+                "tool": "gather_resource",
+                "args": {"blockType": "iron_ore", "count": 4},
+                "summary": "Harvested 4x raw_iron using stone_pickaxe",
+                "thought": "Step 1: Mine 4 iron_ore using stone_pickaxe.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "stone_pickaxe",
+                    "inv": ["1x stone_pickaxe", "4x coal", "4x stick"],
+                    "workstations": ["crafting_table", "furnace"],
+                    "blocks": ["iron_ore@(2,58,1)"],
+                    "clusters": ["iron_ore(4x,2.2m north)"],
+                },
+            },
+            {
+                "tool": "smelt_item",
+                "args": {"inputItem": "raw_iron", "count": 4},
+                "summary": "Smelted 4x iron_ingot in furnace",
+                "thought": "Step 2: Smelt raw_iron into iron_ingot using coal in the furnace.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "raw_iron",
+                    "inv": ["1x stone_pickaxe", "4x raw_iron", "4x coal", "4x stick"],
+                    "workstations": ["crafting_table", "furnace"],
+                    "smeltable": "raw_iron",
+                },
+            },
+            {
+                "tool": "craft_item",
+                "args": {"itemName": "iron_pickaxe", "count": 1},
+                "summary": "Successfully crafted 1x iron_pickaxe",
+                "thought": "Step 3: Craft iron_pickaxe at the crafting_table using 3 iron_ingot and 2 stick.",
+                "goalCompleted": True,
+                "state_hint": {
+                    "held": "iron_ingot",
+                    "inv": ["1x stone_pickaxe", "4x iron_ingot", "1x coal", "4x stick"],
+                    "workstations": ["crafting_table", "furnace"],
+                    "craftable": ["iron_pickaxe", "iron_sword"],
+                },
+            },
+        ],
+    },
+    {
+        "taskId": "prog_tier4_diamond_and_obsidian",
+        "domain": "PROGRESSION_DRAGON",
+        "activeGoal": "Mine diamond_ore, craft a diamond_pickaxe, mine obsidian, and ignite the Nether portal!",
+        "steps": [
+            {
+                "tool": "gather_resource",
+                "args": {"blockType": "diamond_ore", "count": 3},
+                "summary": "Harvested 3x diamond using iron_pickaxe",
+                "thought": "Step 1: Mine 3 diamond_ore at deep level using iron_pickaxe.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "pos": "(10,-54,6)",
+                    "held": "iron_pickaxe",
+                    "inv": ["1x iron_pickaxe", "4x stick", "1x flint_and_steel"],
+                    "workstations": ["crafting_table"],
+                    "blocks": ["diamond_ore@(12,-54,6)"],
+                    "clusters": ["diamond_ore(3x,2.0m east)"],
+                },
+            },
+            {
+                "tool": "craft_item",
+                "args": {"itemName": "diamond_pickaxe", "count": 1},
+                "summary": "Successfully crafted 1x diamond_pickaxe",
+                "thought": "Step 2: Craft a diamond_pickaxe from 3 diamonds and 2 sticks so we can mine obsidian.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "pos": "(10,-54,6)",
+                    "held": "iron_pickaxe",
+                    "inv": ["1x iron_pickaxe", "3x diamond", "4x stick", "1x flint_and_steel"],
+                    "workstations": ["crafting_table"],
+                    "craftable": ["diamond_pickaxe"],
+                },
+            },
+            {
+                "tool": "gather_resource",
+                "args": {"blockType": "obsidian", "count": 10},
+                "summary": "Harvested 10x obsidian using diamond_pickaxe",
+                "thought": "Step 3: Mine 10 obsidian blocks with the diamond_pickaxe.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "pos": "(14,-54,8)",
+                    "held": "diamond_pickaxe",
+                    "inv": ["1x diamond_pickaxe", "1x flint_and_steel"],
+                    "blocks": ["obsidian@(16,-54,8)"],
+                    "clusters": ["obsidian(10x,2.0m east)"],
+                },
+            },
+            {
+                "tool": "light_block_fire",
+                "args": {"targetBlock": "obsidian"},
+                "summary": "Ignited obsidian Nether portal with flint_and_steel",
+                "thought": "Step 4: Ignite the obsidian portal frame using flint_and_steel.",
+                "goalCompleted": True,
+                "state_hint": {
+                    "pos": "(18,-54,8)",
+                    "held": "flint_and_steel",
+                    "inv": ["1x diamond_pickaxe", "1x flint_and_steel", "10x obsidian"],
+                    "blocks": ["obsidian@(19,-54,8)"],
+                },
+            },
+        ],
+    },
+    {
+        "taskId": "prog_tier5_nether_and_stronghold",
+        "domain": "PROGRESSION_DRAGON",
+        "activeGoal": "Slay blazes and endermen, craft Eyes of Ender, and triangulate the Stronghold!",
+        "steps": [
+            {
+                "tool": "engage_combat",
+                "args": {"targetType": "blaze", "maxRange": 32, "count": 4},
+                "summary": "Slayed 4 blazes and collected blaze_rod drops",
+                "thought": "Step 1: Fight nearby blazes in the Nether Fortress to collect blaze rods.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "iron_sword",
+                    "offhand": "shield",
+                    "armor": "iron_chestplate, iron_leggings",
+                    "inv": ["1x iron_sword", "8x cooked_beef", "6x ender_pearl"],
+                    "entities": ["blaze(7.5m)", "blaze(11.0m)"],
+                },
+            },
+            {
+                "tool": "engage_combat",
+                "args": {"targetType": "enderman", "maxRange": 32, "count": 4},
+                "summary": "Slayed endermen and gathered ender_pearls",
+                "thought": "Step 2: Hunt endermen to gather remaining ender_pearls.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "iron_sword",
+                    "offhand": "shield",
+                    "armor": "iron_chestplate, iron_leggings",
+                    "inv": ["1x iron_sword", "6x blaze_rod", "6x ender_pearl", "8x cooked_beef"],
+                    "entities": ["enderman(6.2m)"],
+                },
+            },
+            {
+                "tool": "craft_item",
+                "args": {"itemName": "blaze_powder", "count": 12},
+                "summary": "Crafted 12x blaze_powder from blaze_rod",
+                "thought": "Step 3: Craft blaze_powder from blaze_rod.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "blaze_rod",
+                    "inv": ["1x iron_sword", "6x blaze_rod", "12x ender_pearl"],
+                    "craftable": ["blaze_powder"],
+                },
+            },
+            {
+                "tool": "craft_item",
+                "args": {"itemName": "ender_eye", "count": 12},
+                "summary": "Crafted 12x ender_eye",
+                "thought": "Step 4: Combine blaze_powder and ender_pearl into 12x ender_eye.",
+                "goalCompleted": False,
+                "state_hint": {
+                    "held": "blaze_powder",
+                    "inv": ["1x iron_sword", "12x blaze_powder", "12x ender_pearl"],
+                    "craftable": ["ender_eye"],
+                },
+            },
+            {
+                "tool": "triangulate_stronghold_coordinates",
+                "args": {"autoSample": True},
+                "summary": "Triangulated Stronghold coordinates using Eyes of Ender",
+                "thought": "Step 5: Throw Eyes of Ender and triangulate the Stronghold portal location.",
+                "goalCompleted": True,
+                "state_hint": {
+                    "held": "ender_eye",
+                    "inv": ["1x diamond_pickaxe", "1x iron_sword", "12x ender_eye"],
+                    "workstations": ["none"],
+                },
+            },
+        ],
+    },
 ]
+
+
+def build_grounded_gold_system_prompt(spec_or_step: dict, history: list | None = None) -> str:
+    """
+    Constructs a realistic state-grounded system prompt matching
+    UnifiedLLMClient.buildCompactLocalSystemPrompt so QLoRA trains on
+    world state + affordances rather than blind task memorization.
+    """
+    hint = dict(spec_or_step.get("state_hint") or {})
+    tool = str(spec_or_step.get("tool") or "")
+    args = dict(spec_or_step.get("args") or {})
+
+    pos = str(hint.get("pos", "(0,64,0)"))
+    hp = int(hint.get("hp", 14 if tool == "eat_food" else 20))
+    food = int(hint.get("food", 10 if tool == "eat_food" else 20))
+
+    held = hint.get("held")
+    inv = list(hint.get("inv") or [])
+    workstations = list(hint.get("workstations") or [])
+    craftable = list(hint.get("craftable") or [])
+    smeltable = str(hint.get("smeltable") or "")
+    clusters = list(hint.get("clusters") or [])
+    entities = list(hint.get("entities") or [])
+    blocks = list(hint.get("blocks") or [])
+    offhand = str(hint.get("offhand") or "shield")
+    armor = str(hint.get("armor") or "none")
+
+    if not inv and not hint:
+        if tool == "craft_item":
+            item = str(args.get("itemName", "oak_planks"))
+            craftable = [item]
+            if "planks" in item:
+                inv = ["4x oak_log"]
+            elif "crafting_table" in item:
+                inv = ["8x oak_planks"]
+            elif "stick" in item:
+                inv = ["4x oak_planks"]
+            elif "wooden_pickaxe" in item:
+                inv = ["6x oak_planks", "4x stick"]
+                workstations = ["crafting_table"]
+            elif "stone_pickaxe" in item:
+                inv = ["4x cobblestone", "4x stick"]
+                workstations = ["crafting_table"]
+            elif "iron_" in item:
+                inv = ["8x iron_ingot", "4x stick"]
+                workstations = ["crafting_table"]
+            elif "diamond_" in item:
+                inv = ["4x diamond", "4x stick"]
+                workstations = ["crafting_table"]
+            elif "ender_eye" in item:
+                inv = ["12x blaze_powder", "12x ender_pearl"]
+            elif "blaze_powder" in item:
+                inv = ["6x blaze_rod"]
+            else:
+                inv = ["8x oak_planks", "8x cobblestone", "4x stick"]
+                workstations = ["crafting_table"]
+        elif tool == "smelt_item":
+            inp = str(args.get("inputItem", "raw_iron"))
+            inv = [f"8x {inp}", "8x coal"]
+            workstations = ["furnace"]
+            smeltable = inp
+            held = held or inp
+        elif tool == "gather_resource":
+            blk = str(args.get("blockType", "oak_log"))
+            blocks = [f"{blk}@(3,64,2)"]
+            clusters = [f"{blk}(4x,3.2m north)"]
+            if "diamond" in blk or "obsidian" in blk:
+                best_pick = "diamond_pickaxe" if "obsidian" in blk else "iron_pickaxe"
+                inv = [f"1x {best_pick}"]
+                held = held or best_pick
+            elif "iron" in blk or "stone" in blk:
+                pick = "wooden_pickaxe" if blk == "stone" else "stone_pickaxe"
+                inv = [f"1x {pick}"]
+                held = held or pick
+            elif "sand" in blk:
+                inv = ["1x stone_shovel", "1x stone_pickaxe", "1x iron_pickaxe"]
+                held = held or "stone_shovel"
+        elif tool == "engage_combat":
+            target = str(args.get("targetType", "zombie"))
+            entities = [f"{target}(4.5m)"]
+            inv = ["1x iron_sword", "1x shield", "8x cooked_beef"]
+            held = held or "iron_sword"
+        elif tool == "shoot_bow":
+            target = str(args.get("targetType", "end_crystal"))
+            entities = [f"{target}(18.0m)"]
+            inv = ["1x bow", "32x arrow", "2x golden_apple"]
+            held = held or "bow"
+        elif tool == "eat_food":
+            food_name = str(args.get("foodName", "cooked_beef"))
+            inv = [f"4x {food_name}"]
+            held = held or food_name
+        elif tool == "equip_armor_or_item":
+            eq = str(args.get("itemName", "iron_chestplate"))
+            inv = [f"1x {eq}"]
+            held = held or eq
+        elif tool == "give_item_to_player":
+            player = str(args.get("playerName", "Trainer"))
+            item = str(args.get("itemName", "bread"))
+            entities = [f"{player}(player)(3.2m)"]
+            inv = [f"4x {item}"]
+            held = held or item
+        elif tool == "shear_sheep":
+            entities = ["sheep(2.5m)"]
+            inv = ["1x shears"]
+            held = held or "shears"
+        elif tool == "breed_animals":
+            animal = str(args.get("animalType", "cow"))
+            entities = [f"{animal}(2.5m)", f"{animal}(3.4m)"]
+            inv = ["8x wheat"]
+            held = held or "wheat"
+        elif tool == "tame_animal":
+            animal = str(args.get("animalType", "wolf"))
+            item = str(args.get("itemName", "bone"))
+            entities = [f"{animal}(3.0m)"]
+            inv = [f"6x {item}"]
+            held = held or item
+        elif tool == "use_tool_on_block":
+            t_item = str(args.get("tool", "iron_axe"))
+            blk = str(args.get("targetBlock", "oak_log"))
+            blocks = [f"{blk}@(2,64,1)"]
+            inv = [f"1x {t_item}"]
+            held = held or t_item
+        elif tool == "light_block_fire":
+            blk = str(args.get("targetBlock", "obsidian"))
+            blocks = [f"{blk}@(2,64,1)"]
+            inv = ["1x flint_and_steel"]
+            held = held or "flint_and_steel"
+        elif tool == "till_and_farm":
+            inv = ["1x iron_hoe", "8x wheat_seeds", "8x bone_meal"]
+            blocks = ["dirt@(2,63,0)", "water@(3,63,0)"]
+            held = held or "iron_hoe"
+        elif tool == "loot_chest":
+            blocks = ["chest@(2,64,1)"]
+        elif tool == "interact_block_or_puzzle":
+            blk = str(args.get("targetBlock", "lever"))
+            blocks = [f"{blk}@(2,65,1)", "gold_block@(5,64,1)"]
+        elif tool == "navigate_parkour_or_bridge":
+            goal_blk = str(args.get("goalBlock", "gold_block"))
+            blocks = [f"{goal_blk}@(14,64,0)"]
+            if args.get("allowBridge"):
+                inv = ["32x cobblestone"]
+                held = held or "cobblestone"
+        elif tool == "pillar_up":
+            mat = str(args.get("material", "cobblestone"))
+            inv = [f"16x {mat}"]
+            held = held or mat
+        elif tool == "construct_modular_structure":
+            inv = ["64x oak_planks", "8x glass", "4x torch"]
+            held = held or "oak_planks"
+        elif tool == "triangulate_stronghold_coordinates":
+            inv = ["12x ender_eye", "1x diamond_pickaxe"]
+            held = held or "ender_eye"
+
+    held_str = str(held or "none")
+    recent_str = (
+        ", ".join(f"{h['tool']}(OK)" for h in history[-3:])
+        if history
+        else "none"
+    )
+    return (
+        "You are NeuroAgent, an autonomous Minecraft AI companion.\n"
+        f"State: Pos{pos} HP:{hp}/20 Food:{food}/20 Held:{held_str}\n"
+        f"Gear & Durability: Main:{held_str} Off:{offhand} Armor:[{armor}]\n"
+        f"Inventory: [{', '.join(inv) if inv else 'empty'}]\n"
+        f"Workstations Nearby: [{', '.join(workstations) if workstations else 'none'}] | "
+        f"Immediately Craftable: [{', '.join(craftable) if craftable else 'none'}] | "
+        f"Smeltable: [{smeltable if smeltable else 'none'}]\n"
+        f"Resource Clusters: [{', '.join(clusters) if clusters else 'none'}]\n"
+        f"Nearby Entities (360°): [{', '.join(entities) if entities else 'none'}]\n"
+        f"Nearby Blocks: [{', '.join(blocks) if blocks else 'none'}]\n"
+        f"Recent Actions: [{recent_str}]\n"
+        "Respond ONLY with valid JSON."
+    )
 
 
 def generate_gold_dataset():
     total_samples = 0
     with open(OUTPUT_PATH, "w", encoding="utf-8") as f:
-        # 1. Single-Turn Gold Trajectories across all 16 Canonical Tasks
+        # 1. Single-Turn Gold Trajectories across all 16 Canonical Tasks + Omniscience Affordances
         for spec in GOLD_SPEC:
+            grounded_sys = build_grounded_gold_system_prompt(spec)
             for prompt in spec["prompts"]:
                 # Standard format
                 sample = {
@@ -697,7 +1052,7 @@ def generate_gold_dataset():
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion.",
+                            "content": grounded_sys,
                         },
                         {"role": "user", "content": prompt},
                         {
@@ -725,7 +1080,7 @@ def generate_gold_dataset():
                     "messages": [
                         {
                             "role": "system",
-                            "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion. Respond ONLY with valid JSON.",
+                            "content": grounded_sys,
                         },
                         {
                             "role": "user",
@@ -746,11 +1101,17 @@ def generate_gold_dataset():
                 f.write(json.dumps(framed_sample) + "\n")
                 total_samples += 1
 
-        # 2. Multi-Step Goal Continuation Trajectories
+        # 2. Multi-Step Goal Continuation Trajectories (including state-grounded Step 0 + Steps 1..N)
         for chain in MULTI_STEP_GOLD_SPEC:
             history: list = []
             for step_idx, step in enumerate(chain["steps"]):
-                if step_idx > 0:
+                grounded_sys = build_grounded_gold_system_prompt(step, history)
+                if step_idx == 0:
+                    user_prompt = (
+                        f'Player "Trainer" says: "{chain["activeGoal"]}"\n'
+                        'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
+                    )
+                else:
                     history_text = "\n".join(
                         f"Step {i + 1}: {h['tool']}({json.dumps(h['args'])}) -> SUCCESS: {h['summary']}"
                         for i, h in enumerate(history)
@@ -760,37 +1121,38 @@ def generate_gold_dataset():
                         f'Recent Steps:\n{history_text}\n'
                         'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                     )
-                    sample = {
-                        "provider": "gold_continuation",
-                        "taskId": chain["taskId"],
-                        "domain": chain["domain"],
-                        "advantage": 1.8,
-                        "rawReward": 100.0,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are NeuroAgent, an autonomous Minecraft 1.20.4 AI companion. Respond ONLY with valid JSON.",
-                            },
-                            {"role": "user", "content": user_prompt},
-                            {
-                                "role": "assistant",
-                                "content": json.dumps({
-                                    "thought": step["thought"],
-                                    "toolCall": {
-                                        "name": step["tool"],
-                                        "arguments": step["args"],
-                                    },
-                                    "goalCompleted": step.get("goalCompleted", False),
-                                }),
-                            },
-                        ],
-                    }
-                    f.write(json.dumps(sample) + "\n")
-                    total_samples += 1
+                sample = {
+                    "provider": "gold_continuation",
+                    "taskId": chain["taskId"],
+                    "domain": chain["domain"],
+                    "advantage": 1.8,
+                    "rawReward": 100.0,
+                    "step": step_idx,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": grounded_sys,
+                        },
+                        {"role": "user", "content": user_prompt},
+                        {
+                            "role": "assistant",
+                            "content": json.dumps({
+                                "thought": step["thought"],
+                                "toolCall": {
+                                    "name": step["tool"],
+                                    "arguments": step["args"],
+                                },
+                                "goalCompleted": step.get("goalCompleted", False),
+                            }),
+                        },
+                    ],
+                }
+                f.write(json.dumps(sample) + "\n")
+                total_samples += 1
 
                 history.append(step)
 
-    print(f"[Gold Synthesizer] Generated {total_samples} balanced gold trajectories (including multi-step continuations) to {OUTPUT_PATH}")
+    print(f"[Gold Synthesizer] Generated {total_samples} state-grounded gold trajectories (including multi-step continuations) to {OUTPUT_PATH}")
 
 
 if __name__ == "__main__":
