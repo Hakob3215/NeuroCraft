@@ -3,6 +3,7 @@ import { CognitiveDecision, MCPToolSchema, SanitizedWorldState } from '../types'
 import { logVerbose } from '../logger';
 import { sharedNeuralBridge } from '../system1/neural/neuralBridge';
 import { DynamicMCPToolRegistry } from './mcp/toolRegistry';
+import { computeGroundedAffordances } from './goalPlanner';
 
 export interface ExecutedStepRecord {
   stepNumber: number;
@@ -689,17 +690,23 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
     memories: string[],
     stepHistory?: ExecutedStepRecord[]
   ): string {
+    const aff = computeGroundedAffordances(state);
     const invShort =
       (state.inventory || []).map((i: any) => `${i.count}x ${i.name}`).join(', ') || 'empty';
     const entitiesShort =
       (state.visibleEntities || [])
         .slice(0, 6)
-        .map((e: any) => `${e.name}(${e.distance.toFixed(1)}m)`)
+        .map((e: any) => `${e.username ? `${e.username}(player)` : e.name}(${e.distance.toFixed(1)}m)`)
         .join(', ') || 'none';
     const blocksShort =
       (state.nearbyNotableBlocks || [])
         .slice(0, 6)
         .map((b: any) => `${b.name}@(${b.position.x},${b.position.y},${b.position.z})`)
+        .join(', ') || 'none';
+    const clustersShort =
+      (state.terrainContext?.resourceClusters || [])
+        .slice(0, 5)
+        .map((c: any) => `${c.blockType}(${c.totalNearby}x,${c.nearestDistance}m ${c.nearestDirection})`)
         .join(', ') || 'none';
     const toolLines = tools
       .map((t) => {
@@ -722,8 +729,11 @@ Suggested parameters: ${JSON.stringify(requiredParameters)}`;
 
     return `You are NeuroAgent, an autonomous Minecraft AI companion.
 State: Pos(${Math.round(state.position.x)},${Math.round(state.position.y)},${Math.round(state.position.z)}) HP:${state.health}/20 Food:${state.food}/20 Held:${state.heldItem || 'none'}
+Gear & Durability: ${aff.equippedSummary.shortString}
 Inventory: [${invShort}]
-Nearby Entities: [${entitiesShort}]
+Workstations Nearby: [${aff.nearbyWorkstations.join(', ') || 'none'}] | Immediately Craftable: [${aff.craftableNow.join(', ') || 'none'}] | Smeltable: [${aff.smeltableNow ? aff.smeltableItems.join(', ') : 'none'}]
+Resource Clusters: [${clustersShort}]
+Nearby Entities (360°): [${entitiesShort}]
 Nearby Blocks: [${blocksShort}]
 Recent Actions: [${historyString}]
 Tools:

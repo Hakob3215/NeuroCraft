@@ -316,11 +316,14 @@ class NeuralStackServer:
             self.action_head = MinecraftActionHead().to(device=self.device, dtype=act_dtype)
             head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
             if os.path.exists(head_ckpt):
-                self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
-                self.action_head.to(device=self.device, dtype=act_dtype)
-                print(f"[System 2 VLA] Loaded trained MinecraftActionHead (80.8M params) from {head_ckpt}")
+                try:
+                    self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
+                    self.action_head.to(device=self.device, dtype=act_dtype)
+                    print(f"[System 2 VLA] Loaded trained MinecraftActionHead (211M Multi-Modal ACT) from {head_ckpt}")
+                except Exception as he:
+                    print(f"[System 2 VLA] Incompatible legacy ActionHead checkpoint ({he}); starting fresh 211M Multi-Modal ACT.")
             else:
-                print(f"[System 2 VLA] Initialized pristine MinecraftActionHead from scratch (80.8M Temporal Action Transformer)")
+                print(f"[System 2 VLA] Initialized pristine MinecraftActionHead from scratch (211M Multi-Modal Spatial Action Transformer)")
             self.action_head.eval()
 
             # Warmup CUDA kernels so first chat message has zero JIT lag
@@ -708,7 +711,17 @@ class NeuralStackServer:
                     latent_h = torch.zeros(1, 1536, device=self.device)
 
                 proprio_tensor = torch.tensor(proprio_list, dtype=torch.float32, device=self.device)
-                motor_controls = self.action_head.predict_action_dict(latent_h, proprio_tensor)
+                voxels_list = data.get("voxels", None)
+                entities_list = data.get("entities", None)
+                voxel_tensor = None
+                if isinstance(voxels_list, list) and len(voxels_list) == 3375:
+                    voxel_tensor = torch.tensor(voxels_list, dtype=torch.long, device=self.device).view(1, 15, 15, 15)
+                entity_tensor = None
+                if isinstance(entities_list, list) and len(entities_list) == 16:
+                    entity_tensor = torch.tensor(entities_list, dtype=torch.float32, device=self.device).view(1, 16, 12)
+                motor_controls = self.action_head.predict_action_dict(
+                    latent_h, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor
+                )
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
         parsed = parse_vla_response(response_text)
@@ -726,9 +739,9 @@ class NeuralStackServer:
 
     async def handle_act_chunk(self, request: web.Request) -> web.Response:
         """
-        Lock-free ultra-low-latency (~1.5ms) 20Hz continuous 8-tick Action Chunk inference.
-        Cross-attends to the bot's cached 1,536-dim System 2 SLM latent vector + live proprioception + 3D voxels
-        without acquiring self.llm_lock or running autoregressive LLM decoding!
+        Lock-free ultra-low-latency (<3ms) 20Hz continuous 8-tick Action Chunk inference.
+        Cross-attends to the bot's cached 1,536-dim System 2 SLM latent vector + live proprioception
+        + 16-entity radar + 3D semantic voxels without acquiring self.llm_lock!
         """
         if self.action_head is None:
             return web.json_response({"error": "ActionHead not loaded"}, status=503)
@@ -739,6 +752,7 @@ class NeuralStackServer:
         intent = str(data.get("intent", "")).lower()
         proprio_list = data.get("proprioception", [0.0] * 24)
         voxels_list = data.get("voxels", None)
+        entities_list = data.get("entities", None)
 
         base_latent = self.bot_latents.get(bot_id, self.latest_latent_h)
         latent_h = (base_latent * 0.1).clone()  # Keep normalized SLM residual magnitude aligned with ACT head scale
@@ -752,15 +766,22 @@ class NeuralStackServer:
             latent_h[:, 64:96] += 1.5
         elif "mine" in intent or "gather" in intent or "dig" in intent or "chop" in intent:
             latent_h[:, 96:128] += 1.5
+        elif any(k in intent for k in ("craft", "smelt", "equip", "chest", "eat", "drop")):
+            latent_h[:, 160:192] += 1.5
         else:
             latent_h[:, 224:256] += 1.0
 
         proprio_tensor = torch.tensor(proprio_list, dtype=torch.float32, device=self.device)
         voxel_tensor = None
         if isinstance(voxels_list, list) and len(voxels_list) == 3375:
-            voxel_tensor = torch.tensor(voxels_list, dtype=torch.float32, device=self.device).view(1, 15, 15, 15)
+            voxel_tensor = torch.tensor(voxels_list, dtype=torch.long, device=self.device).view(1, 15, 15, 15)
+        entity_tensor = None
+        if isinstance(entities_list, list) and len(entities_list) == 16:
+            entity_tensor = torch.tensor(entities_list, dtype=torch.float32, device=self.device).view(1, 16, 12)
 
-        motor_controls = self.action_head.predict_action_dict(latent_h, proprio_tensor, voxels=voxel_tensor)
+        motor_controls = self.action_head.predict_action_dict(
+            latent_h, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor
+        )
         dt_ms = (time.perf_counter() - t0) * 1000.0
 
         return web.json_response({
@@ -839,7 +860,7 @@ class NeuralStackServer:
                     self.active_adapter = adapter_dir
                 param_device = next(self.slm_model.parameters()).device
 
-                # Hot-reload 80.8M Action Head weights if updated
+                # Hot-reload 211M Multi-Modal Action Head weights if updated
                 head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
                 if self.action_head is not None and os.path.exists(head_ckpt):
                     try:
@@ -847,7 +868,7 @@ class NeuralStackServer:
                         self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
                         self.action_head.to(device=self.device, dtype=act_dtype)
                         self.action_head.eval()
-                        print(f"[System 1] Hot-reloaded ActionHead (80.8M ACT) from {head_ckpt}")
+                        print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}")
                     except Exception as he:
                         print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}")
 

@@ -1945,6 +1945,138 @@ test('40. Multi-Bot Spatial Arena Sharding & Concurrent Worker Pool', async () =
   assert.equal(distinctWorkers.size, 3, 'All 3 workers must process tasks');
 });
 
+test('41. VLACompanionClient extracts 32-class semantic 3D voxels and 16-entity radar tensors', () => {
+  const { VLACompanionClient, mapBlockNameToSemanticId } = require('../system2/vlaClient');
+
+  assert.equal(mapBlockNameToSemanticId('air'), 0);
+  assert.equal(mapBlockNameToSemanticId('stone'), 1);
+  assert.equal(mapBlockNameToSemanticId('water'), 10);
+  assert.equal(mapBlockNameToSemanticId('lava'), 11);
+  assert.equal(mapBlockNameToSemanticId('diamond_ore'), 15);
+  assert.equal(mapBlockNameToSemanticId('crafting_table'), 17);
+  assert.equal(mapBlockNameToSemanticId('furnace'), 18);
+  assert.equal(mapBlockNameToSemanticId('gold_block'), 28);
+
+  const client = new VLACompanionClient('http://127.0.0.1:8765');
+  const botPos = new Vec3(0, 64, 0);
+  const mockBot: any = {
+    username: 'NeuroAgent',
+    entity: { position: botPos, velocity: new Vec3(0, 0, 0), yaw: 0, pitch: 0, onGround: true },
+    health: 20,
+    food: 20,
+    heldItem: { name: 'iron_pickaxe' },
+    inventory: { slots: {} },
+    blockAt: (p: Vec3) => {
+      if (p.x === 0 && p.y === 64 && p.z === 2) return { name: 'lava', boundingBox: 'empty' };
+      if (p.x === 1 && p.y === 65 && p.z === 0) return { name: 'diamond_ore', boundingBox: 'block' };
+      if (p.y === 63) return { name: 'stone', boundingBox: 'block' };
+      return { name: 'air', boundingBox: 'empty' };
+    },
+    entities: {
+      10: {
+        id: 10,
+        name: 'creeper',
+        type: 'hostile',
+        position: new Vec3(4, 64, 0),
+        velocity: new Vec3(-0.1, 0, 0),
+        metadata: { 16: 1 },
+        isValid: true,
+      },
+      11: {
+        id: 11,
+        name: 'cow',
+        type: 'animal',
+        position: new Vec3(0, 64, 8),
+        velocity: new Vec3(0, 0, 0),
+        isValid: true,
+      },
+    },
+  };
+
+  const voxels = client.extractLocalVoxels(mockBot);
+  assert.equal(voxels.length, 3375);
+  // Assert non-binary semantic IDs (1=stone, 11=lava, 15=diamond_ore) appear cleanly
+  assert.ok(voxels.includes(1), 'Must preserve stone semantic ID 1');
+  assert.ok(voxels.includes(11), 'Must preserve lava semantic ID 11 even though boundingBox is empty');
+  assert.ok(voxels.includes(15), 'Must preserve diamond_ore semantic ID 15');
+
+  const radar = client.extractEntityRadar(mockBot);
+  assert.equal(radar.length, 16);
+  assert.equal(radar[0].length, 12);
+  // Nearest entity should be creeper at dist 4 (< 8)
+  assert.equal(radar[0][7], 1, 'Nearest entity must be flagged hostile');
+  assert.equal(radar[0][8], 1, 'Nearest entity must be flagged creeper');
+  assert.equal(radar[0][11], 1, 'Creeper active fuse must be flagged');
+  // Second entity is non-hostile cow
+  assert.equal(radar[1][7], 0, 'Passive cow must not be flagged hostile');
+});
+
+test('42. HierarchicalGoalPlanner & computeGroundedAffordances track macro/sub-goals, craftable items, and replanning', () => {
+  const { HierarchicalGoalPlanner, computeGroundedAffordances } = require('../system2/goalPlanner');
+
+  const mockState: any = {
+    tick: 50,
+    timestamp: Date.now(),
+    botUsername: 'NeuroAgent',
+    position: { x: 0, y: 64, z: 0 },
+    velocity: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    pitch: 0,
+    health: 20,
+    food: 20,
+    oxygen: 20,
+    onGround: true,
+    isInWater: false,
+    isInLava: false,
+    heldItem: 'stone_pickaxe',
+    equippedArmor: { head: 'iron_helmet', torso: null, legs: null, feet: null, offHand: 'shield' },
+    inventory: [
+      { name: 'oak_log', count: 2, slot: 36 },
+      { name: 'oak_planks', count: 8, slot: 37 },
+      { name: 'stick', count: 4, slot: 38 },
+      { name: 'cobblestone', count: 8, slot: 39 },
+      { name: 'raw_iron', count: 6, slot: 40 },
+      { name: 'coal', count: 4, slot: 41 },
+      { name: 'stone_pickaxe', count: 1, slot: 42, durability: 40, maxDurability: 131, durabilityPercent: 31 },
+    ],
+    visibleEntities: [],
+    audibleCues: [],
+    nearbyNotableBlocks: [{ name: 'crafting_table', position: { x: 1, y: 64, z: 0 }, distance: 1.0 }],
+    activeHazard: null,
+    activeSubtask: null,
+  };
+
+  const aff = computeGroundedAffordances(mockState);
+  assert.equal(aff.equippedSummary.mainHand, 'stone_pickaxe');
+  assert.equal(aff.equippedSummary.offHand, 'shield');
+  assert.equal(aff.equippedSummary.lowestToolDurabilityPercent, 31);
+  assert.ok(aff.nearbyWorkstations.includes('crafting_table'));
+  assert.ok(aff.craftableNow.includes('stone_pickaxe'));
+  assert.ok(aff.craftableNow.includes('furnace'));
+  assert.equal(aff.smeltableNow, true);
+
+  const planner = new HierarchicalGoalPlanner();
+  planner.setMacroGoal('Get full iron armor', ['Craft stone_pickaxe', 'Mine iron_ore', 'Smelt iron_ingot', 'Craft iron armor']);
+  assert.equal(planner.getCurrentSubGoal(), 'Craft stone_pickaxe');
+
+  const t1 = planner.advanceOrReplan(
+    { toolName: 'craft_item', success: true, summary: 'Successfully crafted 1x stone_pickaxe' },
+    { subgoal_completed: true, should_replan: false },
+    mockState
+  );
+  assert.equal(t1.advanced, true);
+  assert.equal(t1.needsReplan, false);
+  assert.equal(t1.currentSubGoal, 'Mine iron_ore');
+
+  const t2 = planner.advanceOrReplan(
+    { toolName: 'gather_resource', success: true, summary: 'Searching vein...' },
+    { subgoal_completed: false, should_replan: true },
+    mockState
+  );
+  assert.equal(t2.needsReplan, true);
+  assert.ok(planner.formatGoalHorizonContext(mockState).includes('Replan Alert'));
+});
+
 
 
 
