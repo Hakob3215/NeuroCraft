@@ -68,7 +68,7 @@ export class VLACompanionClient {
   /**
    * Extracts the 24-dimensional sensorimotor proprioception vector from the live bot.
    */
-  public extractProprioception(bot: Bot): number[] {
+  public extractProprioception(bot: Bot, targetPos?: Vec3): number[] {
     const v = new Array(24).fill(0.0);
     if (!bot || !bot.entity) return v;
 
@@ -115,6 +115,15 @@ export class VLACompanionClient {
       v[12] = Math.min(1.0, minDist / 32.0);
       // 13: Creeper fuse active
       v[13] = nearestHostile.name === 'creeper' && minDist < 4.5 ? 1.0 : 0.0;
+    } else if (targetPos) {
+      const dx = targetPos.x - bot.entity.position.x;
+      const dy = targetPos.y - bot.entity.position.y;
+      const dz = targetPos.z - bot.entity.position.z;
+      const dist = bot.entity.position.distanceTo(targetPos);
+      v[9] = Math.max(-1, Math.min(1, dx / 16.0));
+      v[10] = Math.max(-1, Math.min(1, dy / 8.0));
+      v[11] = Math.max(-1, Math.min(1, dz / 16.0));
+      v[12] = Math.min(1.0, dist / 32.0);
     }
 
     // 14: Equipped item in mainhand is sword
@@ -129,6 +138,60 @@ export class VLACompanionClient {
     v[17] = mainHand && mainHand.name.includes('pickaxe') ? 1.0 : 0.0;
 
     return v;
+  }
+
+  /**
+   * Extracts a 15x15x15 local voxel occupancy grid (3,375 floats) centered on the bot.
+   */
+  public extractLocalVoxels(bot: Bot): number[] {
+    const voxels = new Array(3375).fill(0.0);
+    if (!bot?.entity?.position || !bot.blockAt) return voxels;
+    const pos = bot.entity.position.floored();
+    let idx = 0;
+    for (let dx = -7; dx <= 7; dx++) {
+      for (let dy = -3; dy <= 11; dy++) {
+        for (let dz = -7; dz <= 7; dz++) {
+          const b = bot.blockAt(new Vec3(pos.x + dx, pos.y + dy, pos.z + dz));
+          voxels[idx++] = b && b.boundingBox === 'block' ? 1.0 : 0.0;
+        }
+      }
+    }
+    return voxels;
+  }
+
+  /**
+   * Fast lock-free (~1.5ms) 80.8M Action Chunking Transformer query using cached System 2 SLM latent h.
+   */
+  public async predictActionChunk(
+    intent: string,
+    bot: Bot,
+    targetPos?: Vec3
+  ): Promise<VLAMotorControls | null> {
+    if (!bot?.entity) return null;
+    const proprioception = this.extractProprioception(bot, targetPos);
+    const voxels = this.extractLocalVoxels(bot);
+
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 600);
+      const res = await fetch(`${this.daemonUrl}/act/chunk`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          bot_id: bot.username || 'NeuroAgent',
+          intent,
+          proprioception,
+          voxels,
+        }),
+      });
+      clearTimeout(timeout);
+      if (!res.ok) return null;
+      const data = (await res.json()) as { motor_controls?: VLAMotorControls };
+      return data.motor_controls || null;
+    } catch {
+      return null;
+    }
   }
 
   /**
@@ -249,22 +312,37 @@ export class VLACompanionClient {
    */
   public async executeMotorActionChunk(
     bot: Bot,
-    chunk?: VLAMotorControls['action_chunk']
+    chunk?: VLAMotorControls['action_chunk'],
+    targetPos?: Vec3,
+    maxTicks = 4
   ): Promise<void> {
     if (!chunk || chunk.length === 0 || !bot?.entity) return;
 
-    const baseYaw = bot.entity.yaw;
-    const basePitch = bot.entity.pitch;
+    let baseYaw = bot.entity.yaw;
+    let basePitch = bot.entity.pitch;
+    if (targetPos) {
+      const dx = targetPos.x - bot.entity.position.x;
+      const dy = targetPos.y + 1.0 - (bot.entity.position.y + 1.62);
+      const dz = targetPos.z - bot.entity.position.z;
+      const horiz = Math.hypot(dx, dz);
+      if (horiz > 0.2) {
+        baseYaw = Math.atan2(-dx, -dz);
+        basePitch = Math.atan2(dy, horiz);
+      }
+    }
 
-    for (const step of chunk) {
+    const slice = chunk.slice(0, Math.max(1, maxTicks));
+    for (const step of slice) {
       if (!bot.entity) break;
 
-      // 1. Aim adjustment (continuous camera aim relative to chunk base orientation)
-      if (step.delta_yaw !== 0 || step.delta_pitch !== 0) {
-        const targetYaw = baseYaw + (step.delta_yaw * Math.PI) / 180;
+      // 1. Aim adjustment (continuous camera aim relative to target-aligned orientation)
+      if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || targetPos) {
+        const clampedDyaw = Math.max(-25, Math.min(25, step.delta_yaw || 0));
+        const clampedDpitch = Math.max(-20, Math.min(20, step.delta_pitch || 0));
+        const targetYaw = baseYaw + (clampedDyaw * Math.PI) / 180;
         const targetPitch = Math.max(
           -Math.PI / 2,
-          Math.min(Math.PI / 2, basePitch + (step.delta_pitch * Math.PI) / 180)
+          Math.min(Math.PI / 2, basePitch + (clampedDpitch * Math.PI) / 180)
         );
         try {
           await bot.look(targetYaw, targetPitch, true);
@@ -276,7 +354,11 @@ export class VLACompanionClient {
       bot.setControlState('back', step.vz < -0.1);
       bot.setControlState('left', step.vx < -0.1);
       bot.setControlState('right', step.vx > 0.1);
-      bot.setControlState('jump', step.jump);
+      if (step.jump && bot.entity.onGround) {
+        bot.setControlState('jump', true);
+      } else {
+        bot.setControlState('jump', false);
+      }
       bot.setControlState('sprint', step.sprint);
       bot.setControlState('sneak', step.sneak);
 
@@ -284,7 +366,12 @@ export class VLACompanionClient {
       if (step.attack) {
         try {
           bot.swingArm('right');
-          const target = bot.nearestEntity((e: any) => e.type === 'mob' || e.type === 'player');
+          const target = bot.nearestEntity(
+            (e: any) =>
+              e &&
+              e !== bot.entity &&
+              (e.type === 'hostile' || e.type === 'mob' || (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
+          );
           if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
             bot.attack(target);
           }
@@ -301,8 +388,10 @@ export class VLACompanionClient {
       await new Promise((r) => setTimeout(r, 50));
     }
 
-    try {
-      bot.clearControlStates();
-    } catch {}
+    if (!targetPos) {
+      try {
+        bot.clearControlStates();
+      } catch {}
+    }
   }
 }

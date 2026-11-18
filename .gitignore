@@ -27,6 +27,7 @@ neural_lab/models/
 
 # Minecraft Server, Worlds & Logs
 minebench/server/
+minebench/servers/
 minebench/server_dragon/
 logs/
 *.jar

@@ -213,48 +213,36 @@ export class HeadlessMinecraftServerManager {
     },
     scopedCleanup = false
   ): Promise<void> {
-    this.sendCommand('tick unfreeze');
-    this.sendCommand('tick rate 20');
+    if (!scopedCleanup) {
+      this.sendCommand('tick unfreeze');
+      this.sendCommand('tick rate 20');
+      for (const rule of MINEBENCH_ARENA_GAMERULES) {
+        this.sendCommand(rule);
+      }
+      this.sendCommand('difficulty normal');
+      this.sendCommand('time set noon');
+      this.sendCommand('weather clear');
+    }
     this.sendCommand(`op ${botUsername}`);
     this.sendCommand(`gamemode creative ${botUsername}`);
 
-    for (const rule of MINEBENCH_ARENA_GAMERULES) {
-      this.sendCommand(rule);
-    }
-    this.sendCommand('difficulty normal');
-    this.sendCommand('time set noon');
-    this.sendCommand('weather clear');
-
     const { x, y, z } = task.origin;
 
-    // Remove non-player entities, item drops, and experience orbs from previous tasks
-    if (scopedCleanup) {
-      this.sendCommand(`kill @e[type=minecraft:experience_orb,x=${x},y=${y},z=${z},distance=..128]`);
-      this.sendCommand(`kill @e[type=minecraft:item,x=${x},y=${y},z=${z},distance=..128]`);
-      this.sendCommand(`kill @e[type=!minecraft:player,x=${x},y=${y},z=${z},distance=..128]`);
-      await new Promise((r) => setTimeout(r, 120));
-      this.sendCommand(`kill @e[type=minecraft:experience_orb,x=${x},y=${y},z=${z},distance=..128]`);
-      this.sendCommand(`kill @e[type=minecraft:item,x=${x},y=${y},z=${z},distance=..128]`);
-      this.sendCommand(`kill @e[type=!minecraft:player,x=${x},y=${y},z=${z},distance=..128]`);
-    } else {
-      this.sendCommand(`kill @e[type=minecraft:experience_orb]`);
-      this.sendCommand(`kill @e[type=minecraft:item]`);
-      this.sendCommand(`kill @e[type=!minecraft:player]`);
-      await new Promise((r) => setTimeout(r, 120));
-      this.sendCommand(`kill @e[type=minecraft:experience_orb]`);
-      this.sendCommand(`kill @e[type=minecraft:item]`);
-      this.sendCommand(`kill @e[type=!minecraft:player]`);
-    }
+    // Scoped cleanup within 128m radius so parallel shards and Persistent Survival Sector (X=20000) are untouched
+    this.sendCommand(`kill @e[type=minecraft:experience_orb,x=${x},y=${y},z=${z},distance=..128]`);
+    this.sendCommand(`kill @e[type=minecraft:item,x=${x},y=${y},z=${z},distance=..128]`);
+    this.sendCommand(`kill @e[type=!minecraft:player,x=${x},y=${y},z=${z},distance=..128]`);
+    await new Promise((r) => setTimeout(r, 50));
 
     this.sendCommand(`clear ${botUsername}`);
     this.sendCommand(`effect clear ${botUsername}`);
     this.sendCommand(`effect give ${botUsername} minecraft:instant_health 1 10 true`);
     this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
 
-    // Place temporary safety block under origin before teleporting so bot never falls into void while chunks load
-    this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
+    // Move bot (in creative mode) first to force chunk loading, then place temporary safety floor
     this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 120));
+    this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
 
     // Execute the task's procedural 1.20.4 arena commands
     const cmds = task.buildArenaCommands(task.origin);
@@ -264,7 +252,7 @@ export class HeadlessMinecraftServerManager {
       }
       this.sendCommand(cmd);
     }
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 150));
 
     // Give initial loadout items
     for (const item of task.initialLoadout) {
@@ -300,7 +288,7 @@ export class HeadlessMinecraftServerManager {
       }
     }
 
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 80));
   }
 
   public pruneMovementSpamFromLog(): void {

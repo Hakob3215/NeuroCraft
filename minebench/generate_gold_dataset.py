@@ -202,7 +202,7 @@ GOLD_SPEC = [
             "Smelt raw iron into ingots to craft iron armor pieces!",
             "Smelt iron and craft iron armor!",
         ],
-        "tool": "smelt_or_cook",
+        "tool": "smelt_item",
         "args": {"itemToSmelt": "iron_ore", "fuelItem": "coal", "count": 8},
     },
     {

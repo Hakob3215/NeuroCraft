@@ -166,8 +166,9 @@ export function evaluateOmniscienceMilestones(
         (snap.stats as any).foodConsumed > 0 ||
         snap.stats.leversFlipped > 0 ||
         snap.stats.wolvesTamed > 0 ||
+        ((snap.stats as any).affordanceActions || 0) > 0 ||
         Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0;
-      if (hasCorrectTool && (didAnyAction || invNames.length > 0)) {
+      if (hasCorrectTool && didAnyAction) {
         earned = m.maxPoints;
       }
     } else if (cond === 'affordance_action_completed') {
@@ -188,17 +189,10 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'held_item_food' || cond === 'food_level_restored') {
-      const foodNames = [
-        'bread', 'beef', 'porkchop', 'apple', 'carrot', 'potato', 'melon', 'cookie',
-        'mutton', 'salmon', 'cod', 'pie', 'pumpkin_pie', 'stew', 'mushroom_stew',
-        'soup', 'beetroot_soup', 'chicken', 'cooked_chicken', 'rabbit', 'cooked_rabbit',
-        'golden_carrot', 'golden_apple', 'berries', 'sweet_berries', 'glow_berries', 'honey_bottle'
-      ];
-      const hasFood = invNames.some((n) => foodNames.some((f) => n.includes(f)));
-      const didConsume = (snap.stats as any).foodConsumed > 0 || snap.food > 19;
+      const didConsume = ((snap.stats as any).foodConsumed || 0) > 0;
       if (cond === 'food_level_restored') {
         if (didConsume && snap.food >= 18) earned = m.maxPoints;
-      } else if (hasFood) {
+      } else if (didConsume) {
         earned = m.maxPoints;
       }
     } else if (cond === 'target_engaged' || cond === 'target_resolved') {
@@ -207,16 +201,21 @@ export function evaluateOmniscienceMilestones(
       const sheared = invNames.some((n) => n.includes('wool'));
       const peacefulMobs = ['cow', 'sheep', 'wolf', 'piglin', 'villager', 'cat', 'horse', 'ocelot', 'fox'];
       const isPeacefulTarget = peacefulMobs.includes((task.targetObject || '').toLowerCase());
-      const hasInteracted = tamed || sheared || snap.stats.blocksPlaced > 0 || (snap.stats.foodConsumed || 0) > 0 || ((snap.stats as any).affordanceActions || 0) > 0;
+      const hasInteracted =
+        tamed ||
+        sheared ||
+        snap.stats.blocksMined > 0 ||
+        snap.stats.blocksPlaced > 0 ||
+        (snap.stats.foodConsumed || 0) > 0 ||
+        ((snap.stats as any).affordanceActions || 0) > 0;
 
       if (cond === 'target_engaged') {
-        const mobNear = snap.entities.some((e) => e.name === (task.targetObject || '').toLowerCase());
-        if (totalKills > 0 || hasInteracted || mobNear) {
+        if (totalKills > 0 || hasInteracted) {
           earned = m.maxPoints;
         }
       } else if (cond === 'target_resolved') {
         if (isPeacefulTarget) {
-          if (totalKills > 0 || tamed || sheared || (snap.deaths === 0 && (hasInteracted || snap.entities.length > 0))) {
+          if (totalKills > 0 || tamed || sheared || (snap.deaths === 0 && hasInteracted)) {
             earned = m.maxPoints;
           }
         } else if (totalKills > 0) {
@@ -227,7 +226,7 @@ export function evaluateOmniscienceMilestones(
       // Must have acquired authentic structure loot (not ordinary cobblestone from arena floor)
       const initialItemNames = new Set((task.initialLoadout || []).map((i: any) => i.name.toLowerCase()));
       const arenaCommonBlocks = new Set(['stone', 'cobblestone', 'dirt', 'bedrock']);
-      const collectedNewLoot = invNames.some((n) => !initialItemNames.has(n) && !arenaCommonBlocks.has(n)) || ((snap.stats as any).affordanceActions || 0) > 0;
+      const collectedNewLoot = invNames.some((n) => !initialItemNames.has(n) && !arenaCommonBlocks.has(n));
       if (collectedNewLoot) {
         earned = m.maxPoints;
       }

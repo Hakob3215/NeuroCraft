@@ -274,12 +274,13 @@ export class System1BotController {
    */
   public async connect(host: string, port: number, username = CONFIG.botUsername): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log(`[System 1] Connecting "${username}" to ${host}:${port} (Offline LAN Mode)...`);
+      const safeUsername = String(username || CONFIG.botUsername).slice(0, 16);
+      console.log(`[System 1] Connecting "${safeUsername}" to ${host}:${port} (Offline LAN Mode)...`);
 
       this.bot = mineflayer.createBot({
         host,
         port,
-        username,
+        username: safeUsername,
         auth: 'offline',
         version: CONFIG.minecraftVersion,
         hideErrors: true,
@@ -302,10 +303,22 @@ export class System1BotController {
       );
 
       let connected = false;
+      let settled = false;
+      const connectTimer = setTimeout(() => {
+        if (!connected && !settled) {
+          settled = true;
+          try { this.bot?.quit(); } catch {}
+          reject(new Error(`Timed out waiting for "${safeUsername}" to spawn on ${host}:${port}`));
+        }
+      }, 20000);
 
       this.bot.once('spawn', () => {
         connected = true;
-        console.log(`[System 1] "${username}" spawned into world at ${this.formatPos(this.bot.entity.position)}!`);
+        if (!settled) {
+          settled = true;
+          clearTimeout(connectTimer);
+        }
+        console.log(`[System 1] "${safeUsername}" spawned into world at ${this.formatPos(this.bot.entity.position)}!`);
 
         // Eliminate float vs double hitbox rounding desync against block boundaries (Issue #3911)
         if (this.bot.physics) {
@@ -380,7 +393,9 @@ export class System1BotController {
 
       this.bot.on('error', (err: Error) => {
         const msg = err?.stack || err?.message || String(err);
-        if (!connected) {
+        if (!connected && !settled) {
+          settled = true;
+          clearTimeout(connectTimer);
           reject(err);
         } else {
           console.warn(`[System 1 Network Warning] ${msg}`);
@@ -390,12 +405,24 @@ export class System1BotController {
       this.bot.on('kicked', (reason: any) => {
         const formatted = formatKickReason(reason);
         console.warn(`[System 1] Kicked from server: ${formatted}`);
+        if (!connected && !settled) {
+          settled = true;
+          clearTimeout(connectTimer);
+          reject(new Error(`Kicked before spawn: ${formatted}`));
+          return;
+        }
         emitDisconnect(`Kicked: ${formatted}`);
       });
 
       this.bot.on('end', (reason?: any) => {
         const formatted = formatKickReason(reason);
         console.log(`[System 1] Disconnected from Minecraft world. Reason: ${formatted}`);
+        if (!connected && !settled) {
+          settled = true;
+          clearTimeout(connectTimer);
+          reject(new Error(`Disconnected before spawn: ${formatted}`));
+          return;
+        }
         emitDisconnect(`Disconnected: ${formatted}`);
       });
 
@@ -888,8 +915,8 @@ export class System1BotController {
         strikeTarget: (entity: any) => this.combat.strikeTarget(entity),
         equipItemHumanized: (itemName: string, dest?: any) =>
           this.inventory.equipItemHumanized(itemName, dest),
-        executeNeuralMotorChunk: (prompt: string) =>
-          this.executeNeuralMotorChunk(prompt),
+        executeNeuralMotorChunk: (prompt: string, targetPos?: Vec3, maxTicks?: number) =>
+          this.executeNeuralMotorChunk(prompt, targetPos, maxTicks),
       },
       world: {
         getGroundHeight: (x: number, z: number, startY?: number) =>
@@ -960,28 +987,41 @@ export class System1BotController {
       this.bot.setControlState('forward', horizontalDist > 0.4);
       this.bot.setControlState('sprint', horizontalDist > 3.0);
 
-      // 3. Obstacle Hop & Sprint-Jumping (System 1 Sub-Tick Voxel Reflex)
+      // 3. Obstacle Hop, Parkour Gap Jump & Sprint-Jumping (System 1 Sub-Tick Voxel Reflex)
       const forwardDir = new Vec3(-Math.sin(targetYaw), 0, -Math.cos(targetYaw));
       const frontFootPos = botPos.plus(forwardDir.scaled(0.85)).floored();
       const blockAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos) : null;
       const blockAbove = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, 1, 0)) : null;
+      const blockBelowAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -1, 0)) : null;
+      const blockBelowAhead2 = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -2, 0)) : null;
       const hasObstacleAhead =
         (blockAhead && blockAhead.boundingBox === 'block' && (!blockAbove || blockAbove.boundingBox !== 'block')) ||
         Boolean(this.bot.entity.isCollidedHorizontally);
+      const isGapAhead =
+        (!blockAhead || blockAhead.boundingBox !== 'block') &&
+        (!blockBelowAhead || blockBelowAhead.boundingBox !== 'block') &&
+        (!blockBelowAhead2 || blockBelowAhead2.boundingBox !== 'block') &&
+        target.y >= botPos.y - 1.2 &&
+        horizontalDist > 1.2;
 
-      if (hasObstacleAhead && this.bot.entity.onGround) {
+      if (isGapAhead && this.bot.entity.onGround) {
+        this.bot.setControlState('sprint', true);
+        this.bot.setControlState('jump', true);
+      } else if (hasObstacleAhead && this.bot.entity.onGround) {
         this.bot.setControlState('jump', true);
       } else {
         this.bot.setControlState('jump', false);
       }
 
       // 4. Action Chunk Execution via 80.8M Temporal Action Chunking Transformer
-      // Query action head every >= 400ms (8 ticks) to tighten continuous motor trajectory
-      if (this.vlaClient && Date.now() - lastChunkTime >= 400) {
+      // Query lock-free /act/chunk every >= 400ms (8 ticks) to tighten continuous motor trajectory
+      if (this.vlaClient && Date.now() - lastChunkTime >= 400 && horizontalDist > 1.5) {
         lastChunkTime = Date.now();
         try {
           await this.executeNeuralMotorChunk(
-            `Navigate towards target at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`
+            `Navigate towards target at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
+            target,
+            2
           );
         } catch {}
       }
@@ -1017,15 +1057,24 @@ export class System1BotController {
   }
 
   /**
-   * Queries the 80.8M Action Chunking Transformer to execute an 8-tick continuous motor trajectory.
-   * Cross-attends to high-level goal intention + 24-dim proprioception to drive 20Hz continuous actions.
+   * Queries the 80.8M Action Chunking Transformer via fast lock-free /act/chunk (~1.5ms)
+   * to execute continuous motor trajectory ticks oriented cleanly toward the optional targetPos.
    */
-  public async executeNeuralMotorChunk(prompt: string): Promise<boolean> {
+  public async executeNeuralMotorChunk(
+    prompt: string,
+    targetPos?: Vec3,
+    maxTicks = 2
+  ): Promise<boolean> {
     if (!this.bot?.entity) return false;
     try {
-      const vlaRes = await this.vlaClient.predict(prompt, this.bot);
-      if (vlaRes && vlaRes.motor_controls?.action_chunk && vlaRes.motor_controls.action_chunk.length > 0) {
-        await this.vlaClient.executeMotorActionChunk(this.bot, vlaRes.motor_controls.action_chunk);
+      const motorControls = await this.vlaClient.predictActionChunk(prompt, this.bot, targetPos);
+      if (motorControls?.action_chunk && motorControls.action_chunk.length > 0) {
+        await this.vlaClient.executeMotorActionChunk(
+          this.bot,
+          motorControls.action_chunk,
+          targetPos,
+          maxTicks
+        );
         return true;
       }
       return false;

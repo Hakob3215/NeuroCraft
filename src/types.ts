@@ -173,7 +173,7 @@ export interface MCPToolExecutionContext {
     safePlaceBlock?: (targetPos: Vec3, itemName: string, allowScaffold?: boolean) => Promise<boolean>;
     strikeTarget: (entity: any) => Promise<boolean>;
     equipItemHumanized: (itemName: string, destination?: 'hand' | 'off-hand' | 'head' | 'torso' | 'legs' | 'feet') => Promise<boolean>;
-    executeNeuralMotorChunk?: (prompt: string) => Promise<boolean>;
+    executeNeuralMotorChunk?: (prompt: string, targetPos?: Vec3, maxTicks?: number) => Promise<boolean>;
   };
   world?: {
     getGroundHeight: (x: number, z: number, startY?: number) => number;
