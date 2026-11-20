@@ -170,7 +170,22 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                         pass
 
     if not step_transitions:
-        raise RuntimeError("No real server step transitions found in real_rl_transitions.jsonl!")
+        print("[RL Trainer] Note: No real server step transitions found in real_rl_transitions.jsonl. Skipping PPO gradient step.", flush=True)
+        metrics = {
+            "status": "skipped",
+            "reason": "no_transitions",
+            "device": gpu_name,
+            "transitionsTrained": 0,
+            "initialLoss": 0.0,
+            "finalLoss": 0.0,
+            "transitionsPerSecond": 0.0,
+            "isBest": is_best,
+            "loopIdx": loop_idx,
+        }
+        with open(RL_METRICS_PATH, "w", encoding="utf-8") as f:
+            json.dump(metrics, f, indent=2)
+        print(json.dumps(metrics))
+        return metrics
 
     batch_size = min(64, max(8, len(step_transitions)))
 
