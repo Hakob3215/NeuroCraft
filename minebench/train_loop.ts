@@ -886,8 +886,21 @@ export async function runContinuousTrainingLoop(): Promise<void> {
     const sparringUsername = concurrency === 1 ? 'DQN_Opponent' : `DQN_Opponent_${i + 1}`;
 
     const system1 = new System1BotController();
-    console.log(`[TrainLoop] Connecting worker #${i} (${botUsername}) at X-offset +${deltaX}...`);
-    await system1.connect('127.0.0.1', serverPort, botUsername);
+    let connected = false;
+    for (let cAttempt = 1; cAttempt <= 3; cAttempt++) {
+      try {
+        console.log(`[TrainLoop] Connecting worker #${i} (${botUsername}, attempt #${cAttempt}) at X-offset +${deltaX}...`);
+        await system1.connect('127.0.0.1', serverPort, botUsername);
+        connected = true;
+        break;
+      } catch (cErr: any) {
+        console.warn(`[TrainLoop] Warning: Worker #${i} connect attempt #${cAttempt} failed: ${cErr?.message || cErr}`);
+        await new Promise((r) => setTimeout(r, 2000));
+      }
+    }
+    if (!connected) {
+      throw new Error(`Failed to connect worker #${i} (${botUsername}) after 3 attempts`);
+    }
     await new Promise((r) => setTimeout(r, 600));
 
     const sparringPartner = new SparringPartnerBot(sparringUsername, 'http://127.0.0.1:8765');
