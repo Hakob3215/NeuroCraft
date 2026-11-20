@@ -876,6 +876,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
   const serverPort = 25575;
   const server = new HeadlessMinecraftServerManager();
+  const serverLifecycleMutex = new AsyncMutex();
   await server.startServer(serverPort);
 
   console.log(`[TrainLoop] Initializing ${concurrency} parallel worker bot(s) on port ${serverPort}...`);
@@ -1065,14 +1066,19 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       const survivalPromise = (async () => {
         if (!survivalWorker) return undefined;
         try {
-          if (
-            !survivalWorker.system1.bot ||
-            !survivalWorker.system1.bot.entity ||
-            (survivalWorker.system1.bot as any)._client?.ended
-          ) {
-            await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
-            await new Promise((r) => setTimeout(r, 500));
-          }
+          await serverLifecycleMutex.runExclusive(async () => {
+            if (!server.isReady) {
+              await server.startServer(serverPort);
+            }
+            if (
+              !survivalWorker.system1.bot ||
+              !survivalWorker.system1.bot.entity ||
+              (survivalWorker.system1.bot as any)._client?.ended
+            ) {
+              await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+              await new Promise((r) => setTimeout(r, 500));
+            }
+          });
           const sBot = survivalWorker.system1.bot;
           if (!sBot?.entity?.position) return undefined;
 
@@ -1302,25 +1308,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const taskT0 = Date.now();
           const shardedTask = createShardedTaskSpec(task, worker.id, concurrency);
 
-          // Verify worker bot connection and server readiness
-          if (!server.isReady || !worker.system1.bot || !worker.system1.bot.entity || (worker.system1.bot as any)._client?.ended) {
-            console.log(`[TrainLoop] Ensuring Minecraft server & ${worker.botUsername} are connected on port ${serverPort}...`);
-            try { worker.system1.bot?.quit(); } catch {}
-            if (!server.isReady) {
-              console.log(`[TrainLoop] Minecraft server process offline. Restarting headless server on port ${serverPort}...`);
-              try { await server.stopServer(); } catch {}
-              await server.startServer(serverPort);
-              for (const w of workers) {
-                try { w.system1.bot?.quit(); } catch {}
-                await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
-                await new Promise((r) => setTimeout(r, 600));
-              }
-            } else {
-              try {
-                await worker.system1.connect('127.0.0.1', serverPort, worker.botUsername);
-                await new Promise((r) => setTimeout(r, 800));
-              } catch (cErr: any) {
-                console.warn(`[TrainLoop] Reconnect attempt failed (${cErr?.message || cErr}). Performing clean server restart...`);
+          // Verify worker bot connection and server readiness under serverLifecycleMutex
+          await serverLifecycleMutex.runExclusive(async () => {
+            if (!server.isReady || !worker.system1.bot || !worker.system1.bot.entity || (worker.system1.bot as any)._client?.ended) {
+              console.log(`[TrainLoop] Ensuring Minecraft server & ${worker.botUsername} are connected on port ${serverPort}...`);
+              try { worker.system1.bot?.quit(); } catch {}
+              if (!server.isReady) {
+                console.log(`[TrainLoop] Minecraft server process offline. Restarting headless server on port ${serverPort}...`);
                 try { await server.stopServer(); } catch {}
                 await server.startServer(serverPort);
                 for (const w of workers) {
@@ -1328,9 +1322,23 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
                   await new Promise((r) => setTimeout(r, 600));
                 }
+              } else {
+                try {
+                  await worker.system1.connect('127.0.0.1', serverPort, worker.botUsername);
+                  await new Promise((r) => setTimeout(r, 800));
+                } catch (cErr: any) {
+                  console.warn(`[TrainLoop] Reconnect attempt failed (${cErr?.message || cErr}). Performing clean server restart...`);
+                  try { await server.stopServer(); } catch {}
+                  await server.startServer(serverPort);
+                  for (const w of workers) {
+                    try { w.system1.bot?.quit(); } catch {}
+                    await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
+                    await new Promise((r) => setTimeout(r, 600));
+                  }
+                }
               }
             }
-          }
+          });
 
           worker.sparringPartner.setMode({ mode: 'idle' });
           worker.sparringPartner.resetEpisodeCounters();
@@ -2035,41 +2043,43 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         console.log(`======================================================================\n`);
 
         try {
-          // Pause curriculum server and bots
-          for (const w of workers) {
-            try { await w.sparringPartner.disconnect().catch(() => {}); } catch {}
-            try { w.system1.bot?.quit(); } catch {}
-          }
-          try { survivalWorker?.system1.bot?.quit(); } catch {}
-          await server.stopServer();
-          await new Promise((r) => setTimeout(r, 1500));
-
-          // Run full survival run
-          const dragonRes = await runVanillaDragonSurvivalRun(30);
-          dragonScore = dragonRes.progressDepthScore;
-          dragonMilestonesCount = dragonRes.milestonesAchievedCount;
-          console.log(`[TrainLoop] Dragon Survival Run Finished! Score: ${dragonScore.toFixed(1)}% (${dragonMilestonesCount}/8 milestones).`);
-
-          if (!isFinalCycle && !isShuttingDown) {
-            // Restart curriculum server for next training cycle
-            await server.startServer(serverPort);
+          await serverLifecycleMutex.runExclusive(async () => {
+            // Pause curriculum server and bots
             for (const w of workers) {
-              try {
-                await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
-                await new Promise((r) => setTimeout(r, 600));
-              } catch {}
-              try {
-                await w.sparringPartner.connect('127.0.0.1', serverPort);
-                await new Promise((r) => setTimeout(r, 300));
-              } catch {}
+              try { await w.sparringPartner.disconnect().catch(() => {}); } catch {}
+              try { w.system1.bot?.quit(); } catch {}
             }
-            if (survivalWorker) {
-              try {
-                await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
-                await seedPersistentSurvivalSector(server, survivalWorker.botUsername);
-              } catch {}
+            try { survivalWorker?.system1.bot?.quit(); } catch {}
+            await server.stopServer();
+            await new Promise((r) => setTimeout(r, 1500));
+
+            // Run full survival run
+            const dragonRes = await runVanillaDragonSurvivalRun(30);
+            dragonScore = dragonRes.progressDepthScore;
+            dragonMilestonesCount = dragonRes.milestonesAchievedCount;
+            console.log(`[TrainLoop] Dragon Survival Run Finished! Score: ${dragonScore.toFixed(1)}% (${dragonMilestonesCount}/8 milestones).`);
+
+            if (!isFinalCycle && !isShuttingDown) {
+              // Restart curriculum server for next training cycle
+              await server.startServer(serverPort);
+              for (const w of workers) {
+                try {
+                  await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
+                  await new Promise((r) => setTimeout(r, 600));
+                } catch {}
+                try {
+                  await w.sparringPartner.connect('127.0.0.1', serverPort);
+                  await new Promise((r) => setTimeout(r, 300));
+                } catch {}
+              }
+              if (survivalWorker) {
+                try {
+                  await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+                  await seedPersistentSurvivalSector(server, survivalWorker.botUsername);
+                } catch {}
+              }
             }
-          }
+          });
         } catch (dErr: any) {
           console.error('[TrainLoop] Error in Dragon Survival Run:', dErr);
         }

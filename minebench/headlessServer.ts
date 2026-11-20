@@ -123,7 +123,7 @@ export class HeadlessMinecraftServerManager {
         reject(new Error(`Headless Minecraft 1.20.4 server timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      this.proc = spawn(javaExe, ['-Xmx3072M', '-Xms1024M', '-jar', 'server.jar', 'nogui'], {
+      this.proc = spawn(javaExe, ['-Xmx2560M', '-Xms1024M', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=50', '-jar', 'server.jar', 'nogui'], {
         cwd: this.serverDir,
       });
 
@@ -309,13 +309,34 @@ export class HeadlessMinecraftServerManager {
 
   public async stopServer(): Promise<void> {
     if (!this.proc) return;
+    const proc = this.proc;
+    const pid = proc.pid;
     try {
       this.sendCommand('stop');
     } catch {}
-    await new Promise((r) => setTimeout(r, 2000));
-    if (this.proc && !this.proc.killed) {
-      this.proc.kill();
+
+    const exitPromise = new Promise<void>((resolve) => {
+      proc.once('exit', () => resolve());
+    });
+
+    const exited = await Promise.race([
+      exitPromise.then(() => true),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 8000)),
+    ]);
+
+    if (!exited && pid) {
+      if (process.platform === 'win32') {
+        try {
+          const { execSync } = require('child_process');
+          execSync(`taskkill /PID ${pid} /T /F`, { stdio: 'ignore' });
+        } catch {}
+      } else {
+        try {
+          proc.kill('SIGKILL');
+        } catch {}
+      }
     }
+
     this.pruneMovementSpamFromLog();
     this.proc = null;
     this.isReady = false;
