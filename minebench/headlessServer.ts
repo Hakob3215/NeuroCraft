@@ -123,7 +123,7 @@ export class HeadlessMinecraftServerManager {
         reject(new Error(`Headless Minecraft 1.20.4 server timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      this.proc = spawn(javaExe, ['-Xmx2048M', '-Xms512M', '-jar', 'server.jar', 'nogui'], {
+      this.proc = spawn(javaExe, ['-Xmx3072M', '-Xms1024M', '-jar', 'server.jar', 'nogui'], {
         cwd: this.serverDir,
       });
 
@@ -216,6 +216,7 @@ export class HeadlessMinecraftServerManager {
     if (!scopedCleanup) {
       this.sendCommand('tick unfreeze');
       this.sendCommand('tick rate 20');
+      this.sendCommand('forceload remove all');
       for (const rule of MINEBENCH_ARENA_GAMERULES) {
         this.sendCommand(rule);
       }
@@ -239,8 +240,9 @@ export class HeadlessMinecraftServerManager {
     this.sendCommand(`effect give ${botUsername} minecraft:instant_health 1 10 true`);
     this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
 
-    // Ensure chunks are loaded across the entire 3x3 chunk arena bounding box before block operations
-    this.sendCommand(`forceload add ${x - 32} ${z - 32} ${x + 32} ${z + 32}`);
+    // Ensure chunks are loaded across the local arena bounding box (clearing legacy chunk pins in this shard first)
+    this.sendCommand(`forceload remove ${x - 48} ${z - 48} ${x + 48} ${z + 48}`);
+    this.sendCommand(`forceload add ${x - 24} ${z - 24} ${x + 24} ${z + 24}`);
     this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
     await new Promise((r) => setTimeout(r, 250));
     this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
