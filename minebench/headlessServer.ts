@@ -239,9 +239,10 @@ export class HeadlessMinecraftServerManager {
     this.sendCommand(`effect give ${botUsername} minecraft:instant_health 1 10 true`);
     this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
 
-    // Move bot (in creative mode) first to force chunk loading, then place temporary safety floor
+    // Ensure chunk is loaded at target coordinates before block operations
+    this.sendCommand(`forceload add ${x} ${z}`);
     this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
-    await new Promise((r) => setTimeout(r, 120));
+    await new Promise((r) => setTimeout(r, 250));
     this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
 
     // Execute the task's procedural 1.20.4 arena commands

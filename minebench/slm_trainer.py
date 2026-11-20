@@ -106,8 +106,9 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
 def train_slm_qlora(
     epochs: int = 2,
     lr: float = 2e-4,
-    batch_size: int = 2,
-    gradient_accumulation_steps: int = 2,
+    batch_size: int = 1,
+    gradient_accumulation_steps: int = 4,
+    max_length: int = 512,
     is_best: bool = False,
     loop_idx: Optional[int] = None,
     max_trajectories: int = 512,
@@ -172,11 +173,11 @@ def train_slm_qlora(
         print(f"[SLM Trainer] Resuming from existing adapter at {latest_adapter}")
         model = PeftModel.from_pretrained(base_model, str(latest_adapter), is_trainable=True)
     else:
-        print(f"[SLM Trainer] Initializing pristine LoRA adapter (r=16, alpha=32) on base model...")
+        print(f"[SLM Trainer] Initializing pristine LoRA adapter (r=8, alpha=16) on base model...")
         lora_config = LoraConfig(
-            r=16,
-            lora_alpha=32,
-            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+            r=8,
+            lora_alpha=16,
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj"],
             lora_dropout=0.05,
             bias="none",
             task_type="CAUSAL_LM",
@@ -200,8 +201,8 @@ def train_slm_qlora(
             full_text = tokenizer.apply_chat_template(msgs, tokenize=False)
             prompt_text = tokenizer.apply_chat_template(msgs[:-1], tokenize=False, add_generation_prompt=True)
 
-            enc_full = tokenizer(full_text, truncation=True, max_length=1024, return_tensors="pt")
-            enc_prompt = tokenizer(prompt_text, truncation=True, max_length=1024, return_tensors="pt")
+            enc_full = tokenizer(full_text, truncation=True, max_length=max_length, return_tensors="pt")
+            enc_prompt = tokenizer(prompt_text, truncation=True, max_length=max_length, return_tensors="pt")
 
             input_ids = enc_full.input_ids[0]
             labels = input_ids.clone()
@@ -335,7 +336,9 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="NeuroCraft System 2 Cognitive SLM QLoRA Trainer")
     parser.add_argument("--epochs", type=int, default=2)
     parser.add_argument("--lr", type=float, default=2e-4)
-    parser.add_argument("--batch-size", type=int, default=2)
+    parser.add_argument("--batch-size", type=int, default=1)
+    parser.add_argument("--grad-accum", type=int, default=4)
+    parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--max-trajectories", type=int, default=512)
     parser.add_argument("--is-best", action="store_true")
     parser.add_argument("--fresh", action="store_true", help="Start training from pristine LoRA instead of resuming")
@@ -347,6 +350,8 @@ if __name__ == "__main__":
         epochs=args.epochs,
         lr=args.lr,
         batch_size=args.batch_size,
+        gradient_accumulation_steps=args.grad_accum,
+        max_length=args.max_length,
         is_best=args.is_best,
         loop_idx=args.loop,
         max_trajectories=args.max_trajectories,
