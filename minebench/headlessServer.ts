@@ -118,12 +118,20 @@ export class HeadlessMinecraftServerManager {
     const javaExe = resolveJavaExecutable();
     console.log(`[MINEbench Server] Launching Headless Vanilla 1.20.4 Server on port ${port} using: ${javaExe}`);
 
+    // Prune stale forceloaded chunks so startup does not simultaneously allocate dozens of chunks into memory
+    const chunksDat = path.join(this.serverDir, levelName, 'data', 'chunks.dat');
+    if (fs.existsSync(chunksDat)) {
+      try {
+        fs.unlinkSync(chunksDat);
+      } catch {}
+    }
+
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         reject(new Error(`Headless Minecraft 1.20.4 server timed out after ${timeoutMs}ms`));
       }, timeoutMs);
 
-      this.proc = spawn(javaExe, ['-Xmx2560M', '-Xms1024M', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=50', '-jar', 'server.jar', 'nogui'], {
+      this.proc = spawn(javaExe, ['-Xmx3072M', '-Xms1024M', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=50', '-jar', 'server.jar', 'nogui'], {
         cwd: this.serverDir,
       });
 
