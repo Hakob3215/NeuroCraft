@@ -1,46 +1,46 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 940" width="1200" height="940" style="background-color: #0b1120; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
   <text x="70" y="34" fill="#f8fafc" font-size="20" font-weight="bold">NeuroCraft Decomposed Dual-Track Training Telemetry</text>
-  <text x="70" y="54" fill="#94a3b8" font-size="12">Iterations: 0 | Peak Score: 0/100 | Open-World Tier: Ready (Loop 0)</text>
+  <text x="70" y="54" fill="#94a3b8" font-size="12">Iterations: 17 | Peak Score: 45.1/100 | Open-World Tier: Stone</text>
 
   <!-- Panel 1: Standardized Exam -->
   <rect x="70" y="75" width="1070" height="220" fill="#1e293b" rx="6"/>
   <text x="82" y="95" fill="#f8fafc" font-size="13" font-weight="bold">1. Standardized MINEbench Exam (Pass Rate % &amp; Mean Score)</text>
   <line x1="70" y1="295" x2="1140" y2="295" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="299" fill="#64748b" font-size="10" text-anchor="end">0</text><line x1="70" y1="240" x2="1140" y2="240" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="244" fill="#64748b" font-size="10" text-anchor="end">25</text><line x1="70" y1="185" x2="1140" y2="185" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="189" fill="#64748b" font-size="10" text-anchor="end">50</text><line x1="70" y1="130" x2="1140" y2="130" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="134" fill="#64748b" font-size="10" text-anchor="end">75</text><line x1="70" y1="75" x2="1140" y2="75" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="62" y="79" fill="#64748b" font-size="10" text-anchor="end">100</text>
-  
-  <text x="605" y="185" fill="#94a3b8" font-size="14" text-anchor="middle">Loop 0 Initialized — Ready for Iteration #1</text>
+  <path d="M 132.9 250.6 L 195.9 240.0 L 258.8 242.6 L 321.8 224.4 L 384.7 229.4 L 447.6 219.1 L 510.6 213.8 L 573.5 224.4 L 636.5 203.3 L 699.4 216.5 L 762.4 226.8 L 825.3 221.7 L 888.2 237.4 L 951.2 213.8 L 1014.1 205.9 L 1077.1 229.4 L 1140.0 219.1" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>
+  <path d="M 132.9 235.6 L 195.9 227.9 L 258.8 232.5 L 321.8 215.1 L 384.7 220.2 L 447.6 209.6 L 510.6 202.6 L 573.5 213.6 L 636.5 195.8 L 699.4 210.5 L 762.4 218.4 L 825.3 216.7 L 888.2 228.1 L 951.2 205.7 L 1014.1 200.8 L 1077.1 216.2 L 1140.0 210.5" fill="none" stroke="#3b82f6" stroke-width="3"/>
 
   <!-- Panel 2: Domain Bar Breakdown -->
   <rect x="70" y="360" width="1070" height="220" fill="#1e293b" rx="6"/>
-  <text x="82" y="380" fill="#f8fafc" font-size="13" font-weight="bold">2. Latest Per-Domain Skill Breakdown (Iter #0: Dim=Score, Solid=Pass%)</text>
+  <text x="82" y="380" fill="#f8fafc" font-size="13" font-weight="bold">2. Latest Per-Domain Skill Breakdown (Iter #17: Dim=Score, Solid=Pass%)</text>
   
-      <rect x="82" y="560" width="60" height="0" fill="#ef4444" fill-opacity="0.35" rx="3"/>
-      <rect x="146" y="560" width="60" height="0" fill="#ef4444" rx="3"/>
-      <text x="146" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <rect x="82" y="511.15999999999997" width="60" height="48.84" fill="#ef4444" fill-opacity="0.35" rx="3"/>
+      <rect x="146" y="518.005" width="60" height="41.995" fill="#ef4444" rx="3"/>
+      <text x="146" y="506.15999999999997" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">23%</text>
       <text x="146" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Tactical</text>
     
-      <rect x="234.85714285714286" y="560" width="60" height="0" fill="#f59e0b" fill-opacity="0.35" rx="3"/>
+      <rect x="234.85714285714286" y="536.875" width="60" height="23.125" fill="#f59e0b" fill-opacity="0.35" rx="3"/>
       <rect x="298.8571428571429" y="560" width="60" height="0" fill="#f59e0b" rx="3"/>
-      <text x="298.8571428571429" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <text x="298.8571428571429" y="531.875" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
       <text x="298.8571428571429" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Crafting</text>
     
-      <rect x="387.7142857142857" y="560" width="60" height="0" fill="#10b981" fill-opacity="0.35" rx="3"/>
-      <rect x="451.7142857142857" y="560" width="60" height="0" fill="#10b981" rx="3"/>
-      <text x="451.7142857142857" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <rect x="387.7142857142857" y="446.225" width="60" height="113.77499999999999" fill="#10b981" fill-opacity="0.35" rx="3"/>
+      <rect x="451.7142857142857" y="467.5" width="60" height="92.5" fill="#10b981" rx="3"/>
+      <text x="451.7142857142857" y="441.225" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">50%</text>
       <text x="451.7142857142857" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Agility</text>
     
-      <rect x="540.5714285714286" y="560" width="60" height="0" fill="#8b5cf6" fill-opacity="0.35" rx="3"/>
-      <rect x="604.5714285714286" y="560" width="60" height="0" fill="#8b5cf6" rx="3"/>
-      <text x="604.5714285714286" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <rect x="540.5714285714286" y="408.3" width="60" height="151.7" fill="#8b5cf6" fill-opacity="0.35" rx="3"/>
+      <rect x="604.5714285714286" y="436.605" width="60" height="123.39500000000001" fill="#8b5cf6" rx="3"/>
+      <text x="604.5714285714286" y="403.3" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">67%</text>
       <text x="604.5714285714286" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Building</text>
     
-      <rect x="693.4285714285714" y="560" width="60" height="0" fill="#3b82f6" fill-opacity="0.35" rx="3"/>
-      <rect x="757.4285714285714" y="560" width="60" height="0" fill="#3b82f6" rx="3"/>
-      <text x="757.4285714285714" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <rect x="693.4285714285714" y="422.91499999999996" width="60" height="137.085" fill="#3b82f6" fill-opacity="0.35" rx="3"/>
+      <rect x="757.4285714285714" y="422.91499999999996" width="60" height="137.085" fill="#3b82f6" rx="3"/>
+      <text x="757.4285714285714" y="417.91499999999996" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">74%</text>
       <text x="757.4285714285714" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Survival</text>
     
-      <rect x="846.2857142857143" y="560" width="60" height="0" fill="#06b6d4" fill-opacity="0.35" rx="3"/>
-      <rect x="910.2857142857143" y="560" width="60" height="0" fill="#06b6d4" rx="3"/>
-      <text x="910.2857142857143" y="555" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">0%</text>
+      <rect x="846.2857142857143" y="421.25" width="60" height="138.75" fill="#06b6d4" fill-opacity="0.35" rx="3"/>
+      <rect x="910.2857142857143" y="467.5" width="60" height="92.5" fill="#06b6d4" rx="3"/>
+      <text x="910.2857142857143" y="416.25" fill="#e2e8f0" font-size="10" font-weight="bold" text-anchor="middle">50%</text>
       <text x="910.2857142857143" y="575" fill="#94a3b8" font-size="10" text-anchor="middle">Puzzles</text>
     
       <rect x="999.1428571428571" y="560" width="60" height="0" fill="#ec4899" fill-opacity="0.35" rx="3"/>
@@ -52,6 +52,6 @@
   <!-- Panel 3: SLM Loss -->
   <rect x="70" y="645" width="1070" height="180" fill="#1e293b" rx="6"/>
   <text x="82" y="665" fill="#f8fafc" font-size="13" font-weight="bold">3. System 2 Qwen2.5-Coder SLM Cross-Entropy Loss</text>
-  <text x="605" y="735" fill="#94a3b8" font-size="13" text-anchor="middle">No QLoRA updates recorded yet (awaiting Iteration #1)</text>
-  
+  <path d="M 132.9 645.0 L 195.9 743.1 L 258.8 798.8 L 321.8 788.1 L 384.7 810.0 L 447.6 810.9 L 510.6 810.9 L 573.5 812.7 L 636.5 816.7 L 699.4 816.7 L 762.4 815.2 L 825.3 822.4 L 888.2 818.9 L 951.2 818.9 L 1014.1 820.8 L 1077.1 821.6 L 1140.0 823.3" fill="none" stroke="#f43f5e" stroke-width="3"/>
+  <text x="132.94117647058823" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 1</text><text x="258.82352941176475" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 3</text><text x="384.70588235294116" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 5</text><text x="510.5882352941176" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 7</text><text x="636.4705882352941" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 9</text><text x="762.3529411764706" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 11</text><text x="888.235294117647" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 13</text><text x="1014.1176470588235" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 15</text><text x="1140" y="847" fill="#94a3b8" font-size="10" text-anchor="middle">Iter 17</text>
 </svg>

@@ -1,12 +1,12 @@
 {
-  "completedAt": "2026-11-18T13:16:46.246Z",
+  "completedAt": "2026-11-20T17:42:05.610Z",
   "totalStepsExecuted": 30,
   "progressDepthScore": 0,
   "progressDepthPercent": 0,
-  "efficiencyScore": 21,
+  "efficiencyScore": 27,
   "efficiencyBreakdown": {
     "parEfficiencyPercent": 0,
-    "actionSuccessPercent": 3,
+    "actionSuccessPercent": 20,
     "healthPreservationPercent": 100,
     "finalHealth": 20
   },
@@ -72,303 +72,303 @@
   "executedHistory": [
     {
       "stepNumber": 1,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 6
       },
       "success": true,
-      "summary": "Dug staircase mine (1 blocks cleared) down to Y=70. Current inventory: [empty]."
+      "summary": "Harvested 4 spruce_log (4 blocks broken). Current inventory: [4x spruce_log]."
     },
     {
       "stepNumber": 2,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
     },
     {
       "stepNumber": 3,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
     },
     {
       "stepNumber": 4,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
     },
     {
       "stepNumber": 5,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
     },
     {
       "stepNumber": 6,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 3
       },
-      "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "success": true,
+      "summary": "Harvested 2 spruce_log (2 blocks broken). Current inventory: [6x spruce_log]."
     },
     {
       "stepNumber": 7,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x spruce_log])."
     },
     {
       "stepNumber": 8,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Collected 0 spruce_log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [6x spruce_log]."
     },
     {
       "stepNumber": 9,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_planks",
+        "count": 6
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x spruce_log])."
     },
     {
       "stepNumber": 10,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 3
       },
-      "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "success": true,
+      "summary": "Harvested 1 spruce_log (1 blocks broken). Current inventory: [6x spruce_log, 2x stick]."
     },
     {
       "stepNumber": 11,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_log",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
     },
     {
       "stepNumber": 12,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 3
       },
-      "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "success": true,
+      "summary": "Harvested 2 spruce_log (2 blocks broken). Current inventory: [6x spruce_log, 2x stick]."
     },
     {
       "stepNumber": 13,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_planks",
+        "count": 6
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x spruce_log, 2x stick])."
     },
     {
       "stepNumber": 14,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_log",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
     },
     {
       "stepNumber": 15,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "sapling",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Collected 0 sapling into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [6x spruce_log, 2x stick]."
     },
     {
       "stepNumber": 16,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_log",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
     },
     {
       "stepNumber": 17,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_leaves",
+        "count": 3
       },
-      "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "success": true,
+      "summary": "Harvested 7 spruce_leaves (7 blocks broken). Current inventory: [9x spruce_log, 2x stick, 1x spruce_sapling]."
     },
     {
       "stepNumber": 18,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_staff",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_staff\"."
     },
     {
       "stepNumber": 19,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 20,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 21,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "stick",
+        "count": 6
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Collected 0 stick into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [9x spruce_log, 2x stick, 1x spruce_sapling]."
     },
     {
       "stepNumber": 22,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 23,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 24,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_arrow",
+        "count": 6
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_arrow\"."
     },
     {
       "stepNumber": 25,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 26,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "gather_resource",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "blockType": "spruce_log",
+        "count": 3
       },
-      "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "success": true,
+      "summary": "Harvested 3 spruce_log (3 blocks broken). Current inventory: [12x spruce_log, 2x stick, 1x spruce_sapling]."
     },
     {
       "stepNumber": 27,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 28,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_staff",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_staff\"."
     },
     {
       "stepNumber": 29,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     },
     {
       "stepNumber": 30,
-      "toolName": "explore_or_dig_for_ores",
+      "toolName": "craft_item",
       "args": {
-        "mode": "normal",
-        "steps": 10
+        "itemName": "oak_bow",
+        "count": 3
       },
       "success": false,
-      "summary": "Dug staircase mine (0 blocks cleared) down to Y=70. Current inventory: [1x dirt]."
+      "summary": "Unknown Minecraft item name \"oak_bow\"."
     }
   ]
 }
