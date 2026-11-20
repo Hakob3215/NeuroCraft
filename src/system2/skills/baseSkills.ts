@@ -1312,7 +1312,14 @@ async function craftItemWithAutoPrereqs(
     itemName = 'crafting_table';
   }
 
-  if (itemName === 'planks' || itemName === 'wood_planks') {
+  if (
+    itemName === 'plank' ||
+    itemName === 'planks' ||
+    itemName === 'wood_plank' ||
+    itemName === 'wood_planks' ||
+    itemName === 'wooden_plank' ||
+    itemName === 'wooden_planks'
+  ) {
     const invLogs = (ctx.bot.inventory?.items() || []).find((i: any) =>
       i.name.endsWith('_log')
     );
@@ -1570,16 +1577,31 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const targetName = String(args.playerName || '').trim();
       const followDist = Number(args.distance) || 3;
       const isGenericPlayerRef =
-        !targetName || ['player', 'me', 'human', 'owner', 'user'].includes(targetName.toLowerCase());
-      const playerObj =
-        (!isGenericPlayerRef &&
-          (ctx.bot.players?.[targetName] ||
-            Object.values(ctx.bot.players || {}).find(
-              (p: any) => p?.username?.toLowerCase() === targetName.toLowerCase()
-            ))) ||
-        Object.values(ctx.bot.players || {}).find(
-          (p: any) => p?.entity && p.username !== ctx.bot.username
+        !targetName ||
+        ['player', 'me', 'human', 'owner', 'user', 'companion', 'companion_player', 'partner', 'teammate', 'leader', 'friend'].includes(
+          targetName.toLowerCase()
         );
+
+      const candidatePlayers = (Object.values(ctx.bot.players || {}) as any[])
+        .filter((p: any) => p?.entity && p.username !== ctx.bot.username);
+
+      candidatePlayers.sort((a: any, b: any) => {
+        const myPos = ctx.bot.entity?.position;
+        const da = myPos && a.entity?.position ? myPos.distanceTo(a.entity.position) : 999999;
+        const db = myPos && b.entity?.position ? myPos.distanceTo(b.entity.position) : 999999;
+        return da - db;
+      });
+
+      let playerObj: any = null;
+      if (!isGenericPlayerRef) {
+        playerObj =
+          candidatePlayers.find((p: any) => p?.username?.toLowerCase() === targetName.toLowerCase()) ||
+          ctx.bot.players?.[targetName] ||
+          null;
+      }
+      if (!playerObj) {
+        playerObj = candidatePlayers[0] || null;
+      }
 
       if (!playerObj?.entity) {
         return {

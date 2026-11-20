@@ -531,6 +531,14 @@ class NeuralStackServer:
         ]
         text = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
         model_device = next(self.slm_model.parameters()).device
+        # Self-healing: if daemon is configured for CUDA but SLM remained on CPU, restore to CUDA immediately
+        if self.device.type == "cuda" and model_device.type != "cuda":
+            print("[System 2] Self-healing: Restoring SLM from CPU to CUDA before inference...", flush=True)
+            target_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+            self.slm_model = self.slm_model.to(dtype=target_dtype).to(self.device)
+            self.slm_model.eval()
+            model_device = next(self.slm_model.parameters()).device
+
         model_inputs = self.tokenizer([text], return_tensors="pt").to(model_device)
         input_len = model_inputs.input_ids.shape[1]
 
@@ -617,7 +625,8 @@ class NeuralStackServer:
         self.telemetry["llm_avg_ms"] = round(((self.telemetry["llm_avg_ms"] * (n - 1)) + dt_ms) / n, 2)
 
         print(
-            f"[System 2 GPU SLM] Prompt={input_len} tok -> Generated={num_tokens} tok in {dt_ms:.0f}ms ({tok_per_sec:.1f} tok/s, queue_wait={wait_ms:.0f}ms)"
+            f"[System 2 {model_device.type.upper()} SLM] Prompt={input_len} tok -> Generated={num_tokens} tok in {dt_ms:.0f}ms ({tok_per_sec:.1f} tok/s, queue_wait={wait_ms:.0f}ms)",
+            flush=True,
         )
 
         return web.json_response({
@@ -803,7 +812,7 @@ class NeuralStackServer:
                 self.slm_model = self.slm_model.to("cpu")
                 torch.cuda.empty_cache()
                 vram_mb = torch.cuda.memory_allocated() / (1024 * 1024)
-                print(f"[System 2] SLM offloaded to CPU for training (Active VRAM: {vram_mb:.1f} MiB)")
+                print(f"[System 2] SLM offloaded to CPU for training (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
         return web.json_response({
             "status": "paused",
             "vram_allocated_mb": round(torch.cuda.memory_allocated() / (1024 * 1024), 1) if torch.cuda.is_available() else 0,
@@ -848,9 +857,9 @@ class NeuralStackServer:
 
                     try:
                         self.slm_model.merge_adapter()
-                        print(f"[System 2] Merged reloaded LoRA adapter reversibly into PeftModel (zero weight stacking).")
+                        print(f"[System 2] Merged reloaded LoRA adapter reversibly into PeftModel (zero weight stacking).", flush=True)
                     except Exception as fe:
-                        print(f"[System 2] Warning: Could not merge reloaded LoRA: {fe}")
+                        print(f"[System 2] Warning: Could not merge reloaded LoRA: {fe}", flush=True)
 
                 # Always ensure SLM is safely restored to target device and in eval mode
                 self.slm_model = self.slm_model.to(dtype=target_dtype)
@@ -868,9 +877,9 @@ class NeuralStackServer:
                         self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
                         self.action_head.to(device=self.device, dtype=act_dtype)
                         self.action_head.eval()
-                        print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}")
+                        print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
                     except Exception as he:
-                        print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}")
+                        print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}", flush=True)
 
                 # Hot-reload System 1 PPO VoxelReflexPolicy weights if updated
                 reflex_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "voxel_reflex_policy_latest.pt")
@@ -881,12 +890,12 @@ class NeuralStackServer:
                         self.reflex_policy.to(self.device)
                         self.reflex_policy.eval()
                         reflex_reloaded = True
-                        print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}")
+                        print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}", flush=True)
                     except Exception as re_err:
-                        print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}")
+                        print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}", flush=True)
 
                 vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
-                print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)")
+                print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
                 return web.json_response({
                     "status": "ok",
                     "active_adapter": adapter_dir,

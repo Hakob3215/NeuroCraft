@@ -1949,13 +1949,30 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           }
         } finally {
           // Hot-reload updated adapter, action head, and reflex policy in running neural daemon (restoring SLM to GPU)
-          try {
-            await fetch('http://127.0.0.1:8765/reload_adapter', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ adapter_name: 'slm_minecraft_savant_latest' }),
-            });
-          } catch {}
+          let reloaded = false;
+          for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+              const reloadRes = await fetch('http://127.0.0.1:8765/reload_adapter', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
+                body: JSON.stringify({ adapter_name: 'slm_minecraft_savant_latest' }),
+              });
+              if (reloadRes.ok) {
+                const rData: any = await reloadRes.json();
+                console.log(`[TrainLoop] Neural adapter & SLM GPU state successfully restored (attempt #${attempt}, device=${rData.slm_device || 'unknown'})`);
+                reloaded = true;
+                break;
+              } else {
+                console.warn(`[TrainLoop] Warning: reload_adapter returned HTTP ${reloadRes.status} (attempt #${attempt})`);
+              }
+            } catch (rErr: any) {
+              console.warn(`[TrainLoop] Warning: reload_adapter fetch error on attempt #${attempt}: ${rErr?.message || rErr}`);
+            }
+            await new Promise((r) => setTimeout(r, 1000 * attempt));
+          }
+          if (!reloaded) {
+            console.error(`[TrainLoop] ERROR: Could not confirm reload_adapter after 3 attempts!`);
+          }
         }
 
         if (!isFinalCyclePlanned && !isShuttingDown) {
