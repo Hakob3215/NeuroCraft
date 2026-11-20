@@ -310,7 +310,7 @@ export class System1BotController {
           try { this.bot?.quit(); } catch {}
           reject(new Error(`Timed out waiting for "${safeUsername}" to spawn on ${host}:${port}`));
         }
-      }, 20000);
+      }, 60000);
 
       this.bot.once('spawn', () => {
         connected = true;
