@@ -19,6 +19,10 @@ import time
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+# Configure PyTorch allocator and cuBLAS workspace for VRAM fragmentation resistance and tensor core GEMMs
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
@@ -120,6 +124,11 @@ def train_slm_qlora(
 
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
+
+    if torch.cuda.is_available():
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.backends.cudnn.allow_tf32 = True
+        torch.cuda.empty_cache()
 
     trajectories = load_training_trajectories(max_trajectories=max_trajectories)
     if not trajectories:
@@ -235,6 +244,15 @@ def train_slm_qlora(
         weights = torch.tensor([item[2] for item in batch], dtype=torch.float32)
         padded_inps = torch.nn.utils.rnn.pad_sequence(inps, batch_first=True, padding_value=pad_id)
         padded_lbls = torch.nn.utils.rnn.pad_sequence(lbls, batch_first=True, padding_value=-100)
+
+        # Pad sequence length to nearest multiple of 8 for cuBLAS tensor core alignment
+        seq_len = padded_inps.shape[1]
+        pad_rem = seq_len % 8
+        if pad_rem != 0:
+            pad_amount = 8 - pad_rem
+            padded_inps = torch.nn.functional.pad(padded_inps, (0, pad_amount), value=pad_id)
+            padded_lbls = torch.nn.functional.pad(padded_lbls, (0, pad_amount), value=-100)
+
         mask = (padded_inps != pad_id).long()
         return padded_inps, padded_lbls, mask, weights
 
@@ -266,7 +284,17 @@ def train_slm_qlora(
 
             # Scale loss by advantage weight and gradient accumulation
             loss = (raw_loss * b_weights.mean()) / gradient_accumulation_steps
-            loss.backward()
+            try:
+                loss.backward()
+            except RuntimeError as e:
+                if "cublas" in str(e).lower() or "out of memory" in str(e).lower():
+                    print(f"  [SLM Trainer Warning] Caught transient CUDA/cuBLAS error during backward: {e}. Clearing cache and skipping batch.")
+                    if torch.cuda.is_available():
+                        torch.cuda.empty_cache()
+                    optimizer.zero_grad()
+                    continue
+                else:
+                    raise e
 
             b_loss = float(raw_loss.item())
             epoch_loss += b_loss
