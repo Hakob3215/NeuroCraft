@@ -286,11 +286,14 @@ def train_slm_qlora(
             loss = (raw_loss * b_weights.mean()) / gradient_accumulation_steps
             try:
                 loss.backward()
-            except RuntimeError as e:
-                if "cublas" in str(e).lower() or "out of memory" in str(e).lower():
+            except (RuntimeError, Exception) as e:
+                if "cublas" in str(e).lower() or "out of memory" in str(e).lower() or "acceleratorerror" in type(e).__name__.lower():
                     print(f"  [SLM Trainer Warning] Caught transient CUDA/cuBLAS error during backward: {e}. Clearing cache and skipping batch.")
-                    if torch.cuda.is_available():
-                        torch.cuda.empty_cache()
+                    try:
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:
+                        pass
                     optimizer.zero_grad()
                     continue
                 else:
