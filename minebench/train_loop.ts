@@ -767,6 +767,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       ? 1
       : Infinity;
 
+  const maxHoursIdx = cliArgs.indexOf('--max-hours') !== -1 ? cliArgs.indexOf('--max-hours') : cliArgs.indexOf('--hours');
+  const maxHours =
+    maxHoursIdx !== -1 && cliArgs[maxHoursIdx + 1]
+      ? parseFloat(cliArgs[maxHoursIdx + 1])
+      : Infinity;
+  const sessionStartTime = Date.now();
+
   const dragonIdx = cliArgs.indexOf('--full_dragon') !== -1 ? cliArgs.indexOf('--full_dragon') : cliArgs.indexOf('--full-dragon');
   const fullDragonInterval =
     dragonIdx !== -1 && cliArgs[dragonIdx + 1]
@@ -2154,8 +2161,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       console.log(`----------------------------------------------------------------------\n`);
 
       cyclesCompleted++;
+      const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
       if (cyclesCompleted >= maxCycles) {
         console.log(`[TrainLoop] Target of ${maxCycles} cycle(s) reached. Stopping loop cleanly.`);
+        break;
+      }
+      if (elapsedHours >= maxHours) {
+        console.log(`[TrainLoop] Target runtime of ${maxHours} hour(s) reached (${elapsedHours.toFixed(2)}h elapsed). Stopping loop cleanly.`);
         break;
       }
     }
