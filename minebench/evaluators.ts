@@ -199,7 +199,7 @@ export function evaluateOmniscienceMilestones(
       const totalKills = Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0);
       const tamed = (snap.stats.wolvesTamed || 0) > 0;
       const sheared = invNames.some((n) => n.includes('wool'));
-      const peacefulMobs = ['cow', 'sheep', 'wolf', 'piglin', 'villager', 'cat', 'horse', 'ocelot', 'fox'];
+      const peacefulMobs = ['cow', 'sheep', 'wolf', 'piglin', 'villager', 'cat', 'horse', 'ocelot', 'fox', 'dolphin', 'squid', 'glow_squid'];
       const isPeacefulTarget = peacefulMobs.includes((task.targetObject || '').toLowerCase());
       const hasInteracted =
         tamed ||
@@ -209,16 +209,19 @@ export function evaluateOmniscienceMilestones(
         (snap.stats.foodConsumed || 0) > 0 ||
         ((snap.stats as any).affordanceActions || 0) > 0;
 
+      const dealtDamage = Boolean(((snap.stats as any)?.damageDealt || 0) > 0 || (snap.stats.arrowsFired || 0) > 0);
+      const validKill = totalKills > 0 && (dealtDamage || isPeacefulTarget);
+
       if (cond === 'target_engaged') {
-        if (totalKills > 0 || hasInteracted) {
+        if (validKill || hasInteracted) {
           earned = m.maxPoints;
         }
       } else if (cond === 'target_resolved') {
         if (isPeacefulTarget) {
-          if (totalKills > 0 || tamed || sheared || (snap.deaths === 0 && hasInteracted)) {
+          if (validKill || tamed || sheared || (snap.deaths === 0 && hasInteracted)) {
             earned = m.maxPoints;
           }
-        } else if (totalKills > 0) {
+        } else if (validKill) {
           earned = m.maxPoints;
         }
       }

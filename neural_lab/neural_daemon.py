@@ -624,6 +624,7 @@ class NeuralStackServer:
         n = self.telemetry["llm_calls"]
         self.telemetry["llm_avg_ms"] = round(((self.telemetry["llm_avg_ms"] * (n - 1)) + dt_ms) / n, 2)
 
+        model_device = next(self.slm_model.parameters()).device
         print(
             f"[System 2 {model_device.type.upper()} SLM] Prompt={input_len} tok -> Generated={num_tokens} tok in {dt_ms:.0f}ms ({tok_per_sec:.1f} tok/s, queue_wait={wait_ms:.0f}ms)",
             flush=True,
@@ -670,6 +671,13 @@ class NeuralStackServer:
             ]
             text = self.tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             model_device = next(self.slm_model.parameters()).device
+            if self.device.type == "cuda" and model_device.type != "cuda":
+                print("[System 2 VLA] Self-healing: Restoring SLM from CPU to CUDA before inference...", flush=True)
+                target_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+                self.slm_model = self.slm_model.to(dtype=target_dtype).to(self.device)
+                self.slm_model.eval()
+                model_device = next(self.slm_model.parameters()).device
+
             model_inputs = self.tokenizer([text], return_tensors="pt").to(model_device)
             input_len = model_inputs.input_ids.shape[1]
             stop_criteria = StoppingCriteriaList([
