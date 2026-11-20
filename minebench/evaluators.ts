@@ -881,13 +881,13 @@ export function evaluateProgressionTask(
       const goalX = task.origin.x + 3;
       const goalZ = task.origin.z + 20;
       const distToGoal = Math.hypot(snap.botPosition.x - goalX, snap.botPosition.z - goalZ);
-      const atGoal = distToGoal <= 4.0;
+      const atGoal = (distToGoal <= 8.0 || (mp.opponentAtGoal && distToGoal <= 10.0)) && snap.deaths === 0;
       const passed = atGoal && snap.deaths === 0;
-      const score = atGoal ? 100 : Math.max(0, Math.round((1 - distToGoal / 20) * 80));
+      const score = atGoal ? 100 : Math.max(0, Math.round(Math.max(0, 1 - distToGoal / 20) * 80));
       return {
         passed,
         score,
-        rawReward: (atGoal ? 140 : (1 - distToGoal / 20) * 60) - snap.deaths * 50,
+        rawReward: (atGoal ? 140 : Math.max(0, 1 - distToGoal / 20) * 60) - snap.deaths * 50,
         maxScore: 100,
         metrics: { atGoal, distToGoal, deaths: snap.deaths },
         breakdown: `Coop Follow: AtGoal=${atGoal}, DistToGoal=${distToGoal.toFixed(1)}m.`,

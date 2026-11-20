@@ -129,7 +129,8 @@ export class ReflexEngine {
         (e) =>
           e.type === 'hostile' ||
           (e as any).isHostile ||
-          ['creeper', 'skeleton', 'zombie', 'spider', 'enderman', 'warden', 'blaze', 'wither', 'witch', 'pillager', 'drowned', 'piglin'].includes(
+          (e.type === 'player' && e.name?.toLowerCase?.() !== this.bot?.username?.toLowerCase?.()) ||
+          ['creeper', 'skeleton', 'zombie', 'spider', 'enderman', 'warden', 'blaze', 'wither', 'witch', 'pillager', 'drowned', 'piglin', 'player'].includes(
             e.name?.toLowerCase?.() || ''
           )
       )

@@ -619,10 +619,9 @@ export async function seedPersistentSurvivalSector(
     // Water pond & isolated obsidian/lava hazard rim
     `fill ${ox + 6} ${oy - 1} ${oz + 10} ${ox + 10} ${oy - 1} ${oz + 14} minecraft:water`,
     `fill ${ox + 15} ${oy - 1} ${oz + 15} ${ox + 17} ${oy - 1} ${oz + 17} minecraft:lava`,
-    // Natural passive livestock & distant hostiles (world is persistent, never wiped)
+    // Natural passive livestock (world is persistent, never wiped; hostiles spawn naturally at night)
     `summon minecraft:cow ${ox + 8} ${oy} ${oz + 8}`,
     `summon minecraft:sheep ${ox + 9} ${oy} ${oz - 9}`,
-    `summon minecraft:zombie ${ox - 16} ${oy} ${oz - 14}`,
     `tp ${botUsername} ${ox} ${oy} ${oz} 0 0`,
     `gamemode survival ${botUsername}`,
   ];
@@ -1349,20 +1348,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             );
           });
 
-          if (task.sparringConfig) {
-            worker.sparringPartner.setMode({
-              mode: task.sparringConfig.mode,
-              targetUsername: worker.botUsername,
-              goalPos: task.sparringConfig.goalOffset
-                ? {
-                    x: shardedTask.origin.x + task.sparringConfig.goalOffset.dx,
-                    y: shardedTask.origin.y + task.sparringConfig.goalOffset.dy,
-                    z: shardedTask.origin.z + task.sparringConfig.goalOffset.dz,
-                  }
-                : undefined,
-              targetBlockName: task.sparringConfig.targetBlockName,
-            });
-          }
+          // Sparring partner mode is activated at step 0 so both agents engage simultaneously
+          worker.sparringPartner.setMode({ mode: 'idle' });
 
           const bot = worker.system1.bot;
           const originVec = new Vec3(shardedTask.origin.x, shardedTask.origin.y, shardedTask.origin.z);
@@ -1558,6 +1545,21 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             for (let stepIdx = 0; stepIdx < task.maxSteps; stepIdx++) {
               if (isShuttingDown || Date.now() - taskT0 > task.maxDurationSeconds * 1000) break;
 
+              if (stepIdx === 0 && task.sparringConfig) {
+                worker.sparringPartner.setMode({
+                  mode: task.sparringConfig.mode,
+                  targetUsername: worker.botUsername,
+                  goalPos: task.sparringConfig.goalOffset
+                    ? {
+                        x: shardedTask.origin.x + task.sparringConfig.goalOffset.dx,
+                        y: shardedTask.origin.y + task.sparringConfig.goalOffset.dy,
+                        z: shardedTask.origin.z + task.sparringConfig.goalOffset.dz,
+                      }
+                    : undefined,
+                  targetBlockName: task.sparringConfig.targetBlockName,
+                });
+              }
+
               const preRlState = sampleLiveRLTransitionState(worker.system1);
               const preSnap = buildSnapshot();
               const preGrading = evaluateMinebenchEpisode(shardedTask, preSnap);
@@ -1583,9 +1585,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 .replace(/\bCompanion_Player\b/g, worker.sparringPartner.username);
 
               const continuationGoal = goalPlanner.formatGoalHorizonContext(worldState);
+              const isCoop = task.domain === 'MULTIPLAYER_ARENA' && task.id.startsWith('coop_');
+              const speaker = isCoop ? worker.sparringPartner.username : 'Trainer';
               const decision =
                 stepIdx === 0
-                  ? await worker.llm.generateCognitiveDecision('Trainer', effectivePrompt, worldState, schemas, [])
+                  ? await worker.llm.generateCognitiveDecision(speaker, effectivePrompt, worldState, schemas, [])
                   : await worker.llm.generateGoalContinuationDecision(continuationGoal, stepHistory, worldState, schemas, []);
 
               if (decision.activeGoal) activeGoal = decision.activeGoal;
@@ -1886,58 +1890,65 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           }
         }
 
-        // 2. Trigger RTX 5060 System 2 Cognitive SLM QLoRA Fine-Tuning ('Minecraft Savant')
-        if (fs.existsSync(venvPython) && fs.existsSync(slmScript)) {
-          try {
-            const slmArgs = [slmScript, '--epochs', '1', '--loop', String(iter), '--max-trajectories', '256'];
-            if (isNewBest) slmArgs.push('--is-best');
-
-            // Offload daemon's SLM to CPU to free VRAM for trainer
+        try {
+          // 2. Trigger RTX 5060 System 2 Cognitive SLM QLoRA Fine-Tuning ('Minecraft Savant')
+          if (fs.existsSync(venvPython) && fs.existsSync(slmScript)) {
             try {
-              const pauseRes = await fetch('http://127.0.0.1:8765/pause_slm', { method: 'POST' });
-              await pauseRes.json();
-              await new Promise((r) => setTimeout(r, 3500));
-            } catch {}
+              const slmArgs = [
+                slmScript,
+                '--epochs',
+                '1',
+                '--loop',
+                String(iter),
+                '--max-trajectories',
+                '256',
+                '--batch-size',
+                '1',
+                '--grad-accum',
+                '4',
+                '--max-length',
+                '512',
+              ];
+              if (isNewBest) slmArgs.push('--is-best');
 
-            const slmOut = execFileSync(venvPython, slmArgs, { encoding: 'utf-8', timeout: 360000 });
-            const slmMetricsPath = path.resolve(resultsDir, 'slm_training_metrics.json');
-            if (fs.existsSync(slmMetricsPath)) {
-              const parsedSlm = JSON.parse(fs.readFileSync(slmMetricsPath, 'utf-8'));
-              slmLossDelta = `SLM LoRA: ${parsedSlm.initialLoss} -> ${parsedSlm.finalLoss} (${parsedSlm.samplesTrained} trajs in ${parsedSlm.trainingDurationSeconds}s)`;
-            } else {
-              const parsedSlm = JSON.parse(slmOut.trim().split('\n').pop() || '{}');
-              slmLossDelta = `SLM LoRA: ${parsedSlm.initialLoss} -> ${parsedSlm.finalLoss} (${parsedSlm.samplesTrained} trajs in ${parsedSlm.trainingDurationSeconds}s)`;
+              // Offload daemon's SLM to CPU to free VRAM for trainer
+              try {
+                const pauseRes = await fetch('http://127.0.0.1:8765/pause_slm', { method: 'POST' });
+                await pauseRes.json();
+                await new Promise((r) => setTimeout(r, 2000));
+              } catch {}
+
+              const slmOut = execFileSync(venvPython, slmArgs, { encoding: 'utf-8', timeout: 360000 });
+              const slmMetricsPath = path.resolve(resultsDir, 'slm_training_metrics.json');
+              if (fs.existsSync(slmMetricsPath)) {
+                const parsedSlm = JSON.parse(fs.readFileSync(slmMetricsPath, 'utf-8'));
+                slmLossDelta = `SLM LoRA: ${parsedSlm.initialLoss} -> ${parsedSlm.finalLoss} (${parsedSlm.samplesTrained} trajs in ${parsedSlm.trainingDurationSeconds}s)`;
+              } else {
+                const parsedSlm = JSON.parse(slmOut.trim().split('\n').pop() || '{}');
+                slmLossDelta = `SLM LoRA: ${parsedSlm.initialLoss} -> ${parsedSlm.finalLoss} (${parsedSlm.samplesTrained} trajs in ${parsedSlm.trainingDurationSeconds}s)`;
+              }
+            } catch (err: any) {
+              slmLossDelta = `SLM note: ${err.message}`;
             }
-          } catch (err: any) {
-            slmLossDelta = `SLM note: ${err.message}`;
           }
-        }
 
-        // 3. Trigger RTX 5060 80.8M Temporal Action Chunking Transformer (ACT) Fine-Tuning
-        if (fs.existsSync(venvPython) && fs.existsSync(actScript)) {
-          try {
-            const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
-            if (isNewBest) actArgs.push('--is-best');
-            const actOut = execFileSync(venvPython, actArgs, { encoding: 'utf-8', timeout: 180000 });
-            const parsedAct = JSON.parse(actOut.trim().split('\n').pop() || '{}');
-            actAimErrorDeg = typeof parsedAct.aim_error_deg === 'number' ? parsedAct.aim_error_deg : undefined;
-            actDiscreteAccPct =
-              typeof parsedAct.discrete_accuracy_pct === 'number' ? parsedAct.discrete_accuracy_pct : undefined;
-            actLossDelta = `ACT (80.8M): ${parsedAct.initial_loss} -> ${parsedAct.final_loss} (aim err: ${parsedAct.aim_error_deg}°, disc: ${parsedAct.discrete_accuracy_pct}%)`;
-          } catch (err: any) {
-            actLossDelta = `ACT note: ${err.message}`;
-          } finally {
-            // Hot-reload updated adapter, action head, and reflex policy in running neural daemon
+          // 3. Trigger RTX 5060 80.8M Temporal Action Chunking Transformer (ACT) Fine-Tuning
+          if (fs.existsSync(venvPython) && fs.existsSync(actScript)) {
             try {
-              await fetch('http://127.0.0.1:8765/reload_adapter', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ adapter_name: 'slm_minecraft_savant_latest' }),
-              });
-            } catch {}
+              const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
+              if (isNewBest) actArgs.push('--is-best');
+              const actOut = execFileSync(venvPython, actArgs, { encoding: 'utf-8', timeout: 180000 });
+              const parsedAct = JSON.parse(actOut.trim().split('\n').pop() || '{}');
+              actAimErrorDeg = typeof parsedAct.aim_error_deg === 'number' ? parsedAct.aim_error_deg : undefined;
+              actDiscreteAccPct =
+                typeof parsedAct.discrete_accuracy_pct === 'number' ? parsedAct.discrete_accuracy_pct : undefined;
+              actLossDelta = `ACT (80.8M): ${parsedAct.initial_loss} -> ${parsedAct.final_loss} (aim err: ${parsedAct.aim_error_deg}°, disc: ${parsedAct.discrete_accuracy_pct}%)`;
+            } catch (err: any) {
+              actLossDelta = `ACT note: ${err.message}`;
+            }
           }
-        } else {
-          // Hot-reload updated adapter in running neural daemon if actScript was skipped
+        } finally {
+          // Hot-reload updated adapter, action head, and reflex policy in running neural daemon (restoring SLM to GPU)
           try {
             await fetch('http://127.0.0.1:8765/reload_adapter', {
               method: 'POST',
