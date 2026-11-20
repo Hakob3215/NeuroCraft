@@ -239,8 +239,8 @@ export class HeadlessMinecraftServerManager {
     this.sendCommand(`effect give ${botUsername} minecraft:instant_health 1 10 true`);
     this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
 
-    // Ensure chunk is loaded at target coordinates before block operations
-    this.sendCommand(`forceload add ${x} ${z}`);
+    // Ensure chunks are loaded across the entire 3x3 chunk arena bounding box before block operations
+    this.sendCommand(`forceload add ${x - 32} ${z - 32} ${x + 32} ${z + 32}`);
     this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
     await new Promise((r) => setTimeout(r, 250));
     this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);

@@ -23,6 +23,7 @@ set DISABLE_FAST_INTENT=true
 set STRICT_LLM_BENCHMARK=true
 set NEURAL_FORCE_LOCAL_SLM=true
 set LLM_PROVIDER=local_gpu
+set PYTHONUNBUFFERED=1
 
 rem Enable stochastic temperature sampling for active reinforcement learning exploration
 if not defined SLM_TEMPERATURE set SLM_TEMPERATURE=0.7
