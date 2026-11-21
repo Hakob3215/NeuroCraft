@@ -1,23 +1,24 @@
 {
-  "completedAt": "2026-11-20T17:42:05.610Z",
-  "totalStepsExecuted": 30,
-  "progressDepthScore": 0,
-  "progressDepthPercent": 0,
-  "efficiencyScore": 27,
+  "completedAt": "2026-11-21T04:09:00.733Z",
+  "totalStepsExecuted": 11,
+  "progressDepthScore": 10,
+  "progressDepthPercent": 10,
+  "efficiencyScore": 81,
   "efficiencyBreakdown": {
-    "parEfficiencyPercent": 0,
-    "actionSuccessPercent": 20,
+    "parEfficiencyPercent": 100,
+    "actionSuccessPercent": 45,
     "healthPreservationPercent": 100,
     "finalHealth": 20
   },
-  "milestonesAchievedCount": 0,
+  "milestonesAchievedCount": 1,
   "milestones": [
     {
       "id": "milestone_1_wood",
       "title": "Milestone 1: Wood Age (Logs / Planks / Crafting Table / Wooden Pickaxe)",
-      "achieved": false,
+      "achieved": true,
       "score": 10,
-      "details": "Harvest wood logs and assemble basic wooden tools."
+      "details": "Harvest wood logs and assemble basic wooden tools.",
+      "achievedAtStep": 3
     },
     {
       "id": "milestone_2_stone",
@@ -74,301 +75,111 @@
       "stepNumber": 1,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "spruce_log",
-        "count": 6
+        "blockType": "tree_log",
+        "count": 10
       },
       "success": true,
-      "summary": "Harvested 4 spruce_log (4 blocks broken). Current inventory: [4x spruce_log]."
+      "summary": "Harvested 2 tree_log (4 blocks broken). Current inventory: [2x oak_log]."
     },
     {
       "stepNumber": 2,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "wooden_axe",
-        "count": 1
+        "blockType": "oak_log",
+        "count": 10
       },
-      "success": false,
-      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
+      "success": true,
+      "summary": "Harvested 4 oak_log (4 blocks broken). Current inventory: [7x oak_log]."
     },
     {
       "stepNumber": 3,
       "toolName": "craft_item",
       "args": {
-        "itemName": "wooden_axe",
-        "count": 1
+        "itemName": "oak_planks",
+        "count": 20
       },
-      "success": false,
-      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
+      "success": true,
+      "summary": "Successfully crafted 20x oak_planks!"
     },
     {
       "stepNumber": 4,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "wooden_axe",
-        "count": 1
+        "blockType": "oak_log",
+        "count": 10
       },
-      "success": false,
-      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
+      "success": true,
+      "summary": "Harvested 3 oak_log (3 blocks broken). Current inventory: [3x oak_log, 1x oak_sapling]."
     },
     {
       "stepNumber": 5,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "wooden_axe",
-        "count": 1
+        "blockType": "oak_log",
+        "count": 10
       },
       "success": false,
-      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [4x spruce_log])."
+      "summary": "Collected 0 oak_log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [3x oak_log, 1x oak_sapling]."
     },
     {
       "stepNumber": 6,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "spruce_log",
-        "count": 3
+        "blockType": "stone",
+        "count": 50
       },
-      "success": true,
-      "summary": "Harvested 2 spruce_log (2 blocks broken). Current inventory: [6x spruce_log]."
+      "success": false,
+      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: oak_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [3x oak_log, 1x oak_sapling, 5x dirt]."
     },
     {
       "stepNumber": 7,
-      "toolName": "craft_item",
+      "toolName": "hunt_animal",
       "args": {
-        "itemName": "wooden_pickaxe",
-        "count": 1
+        "animalType": "sheep",
+        "count": 3
       },
-      "success": false,
-      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x spruce_log])."
+      "success": true,
+      "summary": "Area is clear! No hostile mobs detected within range."
     },
     {
       "stepNumber": 8,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "spruce_log",
+        "blockType": "oak_sapling",
         "count": 3
       },
       "success": false,
-      "summary": "Collected 0 spruce_log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [6x spruce_log]."
+      "summary": "Collected 0 oak_sapling into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [3x oak_log, 1x oak_sapling, 6x dirt]."
     },
     {
       "stepNumber": 9,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 6
+        "blockType": "oak_log",
+        "count": 3
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x spruce_log])."
+      "summary": "Collected 0 oak_log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [3x oak_log, 1x oak_sapling, 6x dirt]."
     },
     {
       "stepNumber": 10,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "spruce_log",
-        "count": 3
+        "itemName": "oak_bark",
+        "count": 12
       },
-      "success": true,
-      "summary": "Harvested 1 spruce_log (1 blocks broken). Current inventory: [6x spruce_log, 2x stick]."
+      "success": false,
+      "summary": "Unknown Minecraft item name \"oak_bark\"."
     },
     {
       "stepNumber": 11,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_log",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
-    },
-    {
-      "stepNumber": 12,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "spruce_log",
-        "count": 3
-      },
-      "success": true,
-      "summary": "Harvested 2 spruce_log (2 blocks broken). Current inventory: [6x spruce_log, 2x stick]."
-    },
-    {
-      "stepNumber": 13,
-      "toolName": "craft_item",
-      "args": {
         "itemName": "oak_planks",
-        "count": 6
+        "count": 20
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x spruce_log, 2x stick])."
-    },
-    {
-      "stepNumber": 14,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_log",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
-    },
-    {
-      "stepNumber": 15,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "sapling",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Collected 0 sapling into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [6x spruce_log, 2x stick]."
-    },
-    {
-      "stepNumber": 16,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_log",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [6x spruce_log, 2x stick])."
-    },
-    {
-      "stepNumber": 17,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "spruce_leaves",
-        "count": 3
-      },
-      "success": true,
-      "summary": "Harvested 7 spruce_leaves (7 blocks broken). Current inventory: [9x spruce_log, 2x stick, 1x spruce_sapling]."
-    },
-    {
-      "stepNumber": 18,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_staff",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_staff\"."
-    },
-    {
-      "stepNumber": 19,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 20,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 21,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "stick",
-        "count": 6
-      },
-      "success": false,
-      "summary": "Collected 0 stick into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [9x spruce_log, 2x stick, 1x spruce_sapling]."
-    },
-    {
-      "stepNumber": 22,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 23,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 24,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_arrow",
-        "count": 6
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_arrow\"."
-    },
-    {
-      "stepNumber": 25,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 26,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "spruce_log",
-        "count": 3
-      },
-      "success": true,
-      "summary": "Harvested 3 spruce_log (3 blocks broken). Current inventory: [12x spruce_log, 2x stick, 1x spruce_sapling]."
-    },
-    {
-      "stepNumber": 27,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 28,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_staff",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_staff\"."
-    },
-    {
-      "stepNumber": 29,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
-    },
-    {
-      "stepNumber": 30,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_bow",
-        "count": 3
-      },
-      "success": false,
-      "summary": "Unknown Minecraft item name \"oak_bow\"."
+      "summary": "Failed crafting oak_planks: Error: missing ingredient"
     }
   ]
 }
