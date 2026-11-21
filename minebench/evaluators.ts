@@ -85,6 +85,9 @@ export function evaluateMinebenchEpisode(
     case 'prog_tier6_ender_dragon':
       return evaluateProgressionTask(task, snap);
     default:
+      if (rawId.startsWith('mp_') || rawId.startsWith('coop_') || rawId.startsWith('prog_')) {
+        return evaluateProgressionTask(task, snap);
+      }
       if (rawId.startsWith('omni_') || (task as any)?.evaluatorMilestones) {
         return evaluateOmniscienceMilestones(task, snap);
       }
