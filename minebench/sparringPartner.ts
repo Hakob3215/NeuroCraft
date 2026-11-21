@@ -95,12 +95,29 @@ export class SparringPartnerBot {
       } as any);
       this.bot = bot;
 
+      let settled = false;
+      const connectTimeout = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          cleanup();
+          try { bot.quit(); } catch {}
+          this.bot = null;
+          reject(new Error(`[SparringPartner:${this.username}] Connection timed out after 20000ms`));
+        }
+      }, 20000);
+
       const onError = (err: Error) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimeout);
         cleanup();
         this.bot = null;
         reject(err);
       };
       const onSpawn = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(connectTimeout);
         cleanup();
         this.alive = true;
         resolve();

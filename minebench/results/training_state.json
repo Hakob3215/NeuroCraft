@@ -1,14 +1,14 @@
 {
-  "sessionCount": 5,
-  "currentIteration": 40,
-  "totalEpisodesPlayed": 3360,
-  "bestPassRate": 41.7,
-  "bestMeanScore": 45.1,
-  "bestIteration": 9,
-  "latestMeanScore": 41.3,
-  "latestPassRate": 34.5,
-  "latestReward": 3713.2,
-  "lastSavedAt": "2026-11-21T04:09:18.803Z",
+  "sessionCount": 6,
+  "currentIteration": 59,
+  "totalEpisodesPlayed": 4956,
+  "bestPassRate": 45.2,
+  "bestMeanScore": 48.1,
+  "bestIteration": 43,
+  "latestMeanScore": 42.9,
+  "latestPassRate": 36.9,
+  "latestReward": 3904.4,
+  "lastSavedAt": "2026-11-21T16:18:05.523Z",
   "latestCheckpoint": "voxel_reflex_policy_latest.pt",
   "bestCheckpoint": "voxel_reflex_policy_best.pt",
   "history": [
@@ -2865,6 +2865,1369 @@
       "dragonSurvivalScore": 10,
       "dragonMilestones": 1,
       "milestone": "Dragon Run: 10% (1/8)"
+    },
+    {
+      "iteration": 41,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T10:49:35.113Z",
+      "meanScore": 42.6,
+      "passRate": 36.9,
+      "tasksPassed": 31,
+      "totalTasks": 84,
+      "rawReward": 3732.8,
+      "durationSeconds": 857,
+      "slmInitialLoss": 0.0064,
+      "slmFinalLoss": 0.003,
+      "actAimErrorDeg": 4.44,
+      "actDiscreteAccPct": 97.34,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 50
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 76.3
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 25.8
+        },
+        "Survival & Affordances": {
+          "passed": 21,
+          "total": 27,
+          "passRate": 77.8,
+          "meanScore": 78.9
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 50
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 45
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "diamond_armory",
+        "goalTitle": "Craft & Equip Diamond Armory",
+        "techTierReached": "Wood",
+        "advancementsUnlocked": [
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 14
+      }
+    },
+    {
+      "iteration": 42,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T11:03:29.348Z",
+      "meanScore": 36.4,
+      "passRate": 29.8,
+      "tasksPassed": 25,
+      "totalTasks": 84,
+      "rawReward": 3256.6,
+      "durationSeconds": 834,
+      "slmInitialLoss": 0.0009,
+      "slmFinalLoss": 0.0048,
+      "actAimErrorDeg": 4.57,
+      "actDiscreteAccPct": 97.37,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 54.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82.3
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 24.1
+        },
+        "Survival & Affordances": {
+          "passed": 17,
+          "total": 27,
+          "passRate": 63,
+          "meanScore": 64.1
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 56.5
+        },
+        "Crafting & Tech": {
+          "passed": 1,
+          "total": 10,
+          "passRate": 10,
+          "meanScore": 32.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "homestead_automation",
+        "goalTitle": "Build Self-Sustaining Homestead",
+        "techTierReached": "Wood",
+        "advancementsUnlocked": [
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 14
+      }
+    },
+    {
+      "iteration": 43,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T11:17:59.685Z",
+      "meanScore": 48.1,
+      "passRate": 45.2,
+      "tasksPassed": 38,
+      "totalTasks": 84,
+      "rawReward": 4193.5,
+      "durationSeconds": 870,
+      "slmInitialLoss": 0.0052,
+      "slmFinalLoss": 0.001,
+      "actAimErrorDeg": 4.49,
+      "actDiscreteAccPct": 97.33,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 53
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 73.7
+        },
+        "Tactical Combat": {
+          "passed": 8,
+          "total": 22,
+          "passRate": 36.4,
+          "meanScore": 41.7
+        },
+        "Survival & Affordances": {
+          "passed": 22,
+          "total": 27,
+          "passRate": 81.5,
+          "meanScore": 80.4
+        },
+        "Puzzles & Tooling": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 75
+        },
+        "Crafting & Tech": {
+          "passed": 4,
+          "total": 10,
+          "passRate": 40,
+          "meanScore": 47.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ender_dragon",
+        "goalTitle": "Slay the Ender Dragon",
+        "techTierReached": "Wood",
+        "advancementsUnlocked": [
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 16
+      }
+    },
+    {
+      "iteration": 44,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T11:37:15.062Z",
+      "meanScore": 33.5,
+      "passRate": 31,
+      "tasksPassed": 26,
+      "totalTasks": 84,
+      "rawReward": 2880,
+      "durationSeconds": 1155,
+      "slmInitialLoss": 0.0052,
+      "slmFinalLoss": 0.001,
+      "actAimErrorDeg": 4.47,
+      "actDiscreteAccPct": 97.36,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 29.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 66.3
+        },
+        "Tactical Combat": {
+          "passed": 3,
+          "total": 22,
+          "passRate": 13.6,
+          "meanScore": 19.8
+        },
+        "Survival & Affordances": {
+          "passed": 18,
+          "total": 27,
+          "passRate": 66.7,
+          "meanScore": 66.7
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 27.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "wither_boss",
+        "goalTitle": "Summon & Defeat the Wither",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age"
+        ],
+        "survivalSteps": 10,
+        "score": 30
+      }
+    },
+    {
+      "iteration": 45,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T11:55:27.276Z",
+      "meanScore": 37.3,
+      "passRate": 34.5,
+      "tasksPassed": 29,
+      "totalTasks": 84,
+      "rawReward": 2926,
+      "durationSeconds": 1092,
+      "slmInitialLoss": 0.0013,
+      "slmFinalLoss": 0.0044,
+      "actAimErrorDeg": 4.47,
+      "actDiscreteAccPct": 97.38,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 60.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 75
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 23.2
+        },
+        "Survival & Affordances": {
+          "passed": 19,
+          "total": 27,
+          "passRate": 70.4,
+          "meanScore": 70.4
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 32.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "full_beacon",
+        "goalTitle": "Activate a Full Beacon",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 66
+      }
+    },
+    {
+      "iteration": 46,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T12:13:45.173Z",
+      "meanScore": 43,
+      "passRate": 39.3,
+      "tasksPassed": 33,
+      "totalTasks": 84,
+      "rawReward": 3745.5,
+      "durationSeconds": 1098,
+      "slmInitialLoss": 0.0021,
+      "slmFinalLoss": 0.0064,
+      "actAimErrorDeg": 4.46,
+      "actDiscreteAccPct": 97.41,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 49
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 70
+        },
+        "Tactical Combat": {
+          "passed": 8,
+          "total": 22,
+          "passRate": 36.4,
+          "meanScore": 42.3
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 73
+        },
+        "Puzzles & Tooling": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 50
+        },
+        "Crafting & Tech": {
+          "passed": 1,
+          "total": 10,
+          "passRate": 10,
+          "meanScore": 30
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ocean_sponges",
+        "goalTitle": "Collect Ocean Monument Sponges",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 48
+      }
+    },
+    {
+      "iteration": 47,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T12:31:16.017Z",
+      "meanScore": 40.7,
+      "passRate": 39.3,
+      "tasksPassed": 33,
+      "totalTasks": 84,
+      "rawReward": 3633.3,
+      "durationSeconds": 1051,
+      "slmInitialLoss": 0.0084,
+      "slmFinalLoss": 0.0007,
+      "actAimErrorDeg": 4.43,
+      "actDiscreteAccPct": 97.44,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 44.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 76.7
+        },
+        "Tactical Combat": {
+          "passed": 5,
+          "total": 22,
+          "passRate": 22.7,
+          "meanScore": 24
+        },
+        "Survival & Affordances": {
+          "passed": 23,
+          "total": 27,
+          "passRate": 85.2,
+          "meanScore": 84.1
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 25
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "diamond_armory",
+        "goalTitle": "Craft & Equip Diamond Armory",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 68
+      }
+    },
+    {
+      "iteration": 48,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T12:48:34.837Z",
+      "meanScore": 33,
+      "passRate": 27.4,
+      "tasksPassed": 23,
+      "totalTasks": 84,
+      "rawReward": 2279.3,
+      "durationSeconds": 1039,
+      "slmInitialLoss": 0.0041,
+      "slmFinalLoss": 0.0005,
+      "actAimErrorDeg": 4.42,
+      "actDiscreteAccPct": 97.44,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 65
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 79.7
+        },
+        "Tactical Combat": {
+          "passed": 3,
+          "total": 22,
+          "passRate": 13.6,
+          "meanScore": 23.2
+        },
+        "Survival & Affordances": {
+          "passed": 15,
+          "total": 27,
+          "passRate": 55.6,
+          "meanScore": 57.9
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 27.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "homestead_automation",
+        "goalTitle": "Build Self-Sustaining Homestead",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 46
+      }
+    },
+    {
+      "iteration": 49,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T13:06:32.926Z",
+      "meanScore": 37.8,
+      "passRate": 34.5,
+      "tasksPassed": 29,
+      "totalTasks": 84,
+      "rawReward": 3185.7,
+      "durationSeconds": 1078,
+      "slmInitialLoss": 0.0019,
+      "slmFinalLoss": 0.0026,
+      "actAimErrorDeg": 4.39,
+      "actDiscreteAccPct": 97.46,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 18.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 83
+        },
+        "Tactical Combat": {
+          "passed": 3,
+          "total": 22,
+          "passRate": 13.6,
+          "meanScore": 18.7
+        },
+        "Survival & Affordances": {
+          "passed": 22,
+          "total": 27,
+          "passRate": 81.5,
+          "meanScore": 81.5
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 22.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ender_dragon",
+        "goalTitle": "Slay the Ender Dragon",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 66
+      }
+    },
+    {
+      "iteration": 50,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T13:30:50.836Z",
+      "meanScore": 38.3,
+      "passRate": 33.3,
+      "tasksPassed": 28,
+      "totalTasks": 84,
+      "rawReward": 3504.4,
+      "durationSeconds": 1458,
+      "slmInitialLoss": 0.0104,
+      "slmFinalLoss": 0.0002,
+      "actAimErrorDeg": 4.46,
+      "actDiscreteAccPct": 97.47,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 4.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 83
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 31.1
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 74.1
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 22.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "wither_boss",
+        "goalTitle": "Summon & Defeat the Wither",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 46
+      },
+      "dragonSurvivalScore": 10,
+      "dragonMilestones": 1,
+      "milestone": "Dragon Run: 10% (1/8)"
+    },
+    {
+      "iteration": 51,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T13:49:19.972Z",
+      "meanScore": 41,
+      "passRate": 35.7,
+      "tasksPassed": 30,
+      "totalTasks": 84,
+      "rawReward": 3305.2,
+      "durationSeconds": 1109,
+      "slmInitialLoss": 0.0001,
+      "slmFinalLoss": 0.0025,
+      "actAimErrorDeg": 4.38,
+      "actDiscreteAccPct": 97.47,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 59
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 70
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 31.5
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 74.1
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 37.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "full_beacon",
+        "goalTitle": "Activate a Full Beacon",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 72
+      }
+    },
+    {
+      "iteration": 52,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T14:08:08.480Z",
+      "meanScore": 40.5,
+      "passRate": 34.5,
+      "tasksPassed": 29,
+      "totalTasks": 84,
+      "rawReward": 3352.1,
+      "durationSeconds": 1128,
+      "slmInitialLoss": 0.0013,
+      "slmFinalLoss": 0.0053,
+      "actAimErrorDeg": 4.33,
+      "actDiscreteAccPct": 97.52,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 36
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82
+        },
+        "Tactical Combat": {
+          "passed": 8,
+          "total": 22,
+          "passRate": 36.4,
+          "meanScore": 47.9
+        },
+        "Survival & Affordances": {
+          "passed": 17,
+          "total": 27,
+          "passRate": 63,
+          "meanScore": 64.9
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 22.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ocean_sponges",
+        "goalTitle": "Collect Ocean Monument Sponges",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 72
+      }
+    },
+    {
+      "iteration": 53,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T14:24:09.616Z",
+      "meanScore": 37.7,
+      "passRate": 34.5,
+      "tasksPassed": 29,
+      "totalTasks": 84,
+      "rawReward": 3146.2,
+      "durationSeconds": 961,
+      "slmInitialLoss": 0.0007,
+      "slmFinalLoss": 0.0114,
+      "actAimErrorDeg": 4.22,
+      "actDiscreteAccPct": 97.57,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 16.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 70
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 25.9
+        },
+        "Survival & Affordances": {
+          "passed": 18,
+          "total": 27,
+          "passRate": 66.7,
+          "meanScore": 66.7
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 5,
+          "total": 10,
+          "passRate": 50,
+          "meanScore": 50
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "diamond_armory",
+        "goalTitle": "Craft & Equip Diamond Armory",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 2,
+        "score": 42
+      }
+    },
+    {
+      "iteration": 54,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T14:44:42.363Z",
+      "meanScore": 39.5,
+      "passRate": 36.9,
+      "tasksPassed": 31,
+      "totalTasks": 84,
+      "rawReward": 3284.2,
+      "durationSeconds": 1233,
+      "slmInitialLoss": 0.0022,
+      "slmFinalLoss": 0.002,
+      "actAimErrorDeg": 4.22,
+      "actDiscreteAccPct": 97.55,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 31.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 79.3
+        },
+        "Tactical Combat": {
+          "passed": 8,
+          "total": 22,
+          "passRate": 36.4,
+          "meanScore": 38.2
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 73.2
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 1,
+          "total": 10,
+          "passRate": 10,
+          "meanScore": 15
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "homestead_automation",
+        "goalTitle": "Build Self-Sustaining Homestead",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 46
+      }
+    },
+    {
+      "iteration": 55,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T15:02:10.815Z",
+      "meanScore": 36.9,
+      "passRate": 33.3,
+      "tasksPassed": 28,
+      "totalTasks": 84,
+      "rawReward": 3105.2,
+      "durationSeconds": 1048,
+      "slmInitialLoss": 0.0031,
+      "slmFinalLoss": 0.0007,
+      "actAimErrorDeg": 4.13,
+      "actDiscreteAccPct": 97.59,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 53
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82
+        },
+        "Tactical Combat": {
+          "passed": 5,
+          "total": 22,
+          "passRate": 22.7,
+          "meanScore": 24.8
+        },
+        "Survival & Affordances": {
+          "passed": 17,
+          "total": 27,
+          "passRate": 63,
+          "meanScore": 63
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 45
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ender_dragon",
+        "goalTitle": "Slay the Ender Dragon",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 48
+      }
+    },
+    {
+      "iteration": 56,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T15:20:21.413Z",
+      "meanScore": 40.3,
+      "passRate": 34.5,
+      "tasksPassed": 29,
+      "totalTasks": 84,
+      "rawReward": 3166.6,
+      "durationSeconds": 1091,
+      "slmInitialLoss": 0.0033,
+      "slmFinalLoss": 0.0025,
+      "actAimErrorDeg": 4.07,
+      "actDiscreteAccPct": 97.65,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 31
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 83
+        },
+        "Tactical Combat": {
+          "passed": 6,
+          "total": 22,
+          "passRate": 27.3,
+          "meanScore": 31.8
+        },
+        "Survival & Affordances": {
+          "passed": 18,
+          "total": 27,
+          "passRate": 66.7,
+          "meanScore": 66.7
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 52.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "wither_boss",
+        "goalTitle": "Summon & Defeat the Wither",
+        "techTierReached": "Stone",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade"
+        ],
+        "survivalSteps": 10,
+        "score": 64
+      }
+    },
+    {
+      "iteration": 57,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T15:38:49.152Z",
+      "meanScore": 36,
+      "passRate": 31,
+      "tasksPassed": 26,
+      "totalTasks": 84,
+      "rawReward": 3017.9,
+      "durationSeconds": 1108,
+      "slmInitialLoss": 0.001,
+      "slmFinalLoss": 0.0015,
+      "actAimErrorDeg": 4,
+      "actDiscreteAccPct": 97.72,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 58
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 73
+        },
+        "Tactical Combat": {
+          "passed": 2,
+          "total": 22,
+          "passRate": 9.1,
+          "meanScore": 18.1
+        },
+        "Survival & Affordances": {
+          "passed": 18,
+          "total": 27,
+          "passRate": 66.7,
+          "meanScore": 69
+        },
+        "Puzzles & Tooling": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 50
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 32.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "full_beacon",
+        "goalTitle": "Activate a Full Beacon",
+        "techTierReached": "Iron",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade",
+          "Acquire Hardware"
+        ],
+        "survivalSteps": 10,
+        "score": 46
+      }
+    },
+    {
+      "iteration": 58,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T15:59:28.401Z",
+      "meanScore": 36.5,
+      "passRate": 29.8,
+      "tasksPassed": 25,
+      "totalTasks": 84,
+      "rawReward": 2987,
+      "durationSeconds": 1239,
+      "slmInitialLoss": 0.0013,
+      "slmFinalLoss": 0.0044,
+      "actAimErrorDeg": 3.98,
+      "actDiscreteAccPct": 97.7,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 53.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82.3
+        },
+        "Tactical Combat": {
+          "passed": 2,
+          "total": 22,
+          "passRate": 9.1,
+          "meanScore": 19.5
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 72.5
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 0,
+          "total": 10,
+          "passRate": 0,
+          "meanScore": 27.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ocean_sponges",
+        "goalTitle": "Collect Ocean Monument Sponges",
+        "techTierReached": "Iron",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade",
+          "Acquire Hardware"
+        ],
+        "survivalSteps": 10,
+        "score": 46
+      }
+    },
+    {
+      "iteration": 59,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T16:18:05.521Z",
+      "meanScore": 42.9,
+      "passRate": 36.9,
+      "tasksPassed": 31,
+      "totalTasks": 84,
+      "rawReward": 3904.4,
+      "durationSeconds": 1117,
+      "slmInitialLoss": 0.0009,
+      "slmFinalLoss": 0.0012,
+      "actAimErrorDeg": 3.97,
+      "actDiscreteAccPct": 97.7,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 30.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82.3
+        },
+        "Tactical Combat": {
+          "passed": 9,
+          "total": 22,
+          "passRate": 40.9,
+          "meanScore": 51
+        },
+        "Survival & Affordances": {
+          "passed": 19,
+          "total": 27,
+          "passRate": 70.4,
+          "meanScore": 70.4
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 1,
+          "total": 10,
+          "passRate": 10,
+          "meanScore": 22.5
+        },
+        "Multiplayer": {
+          "passed": 0,
+          "total": 18,
+          "passRate": 0,
+          "meanScore": 0
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "diamond_armory",
+        "goalTitle": "Craft & Equip Diamond Armory",
+        "techTierReached": "Iron",
+        "advancementsUnlocked": [
+          "Wood Age",
+          "Stone Age",
+          "Homesteader & Hunter",
+          "Getting an Upgrade",
+          "Acquire Hardware"
+        ],
+        "survivalSteps": 10,
+        "score": 44
+      }
     }
   ]
 }

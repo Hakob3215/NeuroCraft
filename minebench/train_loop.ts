@@ -1166,8 +1166,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               const toolName = dec.toolCall.name;
               const toolArgs = dec.toolCall.arguments || {};
+              const dur = toolName.includes('construct') || toolName.includes('build') ? 45000 : 22000;
               const abortCtrl = new AbortController();
-              const timer = setTimeout(() => abortCtrl.abort(), 22000);
+              const timer = setTimeout(() => abortCtrl.abort(), dur);
               let ok = false;
               let summary = '';
 
@@ -1183,10 +1184,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               };
 
               try {
-                const rpcRes = await survivalWorker.mcpServer.handleRpcRequest(
+                const rpcPromise = survivalWorker.mcpServer.handleRpcRequest(
                   { jsonrpc: '2.0', id: sub.id, method: 'tools/call', params: { name: toolName, arguments: toolArgs } },
                   () => survivalWorker!.system1.createToolExecutionContext(sub, async () => {}, abortCtrl.signal)
                 );
+                const hardTimer = new Promise<any>((resolve) => {
+                  setTimeout(() => {
+                    resolve({ error: { code: -32000, message: `Survival tool execution hard timeout exceeded (${dur}ms)` } });
+                  }, dur + 4000);
+                });
+                const rpcRes = await Promise.race([rpcPromise, hardTimer]);
                 const payloadText = rpcRes.result?.content?.[0]?.text;
                 if (payloadText) {
                   try {
@@ -1308,6 +1315,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
       const workerPromises = workers.map(async (worker) => {
         while (!isShuttingDown) {
+          const elapsedHours = (Date.now() - sessionStartTime) / (1000 * 60 * 60);
+          if (elapsedHours >= maxHours) {
+            console.log(`[TrainLoop] Worker #${worker.id} reached session target runtime of ${maxHours} hour(s) (${elapsedHours.toFixed(2)}h elapsed). Stopping cleanly.`);
+            break;
+          }
+
           const next = taskQueue.dequeue();
           if (!next) break;
 
@@ -1656,7 +1669,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 const prevYaw = bot.entity?.yaw || 0;
                 const prevPitch = bot.entity?.pitch || 0;
 
-                const rpcRes = await worker.mcpServer.handleRpcRequest(
+                const rpcPromise = worker.mcpServer.handleRpcRequest(
                   {
                     jsonrpc: '2.0',
                     id: subtask.id,
@@ -1669,6 +1682,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     return c;
                   }
                 );
+                const hardStepTimeoutPromise = new Promise<{ result?: any; error?: { code: number; message: string } }>((resolve) => {
+                  setTimeout(() => {
+                    resolve({ error: { code: -32000, message: `Tool execution hard timeout exceeded (${stepDurationMs}ms)` } });
+                  }, stepDurationMs + 4000);
+                });
+
+                const rpcRes = await Promise.race([rpcPromise, hardStepTimeoutPromise]);
 
                 const payloadText = rpcRes.result?.content?.[0]?.text;
                 if (payloadText) {
