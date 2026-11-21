@@ -58,3 +58,5 @@ iteration,phase,timestamp,mean_score,pass_rate_pct,tasks_passed,total_tasks,slm_
 57,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-21T15:38:49.152Z",36,31,26,84,0.001,0.0015,4,"Iron",5,,""
 58,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-21T15:59:28.401Z",36.5,29.8,25,84,0.0013,0.0044,3.98,"Iron",5,,""
 59,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-21T16:18:05.521Z",42.9,36.9,31,84,0.0009,0.0012,3.97,"Iron",5,,""
+60,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-21T22:47:45.961Z",48.8,42.9,36,84,0.0016,0.0017,3.93,"Iron",5,0,"Dragon Run: 0% (0/8)"
+61,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-21T23:04:43.966Z",55.3,47.6,40,84,0,0.0057,4.01,"Iron",5,,""

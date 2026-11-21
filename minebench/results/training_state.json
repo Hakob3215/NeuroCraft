@@ -1,14 +1,14 @@
 {
-  "sessionCount": 6,
-  "currentIteration": 59,
-  "totalEpisodesPlayed": 4956,
-  "bestPassRate": 45.2,
-  "bestMeanScore": 48.1,
-  "bestIteration": 43,
-  "latestMeanScore": 42.9,
-  "latestPassRate": 36.9,
-  "latestReward": 3904.4,
-  "lastSavedAt": "2026-11-21T16:18:05.523Z",
+  "sessionCount": 7,
+  "currentIteration": 61,
+  "totalEpisodesPlayed": 5124,
+  "bestPassRate": 47.6,
+  "bestMeanScore": 55.3,
+  "bestIteration": 61,
+  "latestMeanScore": 55.3,
+  "latestPassRate": 47.6,
+  "latestReward": 4750.5,
+  "lastSavedAt": "2026-11-21T23:04:44.024Z",
   "latestCheckpoint": "voxel_reflex_policy_latest.pt",
   "bestCheckpoint": "voxel_reflex_policy_best.pt",
   "history": [
@@ -4227,6 +4227,155 @@
         ],
         "survivalSteps": 10,
         "score": 44
+      }
+    },
+    {
+      "iteration": 60,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T22:47:45.961Z",
+      "meanScore": 48.8,
+      "passRate": 42.9,
+      "tasksPassed": 36,
+      "totalTasks": 84,
+      "rawReward": 4272.2,
+      "durationSeconds": 1161,
+      "slmInitialLoss": 0.0016,
+      "slmFinalLoss": 0.0017,
+      "actAimErrorDeg": 3.93,
+      "actDiscreteAccPct": 97.73,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 55.5
+        },
+        "Building & 3D": {
+          "passed": 1,
+          "total": 3,
+          "passRate": 33.3,
+          "meanScore": 42.7
+        },
+        "Tactical Combat": {
+          "passed": 4,
+          "total": 22,
+          "passRate": 18.2,
+          "meanScore": 32.7
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 73.2
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 27.5
+        },
+        "Multiplayer": {
+          "passed": 8,
+          "total": 18,
+          "passRate": 44.4,
+          "meanScore": 46.8
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "homestead_automation",
+        "goalTitle": "Build Self-Sustaining Homestead",
+        "techTierReached": "Iron",
+        "advancementsUnlocked": [
+          "Stone Age",
+          "Getting an Upgrade",
+          "Acquire Hardware",
+          "Homesteader & Hunter",
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 82
+      },
+      "dragonSurvivalScore": 0,
+      "dragonMilestones": 0,
+      "milestone": "Dragon Run: 0% (0/8)"
+    },
+    {
+      "iteration": 61,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-21T23:04:43.966Z",
+      "meanScore": 55.3,
+      "passRate": 47.6,
+      "tasksPassed": 40,
+      "totalTasks": 84,
+      "rawReward": 4750.5,
+      "durationSeconds": 1018,
+      "slmInitialLoss": 0,
+      "slmFinalLoss": 0.0057,
+      "actAimErrorDeg": 4.01,
+      "actDiscreteAccPct": 97.75,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 19
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 82.3
+        },
+        "Tactical Combat": {
+          "passed": 5,
+          "total": 22,
+          "passRate": 22.7,
+          "meanScore": 33
+        },
+        "Survival & Affordances": {
+          "passed": 25,
+          "total": 27,
+          "passRate": 92.6,
+          "meanScore": 90.6
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 25
+        },
+        "Crafting & Tech": {
+          "passed": 3,
+          "total": 10,
+          "passRate": 30,
+          "meanScore": 35
+        },
+        "Multiplayer": {
+          "passed": 5,
+          "total": 18,
+          "passRate": 27.8,
+          "meanScore": 43.6
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ender_dragon",
+        "goalTitle": "Slay the Ender Dragon",
+        "techTierReached": "Iron",
+        "advancementsUnlocked": [
+          "Stone Age",
+          "Getting an Upgrade",
+          "Acquire Hardware",
+          "Homesteader & Hunter",
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 86
       }
     }
   ]

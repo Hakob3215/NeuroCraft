@@ -1,24 +1,23 @@
 {
-  "completedAt": "2026-11-21T13:30:33.200Z",
+  "completedAt": "2026-11-21T22:47:31.119Z",
   "totalStepsExecuted": 30,
-  "progressDepthScore": 10,
-  "progressDepthPercent": 10,
-  "efficiencyScore": 78,
+  "progressDepthScore": 0,
+  "progressDepthPercent": 0,
+  "efficiencyScore": 35,
   "efficiencyBreakdown": {
-    "parEfficiencyPercent": 100,
-    "actionSuccessPercent": 37,
+    "parEfficiencyPercent": 0,
+    "actionSuccessPercent": 43,
     "healthPreservationPercent": 100,
     "finalHealth": 20
   },
-  "milestonesAchievedCount": 1,
+  "milestonesAchievedCount": 0,
   "milestones": [
     {
       "id": "milestone_1_wood",
       "title": "Milestone 1: Wood Age (Logs / Planks / Crafting Table / Wooden Pickaxe)",
-      "achieved": true,
+      "achieved": false,
       "score": 10,
-      "details": "Harvest wood logs and assemble basic wooden tools.",
-      "achievedAtStep": 2
+      "details": "Harvest wood logs and assemble basic wooden tools."
     },
     {
       "id": "milestone_2_stone",
@@ -76,301 +75,300 @@
       "toolName": "gather_resource",
       "args": {
         "blockType": "birch_log",
-        "count": 15
+        "count": 87
       },
       "success": true,
-      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [4x birch_log, 1x oak_log]."
+      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [5x birch_log]."
     },
     {
       "stepNumber": 2,
       "toolName": "craft_item",
       "args": {
         "itemName": "oak_planks",
-        "count": 30
+        "count": 43
       },
       "success": false,
-      "summary": "Failed crafting oak_planks: Error: missing ingredient"
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x birch_log])."
     },
     {
       "stepNumber": 3,
       "toolName": "gather_resource",
       "args": {
         "blockType": "birch_log",
-        "count": 15
+        "count": 87
       },
       "success": true,
-      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [4x oak_planks, 4x birch_log, 5x oak_log]."
+      "summary": "Harvested 5 birch_log (5 blocks broken). Current inventory: [11x birch_log]."
     },
     {
       "stepNumber": 4,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
-        "count": 5
+        "blockType": "birch_log",
+        "count": 87
       },
-      "success": false,
-      "summary": "Failed crafting stick: Error: missing ingredient"
+      "success": true,
+      "summary": "Harvested 3 birch_log (5 blocks broken). Current inventory: [14x birch_log]."
     },
     {
       "stepNumber": 5,
       "toolName": "craft_item",
       "args": {
-        "itemName": "bow",
-        "count": 1
+        "itemName": "oak_planks",
+        "count": 43
       },
       "success": false,
-      "summary": "Cannot craft bow: Missing raw materials or recipe prerequisites for bow. (Inventory: [8x stick, 4x birch_log, 5x oak_log])."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [15x birch_log])."
     },
     {
       "stepNumber": 6,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 15
+        "blockType": "stone",
+        "count": 2474
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (7 blocks broken). Current inventory: [8x stick, 4x birch_log, 10x oak_log]."
+      "success": false,
+      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [15x birch_log]."
     },
     {
       "stepNumber": 7,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "sword",
-        "count": 1
+        "blockType": "cobblestone",
+        "count": 48
       },
       "success": false,
-      "summary": "Unknown Minecraft item name \"sword\"."
+      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [15x birch_log]."
     },
     {
       "stepNumber": 8,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 30
+        "blockType": "birch_log",
+        "count": 3
       },
       "success": true,
-      "summary": "Successfully crafted 30x oak_planks!"
+      "summary": "Harvested 3 birch_log (4 blocks broken). Current inventory: [18x birch_log, 3x dirt]."
     },
     {
       "stepNumber": 9,
       "toolName": "craft_item",
       "args": {
-        "itemName": "stick",
-        "count": 20
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log])."
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [19x birch_log, 3x dirt])."
     },
     {
       "stepNumber": 10,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
-        "count": 10
+        "blockType": "birch_log",
+        "count": 3
       },
-      "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log])."
+      "success": true,
+      "summary": "Harvested 3 birch_log (3 blocks broken). Current inventory: [22x birch_log, 3x dirt]."
     },
     {
       "stepNumber": 11,
       "toolName": "craft_item",
       "args": {
-        "itemName": "stick",
-        "count": 10
+        "itemName": "oak_planks",
+        "count": 43
       },
       "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log])."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [22x birch_log, 3x dirt])."
     },
     {
       "stepNumber": 12,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
-        "count": 10
+        "blockType": "birch_log",
+        "count": 25
       },
-      "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log])."
+      "success": true,
+      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [27x birch_log, 3x dirt]."
     },
     {
       "stepNumber": 13,
       "toolName": "craft_item",
       "args": {
-        "itemName": "stick",
-        "count": 5
+        "itemName": "oak_planks",
+        "count": 43
       },
       "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log])."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [27x birch_log, 3x dirt])."
     },
     {
       "stepNumber": 14,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 15
+        "blockType": "cobblestone",
+        "count": 48
       },
-      "success": true,
-      "summary": "Harvested 3 birch_log (3 blocks broken). Current inventory: [8x stick, 4x birch_log, 3x oak_log]."
+      "success": false,
+      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [27x birch_log, 4x dirt]."
     },
     {
       "stepNumber": 15,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
+        "blockType": "birch_log",
         "count": 10
       },
-      "success": false,
-      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [8x stick, 4x birch_log, 3x oak_log])."
+      "success": true,
+      "summary": "Harvested 2 birch_log (4 blocks broken). Current inventory: [29x birch_log, 4x dirt]."
     },
     {
       "stepNumber": 16,
       "toolName": "craft_item",
       "args": {
         "itemName": "oak_planks",
-        "count": 30
+        "count": 43
       },
       "success": false,
-      "summary": "Failed crafting oak_planks: Error: missing ingredient"
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [30x birch_log, 4x dirt])."
     },
     {
       "stepNumber": 17,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "nail",
-        "count": 20
+        "blockType": "stone",
+        "count": 48
       },
       "success": false,
-      "summary": "Unknown Minecraft item name \"nail\"."
+      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [30x birch_log, 6x dirt]."
     },
     {
       "stepNumber": 18,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
+        "blockType": "birch_log",
         "count": 10
       },
       "success": true,
-      "summary": "Successfully crafted 10x stick!"
+      "summary": "Harvested 4 birch_log (5 blocks broken). Current inventory: [34x birch_log, 8x dirt]."
     },
     {
       "stepNumber": 19,
       "toolName": "craft_item",
       "args": {
         "itemName": "oak_planks",
-        "count": 30
+        "count": 43
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [36x oak_planks, 48x stick, 4x birch_log])."
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [34x birch_log, 8x dirt])."
     },
     {
       "stepNumber": 20,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_planks",
-        "count": 30
-      },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [36x oak_planks, 48x stick, 4x birch_log])."
-    },
-    {
-      "stepNumber": 21,
       "toolName": "gather_resource",
       "args": {
         "blockType": "birch_log",
-        "count": 15
+        "count": 8
       },
       "success": true,
-      "summary": "Harvested 6 birch_log (5 blocks broken). Current inventory: [36x oak_planks, 48x stick, 4x birch_log, 6x oak_log]."
+      "summary": "Harvested 5 birch_log (4 blocks broken). Current inventory: [39x birch_log, 8x dirt]."
+    },
+    {
+      "stepNumber": 21,
+      "toolName": "craft_item",
+      "args": {
+        "itemName": "oak_log",
+        "count": 8
+      },
+      "success": false,
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [39x birch_log, 8x dirt])."
     },
     {
       "stepNumber": 22,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "recipeName": "simple_furniture",
-        "count": 3,
-        "itemName": "simple_furniture"
+        "blockType": "cobblestone",
+        "count": 8
       },
       "success": false,
-      "summary": "Unknown Minecraft item name \"simple_furniture\"."
+      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [39x birch_log, 8x dirt]."
     },
     {
       "stepNumber": 23,
       "toolName": "craft_item",
       "args": {
         "itemName": "oak_planks",
-        "count": 30
+        "count": 8
       },
       "success": false,
-      "summary": "Failed crafting oak_planks: Error: missing ingredient"
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [39x birch_log, 8x dirt])."
     },
     {
       "stepNumber": 24,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
-        "count": 10
+        "blockType": "birch_log",
+        "count": 8
       },
       "success": true,
-      "summary": "Successfully crafted 10x stick!"
+      "summary": "Harvested 1 birch_log (2 blocks broken). Current inventory: [40x birch_log, 9x dirt]."
     },
     {
       "stepNumber": 25,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "log",
-        "count": 4
+        "itemName": "oak_planks",
+        "count": 8
       },
-      "success": true,
-      "summary": "Harvested 4 log (4 blocks broken). Current inventory: [40x oak_planks, 64x stick, 24x stick, 4x birch_log, 4x oak_log]."
+      "success": false,
+      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [40x birch_log, 9x dirt])."
     },
     {
       "stepNumber": 26,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "stick",
-        "count": 3
+        "blockType": "birch_log",
+        "count": 8
       },
       "success": true,
-      "summary": "Successfully crafted 3x stick!"
+      "summary": "Harvested 5 birch_log (7 blocks broken). Current inventory: [45x birch_log, 9x dirt]."
     },
     {
       "stepNumber": 27,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 30
+        "itemName": "oak_log",
+        "count": 8
       },
       "success": false,
-      "summary": "Failed crafting oak_planks: Error: missing ingredient"
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [45x birch_log, 9x dirt])."
     },
     {
       "stepNumber": 28,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 30
+        "blockType": "birch_log",
+        "count": 12
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [64x stick, 36x stick, 50x oak_planks, 4x birch_log])."
+      "success": true,
+      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [50x birch_log, 9x dirt]."
     },
     {
       "stepNumber": 29,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "oak_log",
-        "count": 15
+        "itemName": "oak_log",
+        "count": 8
       },
-      "success": true,
-      "summary": "Harvested 3 oak_log (4 blocks broken). Current inventory: [64x stick, 36x stick, 50x oak_planks, 4x birch_log, 3x oak_log]."
+      "success": false,
+      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [51x birch_log, 9x dirt])."
     },
     {
       "stepNumber": 30,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 30
+        "blockType": "birch_log",
+        "count": 12
       },
-      "success": false,
-      "summary": "Failed crafting oak_planks: Error: missing ingredient"
+      "success": true,
+      "summary": "Harvested 5 birch_log (7 blocks broken). Current inventory: [56x birch_log, 9x dirt]."
     }
   ]
 }
