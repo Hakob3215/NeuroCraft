@@ -1,12 +1,12 @@
 {
-  "completedAt": "2026-11-21T22:47:31.119Z",
+  "completedAt": "2026-11-22T05:11:09.988Z",
   "totalStepsExecuted": 30,
   "progressDepthScore": 0,
   "progressDepthPercent": 0,
-  "efficiencyScore": 35,
+  "efficiencyScore": 21,
   "efficiencyBreakdown": {
     "parEfficiencyPercent": 0,
-    "actionSuccessPercent": 43,
+    "actionSuccessPercent": 3,
     "healthPreservationPercent": 100,
     "finalHealth": 20
   },
@@ -74,301 +74,301 @@
       "stepNumber": 1,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 87
+        "blockType": "sand",
+        "count": 2361
       },
       "success": true,
-      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [5x birch_log]."
+      "summary": "Harvested 1 sand (1 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: hand) and lack materials in inventory to auto-craft a replacement. Current inventory: [empty]."
     },
     {
       "stepNumber": 2,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 43
+        "blockType": "sand",
+        "count": 10
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [6x birch_log])."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: hand) and lack materials in inventory to auto-craft a replacement. Current inventory: [empty]."
     },
     {
       "stepNumber": 3,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 87
+        "blockType": "stone",
+        "count": 6
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (5 blocks broken). Current inventory: [11x birch_log]."
+      "success": false,
+      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 4,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "birch_log",
-        "count": 87
+        "itemName": "wooden_stick",
+        "count": 10
       },
-      "success": true,
-      "summary": "Harvested 3 birch_log (5 blocks broken). Current inventory: [14x birch_log]."
+      "success": false,
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     },
     {
       "stepNumber": 5,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 43
+        "blockType": "sand",
+        "count": 10
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [15x birch_log])."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 6,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "stone",
-        "count": 2474
+        "blockType": "sand",
+        "count": 10
       },
       "success": false,
-      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [15x birch_log]."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 7,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "cobblestone",
-        "count": 48
+        "itemName": "wooden_stick",
+        "count": 10
       },
       "success": false,
-      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [15x birch_log]."
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     },
     {
       "stepNumber": 8,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 3
+        "blockType": "sand",
+        "count": 2361
       },
-      "success": true,
-      "summary": "Harvested 3 birch_log (4 blocks broken). Current inventory: [18x birch_log, 3x dirt]."
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 9,
+      "toolName": "gather_resource",
+      "args": {
+        "blockType": "sand",
+        "count": 10
+      },
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
+    },
+    {
+      "stepNumber": 10,
+      "toolName": "gather_resource",
+      "args": {
+        "blockType": "sand",
+        "count": 10
+      },
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
+    },
+    {
+      "stepNumber": 11,
+      "toolName": "gather_resource",
+      "args": {
+        "blockType": "sand",
+        "count": 10
+      },
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
+    },
+    {
+      "stepNumber": 12,
       "toolName": "craft_item",
       "args": {
         "itemName": "wooden_pickaxe",
         "count": 1
       },
       "success": false,
-      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [19x birch_log, 3x dirt])."
-    },
-    {
-      "stepNumber": 10,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "birch_log",
-        "count": 3
-      },
-      "success": true,
-      "summary": "Harvested 3 birch_log (3 blocks broken). Current inventory: [22x birch_log, 3x dirt]."
-    },
-    {
-      "stepNumber": 11,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "oak_planks",
-        "count": 43
-      },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [22x birch_log, 3x dirt])."
-    },
-    {
-      "stepNumber": 12,
-      "toolName": "gather_resource",
-      "args": {
-        "blockType": "birch_log",
-        "count": 25
-      },
-      "success": true,
-      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [27x birch_log, 3x dirt]."
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x sand])."
     },
     {
       "stepNumber": 13,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 43
+        "blockType": "sand",
+        "count": 3
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [27x birch_log, 3x dirt])."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 14,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "cobblestone",
-        "count": 48
+        "blockType": "sand",
+        "count": 3
       },
       "success": false,
-      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [27x birch_log, 4x dirt]."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 15,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 10
+        "blockType": "sandstone",
+        "count": 3
       },
-      "success": true,
-      "summary": "Harvested 2 birch_log (4 blocks broken). Current inventory: [29x birch_log, 4x dirt]."
+      "success": false,
+      "summary": "Collected 0 sandstone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 16,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 43
+        "itemName": "wooden_stick",
+        "count": 10
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [30x birch_log, 4x dirt])."
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     },
     {
       "stepNumber": 17,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "stone",
-        "count": 48
+        "itemName": "wooden_probe",
+        "count": 1
       },
       "success": false,
-      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [30x birch_log, 6x dirt]."
+      "summary": "Unknown Minecraft item name \"wooden_probe\"."
     },
     {
       "stepNumber": 18,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "birch_log",
-        "count": 10
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
-      "success": true,
-      "summary": "Harvested 4 birch_log (5 blocks broken). Current inventory: [34x birch_log, 8x dirt]."
+      "success": false,
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x sand])."
     },
     {
       "stepNumber": 19,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 43
+        "blockType": "sandstone",
+        "count": 3
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [34x birch_log, 8x dirt])."
+      "summary": "Collected 0 sandstone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 20,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 8
+        "blockType": "sand",
+        "count": 3
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (4 blocks broken). Current inventory: [39x birch_log, 8x dirt]."
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 21,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_log",
-        "count": 8
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [39x birch_log, 8x dirt])."
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x sand])."
     },
     {
       "stepNumber": 22,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "cobblestone",
-        "count": 8
+        "blockType": "oak_planks",
+        "count": 3
       },
       "success": false,
-      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: birch_log) and lack materials in inventory to auto-craft a replacement. Current inventory: [39x birch_log, 8x dirt]."
+      "summary": "Collected 0 oak_planks into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [6x sand]."
     },
     {
       "stepNumber": 23,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 8
+        "blockType": "cobblestone",
+        "count": 3
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [39x birch_log, 8x dirt])."
+      "summary": "Collected 0 cobblestone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 24,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "birch_log",
-        "count": 8
+        "itemName": "wooden_stick",
+        "count": 10
       },
-      "success": true,
-      "summary": "Harvested 1 birch_log (2 blocks broken). Current inventory: [40x birch_log, 9x dirt]."
+      "success": false,
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     },
     {
       "stepNumber": 25,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 8
+        "blockType": "sandstone",
+        "count": 3
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [40x birch_log, 9x dirt])."
+      "summary": "Collected 0 sandstone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 26,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "birch_log",
-        "count": 8
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (7 blocks broken). Current inventory: [45x birch_log, 9x dirt]."
+      "success": false,
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [6x sand])."
     },
     {
       "stepNumber": 27,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_log",
-        "count": 8
+        "itemName": "wooden_stick",
+        "count": 10
       },
       "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [45x birch_log, 9x dirt])."
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     },
     {
       "stepNumber": 28,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "birch_log",
-        "count": 12
+        "blockType": "sand",
+        "count": 3
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (6 blocks broken). Current inventory: [50x birch_log, 9x dirt]."
+      "success": false,
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 29,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_log",
-        "count": 8
+        "blockType": "sand",
+        "count": 12
       },
       "success": false,
-      "summary": "Cannot craft oak_log: Missing raw materials or recipe prerequisites for oak_log. (Inventory: [51x birch_log, 9x dirt])."
+      "summary": "Collected 0 sand into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest sandstone (currently holding: sand) and lack materials in inventory to auto-craft a replacement. Current inventory: [6x sand]."
     },
     {
       "stepNumber": 30,
-      "toolName": "gather_resource",
+      "toolName": "craft_item",
       "args": {
-        "blockType": "birch_log",
-        "count": 12
+        "itemName": "wooden_stick",
+        "count": 10
       },
-      "success": true,
-      "summary": "Harvested 5 birch_log (7 blocks broken). Current inventory: [56x birch_log, 9x dirt]."
+      "success": false,
+      "summary": "Unknown Minecraft item name \"wooden_stick\"."
     }
   ]
 }
