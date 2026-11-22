@@ -2331,6 +2331,131 @@ test('45. gather_resource avoids substring-matching stone for redstone_ore and s
   assert.equal(smeltPayload.success, true, 'smelt_item must succeed with lava_bucket fuel');
 });
 
+test('46. GRPO goalCompleted distillation never marks Step 0, partial scores, or open-world survival as completed, and train_loop guards Step 0 break', () => {
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from minebench.rl_trainer import should_mark_goal_completed, sanitize_loaded_grpo_entry
+
+assert should_mark_goal_completed(True, 100.0, 'local_gpu', 1, 0) is False, '1-step Step-0 episode must NOT set goalCompleted'
+assert should_mark_goal_completed(True, 75.0, 'local_gpu', 3, 2) is False, 'Partial score multi-step episode must NOT set goalCompleted'
+assert should_mark_goal_completed(True, 100.0, 'open_world_survival', 4, 3) is False, 'open_world_survival must NOT set goalCompleted'
+assert should_mark_goal_completed(True, 100.0, 'local_gpu', 4, 1) is False, 'Intermediate step must NOT set goalCompleted'
+assert should_mark_goal_completed(True, 100.0, 'local_gpu', 4, 3) is True, 'Final step of 100/100 multi-step episode must set goalCompleted'
+
+legacy_step0 = {
+    'provider': 'local_gpu',
+    'taskId': 'omni_mob_cow',
+    'step': 0,
+    'messages': [
+        {'role': 'system', 'content': 'sys'},
+        {'role': 'user', 'content': 'usr'},
+        {'role': 'assistant', 'content': json.dumps({'thought': 'hi', 'toolCall': {'name': 'engage_combat', 'arguments': {}}, 'goalCompleted': True})},
+    ],
+}
+scrubbed = sanitize_loaded_grpo_entry(legacy_step0)
+assert json.loads(scrubbed['messages'][-1]['content'])['goalCompleted'] is False, 'Legacy Step-0 local_gpu goalCompleted=True must be rewritten to False'
+
+gold_cont = {
+    'provider': 'gold_continuation',
+    'taskId': 'omni_craft_chest',
+    'step': 3,
+    'messages': [
+        {'role': 'system', 'content': 'sys'},
+        {'role': 'user', 'content': 'usr'},
+        {'role': 'assistant', 'content': json.dumps({'thought': 'done', 'toolCall': {'name': 'craft_item', 'arguments': {}}, 'goalCompleted': True})},
+    ],
+}
+preserved = sanitize_loaded_grpo_entry(gold_cont)
+assert json.loads(preserved['messages'][-1]['content'])['goalCompleted'] is True, 'gold_continuation must be preserved unchanged'
+print('OK')
+`;
+  const pyOut = execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim();
+  assert.equal(pyOut, 'OK');
+
+  const trainLoopSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'train_loop.ts'), 'utf8');
+  assert.ok(
+    trainLoopSrc.includes('if (decision.goalCompleted && stepIdx > 0) break;'),
+    'train_loop.ts must guard decision.goalCompleted with stepIdx > 0'
+  );
+  assert.equal(
+    /if\s*\(\s*decision\.goalCompleted\s*\)\s*break;/.test(trainLoopSrc),
+    false,
+    'train_loop.ts must not contain an unguarded decision.goalCompleted break'
+  );
+});
+
+test('47. SLM masked-only lm_head loss matches full CrossEntropyLoss exactly and neural_daemon offloads all GPU models during pause_slm', () => {
+  const { execFileSync } = require('child_process');
+  const fs = require('fs');
+  const path = require('path');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import sys, torch
+import torch.nn.functional as F
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from minebench.slm_trainer import compute_masked_causal_lm_loss
+
+torch.manual_seed(7)
+vocab, hidden_dim = 32, 16
+
+class TinyBackbone(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.emb = torch.nn.Embedding(vocab, hidden_dim)
+        self.proj = torch.nn.Linear(hidden_dim, hidden_dim)
+    def forward(self, input_ids=None, attention_mask=None, use_cache=False):
+        return (torch.tanh(self.proj(self.emb(input_ids))),)
+
+class TinyCausalLM(torch.nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.model = TinyBackbone()
+        self.lm_head = torch.nn.Linear(hidden_dim, vocab, bias=False)
+
+m = TinyCausalLM()
+inp = torch.randint(0, vocab, (2, 12))
+mask = torch.ones_like(inp)
+lbl = inp.clone()
+lbl[:, :7] = -100
+
+masked_loss = compute_masked_causal_lm_loss(m, inp, mask, lbl)
+with torch.no_grad():
+    full_hidden = m.model(inp, mask)[0]
+    full_logits = m.lm_head(full_hidden)
+    full_loss = F.cross_entropy(full_logits[:, :-1, :].reshape(-1, vocab), lbl[:, 1:].reshape(-1), ignore_index=-100)
+
+assert masked_loss is not None and abs(masked_loss.item() - full_loss.item()) < 1e-5, (masked_loss.item(), full_loss.item())
+
+all_masked = torch.full_like(lbl, -100)
+assert compute_masked_causal_lm_loss(m, inp, mask, all_masked) is None
+print('OK')
+`;
+  const pyOut = execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim();
+  assert.equal(pyOut, 'OK');
+
+  const daemonSrc = fs.readFileSync(path.join(rootDir, 'neural_lab', 'neural_daemon.py'), 'utf8');
+  const pauseSection = daemonSrc.slice(
+    daemonSrc.indexOf('async def handle_pause_slm'),
+    daemonSrc.indexOf('async def handle_reload_adapter')
+  );
+  assert.ok(pauseSection.includes('slm_model') && pauseSection.includes('action_head') && pauseSection.includes('reflex_policy'), 'handle_pause_slm must offload slm_model, action_head, and reflex_policy');
+
+  const reloadSection = daemonSrc.slice(
+    daemonSrc.indexOf('async def handle_reload_adapter'),
+    daemonSrc.indexOf('async def handle_dqn_sparring_predict')
+  );
+  assert.ok(reloadSection.includes('chunk_analyzer') && reloadSection.includes('visuomotor_policy'), 'handle_reload_adapter must restore chunk_analyzer and visuomotor_policy');
+});
+
 
 
 

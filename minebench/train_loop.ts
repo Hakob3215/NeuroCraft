@@ -1832,7 +1832,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 worker.system1.getLatestWorldState()
               );
 
-              if (decision.goalCompleted) break;
+              if (decision.goalCompleted && stepIdx > 0) break;
               if (deaths > 0) {
                 console.log(`[TrainLoop] [${worker.botUsername}] Bot died during task ${task.id} (step ${stepIdx + 1}). Aborting remaining steps.`);
                 break;

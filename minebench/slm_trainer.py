@@ -10,6 +10,7 @@ capable of high-efficiency inventory management, crafting paths, and spatial bui
 """
 
 import argparse
+import gc
 import json
 import math
 import os
@@ -106,6 +107,38 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
 
     print(f"[SLM Trainer] Active balanced training dataset: {len(trajectories)} samples ({len(selected_grpo)} real experience, {len(trajectories) - len(selected_grpo)} gold demonstrations).")
     return trajectories
+
+
+def compute_masked_causal_lm_loss(
+    model: torch.nn.Module,
+    input_ids: torch.Tensor,
+    attention_mask: torch.Tensor,
+    labels: torch.Tensor,
+) -> Optional[torch.Tensor]:
+    """Computes exact causal LM cross-entropy ONLY on unmasked (labels != -100) target tokens.
+
+    Avoids projecting masked prompt tokens (~95% of sequence) through the 151,936-vocab lm_head
+    and FP32 CrossEntropyLoss, cutting peak VRAM by ~2.2 GiB at max_length=1280 with identical gradients.
+    """
+    causal_lm = model.get_base_model() if hasattr(model, "get_base_model") else model
+    if hasattr(causal_lm, "model") and hasattr(causal_lm, "lm_head"):
+        backbone_out = causal_lm.model(
+            input_ids=input_ids,
+            attention_mask=attention_mask,
+            use_cache=False,
+        )
+        hidden_states = backbone_out[0]
+        shift_hidden = hidden_states[:, :-1, :].contiguous()
+        shift_labels = labels[:, 1:].contiguous()
+        valid_mask = shift_labels != -100
+        if not valid_mask.any():
+            return None
+        valid_hidden = shift_hidden[valid_mask]
+        valid_labels = shift_labels[valid_mask]
+        valid_logits = causal_lm.lm_head(valid_hidden)
+        return torch.nn.functional.cross_entropy(valid_logits.float(), valid_labels)
+    outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=labels)
+    return outputs.loss
 
 
 def train_slm_qlora(
@@ -268,50 +301,66 @@ def train_slm_qlora(
     total_samples = len(tokenized_data)
     batch_losses: list[float] = []
 
-    optimizer.zero_grad()
+    optimizer.zero_grad(set_to_none=True)
 
     for epoch in range(epochs):
         epoch_loss = 0.0
         batches = 0
+        grad_pending = 0
 
-        for b_inps, b_lbls, b_mask, b_weights in loader:
-            b_inps = b_inps.to(device)
-            b_lbls = b_lbls.to(device)
-            b_mask = b_mask.to(device)
-            b_weights = b_weights.to(device)
-
-            outputs = model(input_ids=b_inps, attention_mask=b_mask, labels=b_lbls)
-            raw_loss = outputs.loss
-            if raw_loss is None or torch.isnan(raw_loss):
-                continue
-
-            # Scale loss by advantage weight and gradient accumulation
-            loss = (raw_loss * b_weights.mean()) / gradient_accumulation_steps
+        for b_idx, (b_inps, b_lbls, b_mask, b_weights) in enumerate(loader):
+            raw_loss = None
+            loss = None
             try:
+                b_inps = b_inps.to(device)
+                b_lbls = b_lbls.to(device)
+                b_mask = b_mask.to(device)
+                b_weights = b_weights.to(device)
+
+                raw_loss = compute_masked_causal_lm_loss(model, b_inps, b_mask, b_lbls)
+                if raw_loss is None or torch.isnan(raw_loss):
+                    del b_inps, b_lbls, b_mask, b_weights, raw_loss
+                    continue
+
+                b_loss = float(raw_loss.item())
+                # Scale loss by advantage weight and gradient accumulation
+                loss = (raw_loss * b_weights.mean()) / gradient_accumulation_steps
                 loss.backward()
+                del b_inps, b_lbls, b_mask, b_weights, raw_loss, loss
             except (RuntimeError, Exception) as e:
-                if "cublas" in str(e).lower() or "out of memory" in str(e).lower() or "acceleratorerror" in type(e).__name__.lower():
-                    print(f"  [SLM Trainer Warning] Caught transient CUDA/cuBLAS error during backward: {e}. Clearing cache and skipping batch.")
+                err_name = type(e).__name__.lower()
+                err_msg = str(e).lower()
+                if "cublas" in err_msg or "out of memory" in err_msg or "acceleratorerror" in err_name:
+                    print(f"  [SLM Trainer Warning] Caught transient CUDA/cuBLAS error during batch {b_idx}: {e}. Clearing cache and skipping batch.")
+                    optimizer.zero_grad(set_to_none=True)
+                    grad_pending = 0
+                    b_inps = b_lbls = b_mask = b_weights = raw_loss = loss = None
+                    gc.collect()
                     try:
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
                     except Exception:
                         pass
-                    optimizer.zero_grad()
                     continue
                 else:
                     raise e
 
-            b_loss = float(raw_loss.item())
             epoch_loss += b_loss
             batches += 1
+            grad_pending += 1
             step_count += 1
             batch_losses.append(b_loss)
 
-            if batches % gradient_accumulation_steps == 0 or batches == len(loader):
+            if grad_pending >= gradient_accumulation_steps or b_idx == len(loader) - 1:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
                 optimizer.step()
-                optimizer.zero_grad()
+                optimizer.zero_grad(set_to_none=True)
+                grad_pending = 0
+
+        if grad_pending > 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            optimizer.zero_grad(set_to_none=True)
 
         avg_loss = epoch_loss / max(1, batches)
         window = max(2, min(len(batch_losses), max(4, len(batch_losses) // 4)))

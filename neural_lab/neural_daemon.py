@@ -11,6 +11,7 @@ Exposes a zero-overhead HTTP/JSON-RPC bridge on http://127.0.0.1:8765 for the No
 
 import os
 import sys
+import gc
 import time
 import json
 import re
@@ -812,15 +813,19 @@ class NeuralStackServer:
         return web.json_response({"status": "shutting_down"})
 
     async def handle_pause_slm(self, request: web.Request) -> web.Response:
-        """Temporarily moves SLM to CPU and flushes CUDA cache during QLoRA training passes."""
-        if self.slm_model is not None and torch.cuda.is_available():
+        """Temporarily moves ALL GPU models to CPU and flushes CUDA cache during QLoRA training passes."""
+        if torch.cuda.is_available():
             if self.llm_lock is None:
                 self.llm_lock = asyncio.Lock()
             async with self.llm_lock:
-                self.slm_model = self.slm_model.to("cpu")
+                for attr_name in ("slm_model", "action_head", "reflex_policy", "chunk_analyzer", "visuomotor_policy"):
+                    model_obj = getattr(self, attr_name, None)
+                    if model_obj is not None:
+                        setattr(self, attr_name, model_obj.to("cpu"))
+                gc.collect()
                 torch.cuda.empty_cache()
                 vram_mb = torch.cuda.memory_allocated() / (1024 * 1024)
-                print(f"[System 2] SLM offloaded to CPU for training (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
+                print(f"[System 2] All GPU models offloaded to CPU for training (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
         return web.json_response({
             "status": "paused",
             "vram_allocated_mb": round(torch.cuda.memory_allocated() / (1024 * 1024), 1) if torch.cuda.is_available() else 0,
@@ -877,30 +882,42 @@ class NeuralStackServer:
                     self.active_adapter = adapter_dir
                 param_device = next(self.slm_model.parameters()).device
 
-                # Hot-reload 211M Multi-Modal Action Head weights if updated
+                # Hot-reload 211M Multi-Modal Action Head weights and restore to GPU
                 head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
-                if self.action_head is not None and os.path.exists(head_ckpt):
+                if self.action_head is not None:
+                    act_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
                     try:
-                        act_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-                        self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
-                        self.action_head.to(device=self.device, dtype=act_dtype)
-                        self.action_head.eval()
-                        print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
+                        if os.path.exists(head_ckpt):
+                            self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
+                            print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
                     except Exception as he:
                         print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}", flush=True)
+                    finally:
+                        self.action_head = self.action_head.to(device=self.device, dtype=act_dtype)
+                        self.action_head.eval()
 
-                # Hot-reload System 1 PPO VoxelReflexPolicy weights if updated
+                # Hot-reload System 1 PPO VoxelReflexPolicy weights and restore to GPU
                 reflex_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "voxel_reflex_policy_latest.pt")
                 reflex_reloaded = False
-                if self.reflex_policy is not None and os.path.exists(reflex_ckpt):
+                if self.reflex_policy is not None:
                     try:
-                        self.reflex_policy.load_state_dict(torch.load(reflex_ckpt, map_location=self.device, weights_only=True))
-                        self.reflex_policy.to(self.device)
-                        self.reflex_policy.eval()
-                        reflex_reloaded = True
-                        print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}", flush=True)
+                        if os.path.exists(reflex_ckpt):
+                            self.reflex_policy.load_state_dict(torch.load(reflex_ckpt, map_location=self.device, weights_only=True))
+                            reflex_reloaded = True
+                            print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}", flush=True)
                     except Exception as re_err:
                         print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}", flush=True)
+                    finally:
+                        self.reflex_policy = self.reflex_policy.to(self.device)
+                        self.reflex_policy.eval()
+
+                # Restore VolumetricChunkAnalyzer & VisuomotorPolicy to GPU
+                if self.chunk_analyzer is not None:
+                    self.chunk_analyzer = self.chunk_analyzer.to(self.device)
+                    self.chunk_analyzer.eval()
+                if self.visuomotor_policy is not None:
+                    self.visuomotor_policy = self.visuomotor_policy.to(self.device)
+                    self.visuomotor_policy.eval()
 
                 vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
                 print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)", flush=True)

@@ -140,6 +140,46 @@ def is_valid_tool_for_task(task_id: str, prompt: str, tool_name: str) -> bool:
     return True
 
 
+def should_mark_goal_completed(
+    is_passed: bool,
+    score_val: float,
+    provider_name: str,
+    num_steps: int,
+    step_idx: int,
+) -> bool:
+    """Only mark goalCompleted=True on genuinely completed multi-step final steps, never on Step 0 or open-world survival."""
+    return bool(
+        is_passed
+        and score_val >= 95.0
+        and provider_name != "open_world_survival"
+        and num_steps >= 2
+        and step_idx > 0
+        and step_idx == num_steps - 1
+    )
+
+
+def sanitize_loaded_grpo_entry(entry: Dict) -> Dict:
+    """Scrubs legacy Step-0 or open-world goalCompleted=True flags from loaded non-seed GRPO entries."""
+    if entry.get("provider") in ("gold_curriculum", "gold_continuation"):
+        return entry
+    msgs = entry.get("messages", [])
+    if isinstance(msgs, list) and len(msgs) > 0:
+        last_msg = msgs[-1]
+        if isinstance(last_msg, dict) and isinstance(last_msg.get("content"), str):
+            try:
+                parsed = json.loads(last_msg["content"])
+                if isinstance(parsed, dict) and (
+                    int(entry.get("step", 0)) <= 0
+                    or entry.get("provider") == "open_world_survival"
+                    or not bool(entry.get("verifiedFinalStep", False))
+                ):
+                    parsed["goalCompleted"] = False
+                    last_msg["content"] = json.dumps(parsed)
+            except Exception:
+                pass
+    return entry
+
+
 def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: int = None) -> Dict:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
@@ -188,91 +228,91 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         return metrics
 
     batch_size = min(64, max(8, len(step_transitions)))
-
-    policy = VoxelReflexPolicy().to(device)
-    old_policy = VoxelReflexPolicy().to(device)
-    
-    # Priority load order: latest checkpoint -> base checkpoint
-    latest_ckpt = CHECKPOINT_DIR / "voxel_reflex_policy_latest.pt"
-    base_ckpt = CHECKPOINT_DIR / "voxel_reflex_policy.pt"
-    ckpt_to_load = latest_ckpt if latest_ckpt.exists() else base_ckpt
-    if ckpt_to_load.exists():
-        state_dict = torch.load(ckpt_to_load, map_location=device, weights_only=True)
-        policy.load_state_dict(state_dict)
-        old_policy.load_state_dict(state_dict)
-    old_policy.eval()
-
-    optimizer = torch.optim.AdamW(policy.parameters(), lr=3e-4, weight_decay=1e-4)
-    clip_eps = 0.2
-
-    t0 = time.perf_counter()
-    initial_loss = 0.0
-    final_loss = 0.0
-    total_steps = 0
-
-    policy.train()
-    for ep in range(epochs):
-        ep_loss = 0.0
-        steps_per_epoch = 8
-        for _ in range(steps_per_epoch):
-            voxels, entities, bot_state, target_actions, target_aim, adv_weights = (
-                build_rl_batch_from_real_transitions(step_transitions, records, batch_size, device)
-            )
-
-            with torch.no_grad():
-                _, old_action_logits, _ = old_policy(voxels, entities, bot_state)
-                old_probs = torch.sigmoid(old_action_logits).detach()
-
-            aim_delta, action_logits, _ = policy(voxels, entities, bot_state)
-            new_probs = torch.sigmoid(action_logits)
-
-            p_new = torch.where(target_actions > 0.5, new_probs, 1.0 - new_probs).clamp(min=1e-5)
-            p_old = torch.where(target_actions > 0.5, old_probs, 1.0 - old_probs).clamp(min=1e-5)
-            ratio = (p_new / p_old).mean(dim=-1)
-
-            surr1 = ratio * adv_weights
-            surr2 = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps) * adv_weights
-            ppo_policy_loss = -torch.min(surr1, surr2).mean()
-
-            bce_loss = F.binary_cross_entropy_with_logits(
-                action_logits, target_actions, reduction="none"
-            ).mean(dim=-1)
-            weighted_bce = (bce_loss * adv_weights).mean()
-            aim_loss = (
-                F.smooth_l1_loss(aim_delta, target_aim, reduction="none").mean(dim=-1)
-                * adv_weights
-            ).mean()
-
-            loss = 0.4 * ppo_policy_loss + 0.6 * weighted_bce + 0.5 * aim_loss
-            optimizer.zero_grad()
-            loss.backward()
-            torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
-            optimizer.step()
-
-            ep_loss += float(loss.item())
-            total_steps += batch_size
-
-        avg_ep_loss = ep_loss / steps_per_epoch
-        if ep == 0:
-            initial_loss = avg_ep_loss
-        final_loss = avg_ep_loss
-
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
-    elapsed_s = time.perf_counter() - t0
-
-    # Save weights with Zero-Disk-Bloat policy (latest + best + distinct loop checkpoints up to 4)
     latest_path = CHECKPOINT_DIR / "voxel_reflex_policy_latest.pt"
     active_path = CHECKPOINT_DIR / "voxel_reflex_policy.pt"
     best_path = CHECKPOINT_DIR / "voxel_reflex_policy_best.pt"
 
-    torch.save(policy.state_dict(), latest_path)
-    torch.save(policy.state_dict(), active_path)
-    if is_best:
-        torch.save(policy.state_dict(), best_path)
-    if loop_idx is not None and loop_idx <= 4:
-        loop_path = CHECKPOINT_DIR / f"voxel_reflex_policy_loop{loop_idx}.pt"
-        torch.save(policy.state_dict(), loop_path)
+    initial_loss = 0.0
+    final_loss = 0.0
+    total_steps = 0
+    elapsed_s = 0.0
+
+    if epochs > 0:
+        policy = VoxelReflexPolicy().to(device)
+        old_policy = VoxelReflexPolicy().to(device)
+
+        # Priority load order: latest checkpoint -> base checkpoint
+        ckpt_to_load = latest_path if latest_path.exists() else (CHECKPOINT_DIR / "voxel_reflex_policy.pt")
+        if ckpt_to_load.exists():
+            state_dict = torch.load(ckpt_to_load, map_location=device, weights_only=True)
+            policy.load_state_dict(state_dict)
+            old_policy.load_state_dict(state_dict)
+        old_policy.eval()
+
+        optimizer = torch.optim.AdamW(policy.parameters(), lr=3e-4, weight_decay=1e-4)
+        clip_eps = 0.2
+
+        t0 = time.perf_counter()
+
+        policy.train()
+        for ep in range(epochs):
+            ep_loss = 0.0
+            steps_per_epoch = 8
+            for _ in range(steps_per_epoch):
+                voxels, entities, bot_state, target_actions, target_aim, adv_weights = (
+                    build_rl_batch_from_real_transitions(step_transitions, records, batch_size, device)
+                )
+
+                with torch.no_grad():
+                    _, old_action_logits, _ = old_policy(voxels, entities, bot_state)
+                    old_probs = torch.sigmoid(old_action_logits).detach()
+
+                aim_delta, action_logits, _ = policy(voxels, entities, bot_state)
+                new_probs = torch.sigmoid(action_logits)
+
+                p_new = torch.where(target_actions > 0.5, new_probs, 1.0 - new_probs).clamp(min=1e-5)
+                p_old = torch.where(target_actions > 0.5, old_probs, 1.0 - old_probs).clamp(min=1e-5)
+                ratio = (p_new / p_old).mean(dim=-1)
+
+                surr1 = ratio * adv_weights
+                surr2 = torch.clamp(ratio, 1.0 - clip_eps, 1.0 + clip_eps) * adv_weights
+                ppo_policy_loss = -torch.min(surr1, surr2).mean()
+
+                bce_loss = F.binary_cross_entropy_with_logits(
+                    action_logits, target_actions, reduction="none"
+                ).mean(dim=-1)
+                weighted_bce = (bce_loss * adv_weights).mean()
+                aim_loss = (
+                    F.smooth_l1_loss(aim_delta, target_aim, reduction="none").mean(dim=-1)
+                    * adv_weights
+                ).mean()
+
+                loss = 0.4 * ppo_policy_loss + 0.6 * weighted_bce + 0.5 * aim_loss
+                optimizer.zero_grad()
+                loss.backward()
+                torch.nn.utils.clip_grad_norm_(policy.parameters(), 1.0)
+                optimizer.step()
+
+                ep_loss += float(loss.item())
+                total_steps += batch_size
+
+            avg_ep_loss = ep_loss / steps_per_epoch
+            if ep == 0:
+                initial_loss = avg_ep_loss
+            final_loss = avg_ep_loss
+
+        if torch.cuda.is_available():
+            torch.cuda.synchronize()
+        elapsed_s = time.perf_counter() - t0
+
+        # Save weights with Zero-Disk-Bloat policy (latest + best + distinct loop checkpoints up to 4)
+        torch.save(policy.state_dict(), latest_path)
+        torch.save(policy.state_dict(), active_path)
+        if is_best:
+            torch.save(policy.state_dict(), best_path)
+        if loop_idx is not None and loop_idx <= 4:
+            loop_path = CHECKPOINT_DIR / f"voxel_reflex_policy_loop{loop_idx}.pt"
+            torch.save(policy.state_dict(), loop_path)
 
     # Export GRPO trajectories: Stratified Reservoir Sampling (Task Gold Bank)
     # 1. Load & scrub existing verified trajectories (filter out cross-domain poison & hallucinations)
@@ -306,6 +346,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                         if prov in ("gold_curriculum", "gold_continuation"):
                             gold_seed_samples.append(d)
                         else:
+                            d = sanitize_loaded_grpo_entry(d)
                             key = (tid, step)
                             if key not in task_gold_bank or float(d.get("rawReward", 0)) > float(task_gold_bank[key].get("rawReward", 0)):
                                 task_gold_bank[key] = d
@@ -420,13 +461,23 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 else _build_fallback_grounded_system_prompt(r, prior_steps)
             )
 
+            provider_name = str(r.get("provider", "local_gpu"))
+            can_mark_goal_completed = should_mark_goal_completed(
+                is_passed=is_passed,
+                score_val=score_val,
+                provider_name=provider_name,
+                num_steps=len(exec_tools),
+                step_idx=step_idx,
+            )
+
             sample = {
-                "provider": r.get("provider", "local_gpu"),
+                "provider": provider_name,
                 "taskId": tid,
                 "domain": r.get("domain"),
                 "advantage": round(adv, 4),
                 "rawReward": raw_r,
                 "step": step_idx,
+                "verifiedFinalStep": can_mark_goal_completed,
                 "messages": [
                     {
                         "role": "system",
@@ -442,7 +493,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                                     "name": tool_name,
                                     "arguments": tool_args,
                                 },
-                                "goalCompleted": bool(is_passed and step_idx == len(exec_tools) - 1),
+                                "goalCompleted": can_mark_goal_completed,
                             }
                         ),
                     },

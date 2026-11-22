@@ -75,3 +75,5 @@ iteration,phase,timestamp,mean_score,pass_rate_pct,tasks_passed,total_tasks,slm_
 74,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-22T06:03:53.390Z",48.3,40.5,34,84,0.0152,0.0009,4.19,"Raw",5,,""
 75,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-22T07:09:54.866Z",65.7,60.7,51,84,0.3802,0.0641,4.09,"Wood",2,,""
 76,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-22T07:20:37.519Z",62.5,52.4,44,84,0.0621,0.0737,4.12,"Wood",2,,""
+77,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-22T08:04:17.164Z",66.9,59.5,50,84,0.0734,0.1023,4.22,"Stone",2,,""
+78,"Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)","2026-11-22T08:35:11.455Z",73.6,69,58,84,0.0787,0.0781,4.37,"Stone",4,,""
