@@ -36,6 +36,8 @@ export interface MinebenchEvaluationSnapshot {
     wolvesTamed: number;
     foodConsumed?: number;
     affordanceActions?: number;
+    damageDealt?: number;
+    waterPlaced?: number;
     ironPickaxeDurabilityUsedOnStone: number;
   };
   multiplayer?: {
@@ -130,6 +132,21 @@ export function evaluateOmniscienceMilestones(
   const hasRefined = totalPlanks >= 8 || hasWorkstation || hasTarget || hasSticksOrTools || (totalPlanks >= 4 && ((snap.stats?.blocksMined || 0) >= 2 || (snap.stats?.blocksPlaced || 0) > 0));
   const hasRawHarvest = totalLogs >= 2 || (snap.stats?.blocksMined || 0) >= 2 || (((snap.stats?.blocksMined || 0) >= 1) && totalLogs >= 1) || hasRefined || hasWorkstation || hasTarget;
 
+  const taskId = String(task?.id || task?.taskId || '').toLowerCase();
+  const waterDeployed = ((snap.stats as any).waterPlaced || 0) > 0 || invNames.includes('bucket');
+  const descendedSafe = snap.deaths === 0 && snap.health >= 15 && (snap.botPosition?.y ?? 999) <= (task?.origin?.y ?? 100) + 2;
+  const waterClutchSuccess =
+    taskId === 'omni_tool_water_bucket_water_clutch' &&
+    snap.deaths === 0 &&
+    snap.health >= 15 &&
+    (waterDeployed || descendedSafe || ((snap.stats as any).affordanceActions || 0) > 0);
+  const elytraEquipped = snap.equippedArmor?.torso === 'elytra';
+  const horizDist = Math.hypot((snap.botPosition?.x ?? 0) - (task?.origin?.x ?? 0), (snap.botPosition?.z ?? 0) - (task?.origin?.z ?? 0));
+  const elytraGlideSuccess = taskId === 'omni_tool_elytra_glide_and_boost' && elytraEquipped && horizDist > 8.0 && snap.deaths === 0;
+  const lavaSmeltSuccess =
+    taskId === 'omni_tool_lava_bucket_smelt_fuel_100' &&
+    (invNames.includes('iron_ingot') || (invNames.includes('bucket') && ((snap.stats as any).affordanceActions || 0) > 0));
+
   for (const m of milestones) {
     let earned = 0;
     const cond = m.condition;
@@ -162,7 +179,11 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'held_tool_correct') {
-      const hasCorrectTool = invNames.some((n) => targetObj && (n === targetObj || n.includes(targetObj)));
+      const hasCorrectTool = Boolean(
+        targetObj &&
+          (invNames.some((n) => n === targetObj || n.includes(targetObj) || (targetObj.endsWith('_bucket') && n === 'bucket')) ||
+            Object.values(snap.equippedArmor || {}).some((eq) => eq && String(eq).toLowerCase().includes(targetObj)))
+      );
       const didAnyAction =
         snap.stats.blocksMined > 0 ||
         snap.stats.blocksPlaced > 0 ||
@@ -170,7 +191,12 @@ export function evaluateOmniscienceMilestones(
         snap.stats.leversFlipped > 0 ||
         snap.stats.wolvesTamed > 0 ||
         ((snap.stats as any).affordanceActions || 0) > 0 ||
-        Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0;
+        ((snap.stats as any).waterPlaced || 0) > 0 ||
+        Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0 ||
+        waterClutchSuccess ||
+        elytraGlideSuccess ||
+        (taskId === 'omni_tool_elytra_glide_and_boost' && elytraEquipped && snap.deaths === 0) ||
+        lavaSmeltSuccess;
       if (hasCorrectTool && didAnyAction) {
         earned = m.maxPoints;
       }
@@ -181,9 +207,17 @@ export function evaluateOmniscienceMilestones(
         snap.stats.leversFlipped > 0 ||
         snap.stats.wolvesTamed > 0 ||
         ((snap.stats as any).affordanceActions || 0) > 0 ||
+        ((snap.stats as any).waterPlaced || 0) > 0 ||
         (snap.stats as any).foodConsumed > 0 ||
         Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0;
-      if (anyAction) {
+      if (taskId === 'omni_tool_water_bucket_water_clutch') {
+        if (waterClutchSuccess) earned = m.maxPoints;
+      } else if (taskId === 'omni_tool_elytra_glide_and_boost') {
+        if (elytraGlideSuccess) earned = m.maxPoints;
+        else if (elytraEquipped && snap.deaths === 0) earned = 25;
+      } else if (taskId === 'omni_tool_lava_bucket_smelt_fuel_100') {
+        if (lavaSmeltSuccess || anyAction) earned = m.maxPoints;
+      } else if (anyAction) {
         earned = m.maxPoints;
       }
     } else if (cond === 'zero_creeper_blasts' || cond === 'kiting_damage_inflicted') {

@@ -2143,6 +2143,194 @@ test('43. UnifiedLLMClient.buildGroundedTrainingSystemPrompt preserves live sens
   assert.ok(snapPrompt.includes('Recent Actions: [gather_resource(OK)]'), 'Must include Recent Actions');
 });
 
+test('44. Repaired Omniscience tasks validate against 1.20.4 and evaluators score water clutch, elytra, lava smelt, and melee damageDealt properly', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const mcData = require('minecraft-data')('1.20.4');
+  const { evaluateOmniscienceMilestones } = require('../../minebench/dist/minebench/evaluators');
+
+  const tasksPath = path.resolve(process.cwd(), 'minebench', 'results', 'omniscience_tasks.json');
+  const tasks: any[] = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
+
+  assert.ok(!tasks.some((t) => t.taskId === 'omni_mob_breeze'), 'Experimental 1.21 breeze must be excluded from 1.20.4 pool');
+
+  const nbtRe = /id:"(?:minecraft:)?([a-z0-9_]+)"/g;
+  for (const t of tasks) {
+    for (const it of t.initialLoadout || []) {
+      assert.ok(mcData.itemsByName[it.name], `Invalid 1.20.4 loadout item "${it.name}" in ${t.taskId}`);
+    }
+    for (const cmd of t.setupCommands || []) {
+      let m: RegExpExecArray | null;
+      while ((m = nbtRe.exec(cmd)) !== null) {
+        assert.ok(mcData.itemsByName[m[1]], `Invalid 1.20.4 NBT item "${m[1]}" in ${t.taskId}`);
+      }
+    }
+  }
+
+  const getTask = (id: string) => tasks.find((t) => t.taskId === id);
+  const growTree = getTask('omni_tool_bonemeal_grow_tree');
+  assert.equal(growTree.targetObject, 'bone_meal');
+  assert.ok(growTree.setupCommands.some((c: string) => c.includes('dirt')));
+  assert.ok(getTask('omni_tool_fishing_rod_catch_fish').setupCommands.some((c: string) => c.includes('water')));
+  assert.ok(getTask('omni_tool_lava_bucket_smelt_fuel_100').setupCommands.some((c: string) => c.includes('furnace')));
+  assert.ok(getTask('omni_tool_elytra_glide_and_boost').initialLoadout.some((i: any) => i.name === 'firework_rocket'));
+
+  const baseSnap = (overrides: any = {}) => ({
+    botPosition: { x: 500, y: 100, z: 500 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => null,
+    entities: [],
+    stats: {
+      blocksPlaced: 0,
+      blocksMined: 0,
+      mobsKilled: {},
+      creeperBlasts: 0,
+      arrowsFired: 0,
+      endCrystalsDestroyed: 0,
+      enderDragonSlain: false,
+      leversFlipped: 0,
+      wolvesTamed: 0,
+      foodConsumed: 0,
+      affordanceActions: 0,
+      damageDealt: 0,
+      waterPlaced: 0,
+      ironPickaxeDurabilityUsedOnStone: 0,
+      ...overrides.stats,
+    },
+    ...overrides,
+  });
+
+  // Water clutch: passive sitting on perch = FAIL
+  const wcTask = { ...getTask('omni_tool_water_bucket_water_clutch'), origin: { x: 500, y: 100, z: 500 } };
+  const wcPassive = evaluateOmniscienceMilestones(wcTask, baseSnap({ botPosition: { x: 500, y: 118, z: 500 }, inventory: [{ name: 'water_bucket', count: 1 }] }));
+  assert.equal(wcPassive.passed, false, 'Passive water_clutch standing on perch must fail');
+
+  // Water clutch: un-clutched fatal fall = FAIL
+  const wcFatal = evaluateOmniscienceMilestones(wcTask, baseSnap({ deaths: 1, health: 0, inventory: [{ name: 'water_bucket', count: 1 }] }));
+  assert.equal(wcFatal.passed, false, 'Fatal un-clutched fall must fail');
+
+  // Water clutch: deployed water & survived = PASS
+  const wcPass = evaluateOmniscienceMilestones(wcTask, baseSnap({ inventory: [{ name: 'bucket', count: 1 }], stats: { waterPlaced: 1, affordanceActions: 1 } }));
+  assert.equal(wcPass.passed, true, 'Deployed water clutch must pass');
+  assert.equal(wcPass.score, 100);
+
+  // Elytra: equipped only without glide distance = FAIL (< 60)
+  const elTask = { ...getTask('omni_tool_elytra_glide_and_boost'), origin: { x: 500, y: 100, z: 500 } };
+  const elEquipOnly = evaluateOmniscienceMilestones(elTask, baseSnap({ equippedArmor: { torso: 'elytra' }, botPosition: { x: 502, y: 120, z: 500 } }));
+  assert.equal(elEquipOnly.passed, false, 'Equipping elytra without gliding >8m must not pass');
+  assert.equal(elEquipOnly.score, 55);
+
+  // Elytra: equipped + >8m horizontal glide = PASS (100)
+  const elGlided = evaluateOmniscienceMilestones(elTask, baseSnap({ equippedArmor: { torso: 'elytra' }, botPosition: { x: 515, y: 105, z: 500 } }));
+  assert.equal(elGlided.passed, true, 'Gliding >8m with elytra equipped must pass');
+  assert.equal(elGlided.score, 100);
+
+  // Lava bucket smelt: smelted iron_ingot + bucket = PASS (100)
+  const lavaTask = { ...getTask('omni_tool_lava_bucket_smelt_fuel_100'), origin: { x: 500, y: 100, z: 500 } };
+  const lavaPass = evaluateOmniscienceMilestones(lavaTask, baseSnap({ inventory: [{ name: 'bucket', count: 1 }, { name: 'iron_ingot', count: 2 }], stats: { affordanceActions: 1 } }));
+  assert.equal(lavaPass.passed, true, 'Smelting with lava_bucket must pass');
+
+  // Hostile mob kill: damageDealt=0 = FAIL vs damageDealt=20 = PASS
+  const zombieTask = getTask('omni_mob_zombie');
+  const zNoDmg = evaluateOmniscienceMilestones(zombieTask, baseSnap({ stats: { mobsKilled: { zombie: 1 }, damageDealt: 0 } }));
+  assert.equal(zNoDmg.passed, false, 'Unattributed kill with 0 damageDealt must not pass');
+  const zWithDmg = evaluateOmniscienceMilestones(zombieTask, baseSnap({ stats: { mobsKilled: { zombie: 1 }, damageDealt: 20 } }));
+  assert.equal(zWithDmg.passed, true, 'Verified kill with damageDealt=20 must pass');
+  assert.equal(zWithDmg.score, 100);
+});
+
+test('45. gather_resource avoids substring-matching stone for redstone_ore and smelt_item accepts lava_bucket fuel', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const mcpServer = new NeuroCraftMCPServer(registry);
+
+  // 1. Verify gather_resource("redstone_ore") ignores arena "stone" floor
+  const dugBlocks: string[] = [];
+  let heldPick: any = { name: 'iron_pickaxe', type: 700, count: 1 };
+  const redstoneBot: any = {
+    version: '1.20.4',
+    entity: { position: new Vec3(0, 64, 0), onGround: true },
+    get heldItem() { return heldPick; },
+    inventory: {
+      items: () => [heldPick],
+      slots: [],
+    },
+    pathfinder: { setGoal: () => {} },
+    clearControlStates: () => {},
+    canDigBlock: () => true,
+    dig: async (b: any) => { dugBlocks.push(b.name); },
+    findBlocks: ({ matching }: any) => {
+      // Simulate Mineflayer palette pre-filter (position === null)
+      assert.equal(matching({ name: 'stone', position: null }), false, 'redstone_ore matcher MUST NOT match stone');
+      assert.equal(matching({ name: 'redstone_ore', position: null }), true, 'redstone_ore matcher MUST match redstone_ore');
+      return [];
+    },
+    blockAt: (p: Vec3) => (p.y < 64 ? { name: 'stone', boundingBox: 'block', position: p } : { name: 'air', boundingBox: 'empty', position: p }),
+  };
+
+  const gatherRes = await mcpServer.handleRpcRequest(
+    { jsonrpc: '2.0', id: 't45_redstone', method: 'tools/call', params: { name: 'gather_resource', arguments: { blockType: 'redstone_ore', count: 1 } } },
+    () => ({
+      bot: redstoneBot,
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+      abortSignal: new AbortController().signal,
+    } as any)
+  );
+  assert.equal(dugBlocks.includes('stone'), false, 'gather_resource("redstone_ore") must never dig stone');
+  assert.ok(!gatherRes.error);
+
+  // 2. Verify smelt_item accepts lava_bucket as valid furnace fuel
+  let putFuelName = '';
+  let tookFuel = false;
+  let tookOutput = false;
+  const smeltBot: any = {
+    version: '1.20.4',
+    entity: { position: new Vec3(0, 64, 0), onGround: true },
+    inventory: {
+      items: () => [
+        { name: 'lava_bucket', type: 815, count: 1 },
+        { name: 'raw_iron', type: 720, count: 1 },
+      ],
+      slots: [],
+    },
+    findBlock: ({ matching }: any) => (matching({ name: 'furnace' }) ? { name: 'furnace', position: new Vec3(0, 64, 2) } : null),
+    openFurnace: async () => ({
+      putFuel: async (typeId: number, _meta: any, cnt: number) => {
+        if (typeId === 815 && cnt === 1) putFuelName = 'lava_bucket';
+      },
+      putInput: async () => {},
+      outputItem: () => ({ name: 'iron_ingot', count: 1 }),
+      inputItem: () => null,
+      fuelItem: () => ({ name: 'bucket', count: 1 }),
+      takeOutput: async () => { tookOutput = true; },
+      takeInput: async () => {},
+      takeFuel: async () => { tookFuel = true; },
+      close: () => {},
+    }),
+  };
+
+  const smeltRes = await mcpServer.handleRpcRequest(
+    { jsonrpc: '2.0', id: 't45_lava', method: 'tools/call', params: { name: 'smelt_item', arguments: { inputItem: 'raw_iron', count: 1 } } },
+    () => ({
+      bot: smeltBot,
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+      abortSignal: new AbortController().signal,
+    } as any)
+  );
+  const smeltPayload = JSON.parse(smeltRes.result.content[0].text);
+  assert.equal(putFuelName, 'lava_bucket', 'smelt_item must fuel furnace with 1x lava_bucket');
+  assert.equal(tookOutput, true);
+  assert.equal(tookFuel, true);
+  assert.equal(smeltPayload.success, true, 'smelt_item must succeed with lava_bucket fuel');
+});
+
 
 
 

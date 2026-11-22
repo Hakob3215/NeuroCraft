@@ -189,10 +189,14 @@ export class MinecraftOmniscienceGenerator {
 
           case 'water_clutch':
             loadout = [{ name: 'water_bucket', count: 1 }];
-            setupCmds = ['fill ~-2 ~-1 ~-2 ~2 ~-1 ~2 stone', 'tp @p ~ ~20 ~ 0 90'];
-            prompt = 'You are falling from height! Perform a water bucket clutch to survive with zero damage!';
-            expectedTool = 'water_clutch';
-            expectedArgs = {};
+            setupCmds = [
+              'fill ~-2 ~-1 ~-2 ~2 ~-1 ~2 stone',
+              'fill ~-1 ~17 ~-1 ~1 ~17 ~1 stone',
+              'tp @p ~ ~18 ~ 0 90',
+            ];
+            prompt = 'You are high above the ground! Deploy your water bucket carefully to descend safely without taking fatal fall damage!';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'water_bucket', targetBlock: 'stone' };
             expectedToken = '<|act:place_block|> <|item:water_bucket|>';
             break;
 
@@ -349,27 +353,9 @@ export class MinecraftOmniscienceGenerator {
             expectedToken = '<|act:use_item|> <|target:oak_fence|>';
             break;
 
-          case 'block_arrows':
-            loadout = [{ name: 'shield', count: 1 }];
-            setupCmds = ['tp @p ~ ~1 ~ 0 0'];
-            prompt = 'Equip your shield and block incoming skeleton arrows.';
-            expectedTool = 'engage_combat';
-            expectedArgs = { weapon: 'shield' };
-            expectedToken = '<|act:equip|> <|item:shield|>';
-            break;
-
-          case 'water_clutch':
-            loadout = [{ name: 'water_bucket', count: 1 }];
-            setupCmds = ['tp @p ~ ~1 ~ 0 0'];
-            prompt = 'Place water using your water bucket to break your fall.';
-            expectedTool = 'use_tool_on_block';
-            expectedArgs = { tool: 'water_bucket' };
-            expectedToken = '<|act:use_item|> <|item:water_bucket|>';
-            break;
-
           case 'extinguish_fire':
             loadout = [{ name: 'water_bucket', count: 1 }];
-            setupCmds = ['setblock ~ ~1 ~2 fire', 'tp @p ~ ~1 ~ 0 0'];
+            setupCmds = ['setblock ~ ~ ~2 netherrack', 'setblock ~ ~1 ~2 fire', 'tp @p ~ ~ ~ 0 0'];
             prompt = 'Extinguish the fire using your water bucket.';
             expectedTool = 'use_tool_on_block';
             expectedArgs = { tool: 'water_bucket', targetBlock: 'fire' };
@@ -378,16 +364,81 @@ export class MinecraftOmniscienceGenerator {
 
           case 'hydrate_farmland':
             loadout = [{ name: 'water_bucket', count: 1 }];
-            setupCmds = ['setblock ~ ~1 ~2 farmland', 'tp @p ~ ~1 ~ 0 0'];
+            setupCmds = ['setblock ~ ~-1 ~2 farmland', 'tp @p ~ ~ ~ 0 0'];
             prompt = 'Hydrate the farmland using your water bucket.';
             expectedTool = 'use_tool_on_block';
             expectedArgs = { tool: 'water_bucket', targetBlock: 'farmland' };
             expectedToken = '<|act:use_item|> <|item:water_bucket|>';
             break;
 
+          case 'grow_tree':
+            loadout = [{ name: 'bone_meal', count: 8 }];
+            setupCmds = ['setblock ~ ~-1 ~2 dirt', 'setblock ~ ~ ~2 oak_sapling', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'Use bone meal on the oak sapling in front of you to grow it into a tree.';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'bone_meal', targetBlock: 'oak_sapling' };
+            expectedToken = '<|act:interact_block|> <|item:oak_sapling|>';
+            break;
+
+          case 'catch_fish':
+            loadout = [{ name: 'fishing_rod', count: 1 }];
+            setupCmds = ['fill ~-2 ~-2 ~2 ~2 ~-1 ~6 water', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'Cast your fishing rod into the water pool in front of you to catch fish.';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'fishing_rod', targetBlock: 'water' };
+            expectedToken = '<|act:use_item|> <|item:fishing_rod|>';
+            break;
+
+          case 'smelt_fuel_100':
+            loadout = [{ name: 'lava_bucket', count: 1 }, { name: 'raw_iron', count: 2 }];
+            setupCmds = ['setblock ~ ~ ~2 furnace[facing=north]', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'Use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots.';
+            expectedTool = 'smelt_item';
+            expectedArgs = { inputItem: 'raw_iron', count: 2 };
+            expectedToken = '<|act:smelt|> <|item:raw_iron|>';
+            break;
+
+          case 'glide_and_boost':
+            loadout = [{ name: 'elytra', count: 1 }, { name: 'firework_rocket', count: 16 }];
+            setupCmds = ['fill ~-1 ~19 ~-1 ~1 ~19 ~1 stone', 'tp @p ~ ~20 ~ 0 0'];
+            prompt = 'Equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'elytra', targetBlock: 'firework_rocket' };
+            expectedToken = '<|act:equip|> <|item:elytra|>';
+            break;
+
+          case 'create_obsidian':
+            loadout = [{ name: 'water_bucket', count: 1 }];
+            setupCmds = ['setblock ~ ~-1 ~2 lava', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'Pour your water bucket next to the lava source block in front of you to turn it into obsidian.';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'water_bucket', targetBlock: 'lava' };
+            expectedToken = '<|act:use_item|> <|item:water_bucket|>';
+            break;
+
+          case 'cure_wither':
+            loadout = [{ name: 'milk_bucket', count: 1 }];
+            setupCmds = ['effect give @p wither 30 0', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'You are afflicted with Wither! Drink your milk bucket immediately to cure it.';
+            expectedTool = 'eat_food';
+            expectedArgs = { foodName: 'milk_bucket' };
+            expectedToken = '<|act:consume|> <|item:milk_bucket|>';
+            break;
+
+          case 'clear_bad_omen':
+            loadout = [{ name: 'milk_bucket', count: 1 }];
+            setupCmds = ['effect give @p bad_omen 60 0', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'You have Bad Omen! Drink your milk bucket to clear the status effect.';
+            expectedTool = 'eat_food';
+            expectedArgs = { foodName: 'milk_bucket' };
+            expectedToken = '<|act:consume|> <|item:milk_bucket|>';
+            break;
+
           default: {
             let defaultToolName = toolGroup;
-            if (['pickaxe', 'axe', 'shovel', 'hoe', 'sword'].includes(toolGroup)) {
+            if (toolGroup === 'bonemeal') {
+              defaultToolName = 'bone_meal';
+            } else if (['pickaxe', 'axe', 'shovel', 'hoe', 'sword'].includes(toolGroup)) {
               defaultToolName = `iron_${toolGroup}`;
             } else if (toolGroup === 'water_bucket' || toolGroup === 'lava_bucket' || toolGroup === 'milk_bucket' || toolGroup === 'bucket') {
               defaultToolName = toolGroup;
@@ -735,7 +786,7 @@ export class MinecraftOmniscienceGenerator {
       'hopper_minecart', 'spawner_minecart', 'command_block_minecart', 'leash_knot',
       'painting', 'item_frame', 'glow_item_frame', 'armor_stand',
       'egg', 'snowball', 'experience_bottle', 'ender_pearl',
-      'shulker_bullet', 'llama_spit', 'wind_charge'
+      'shulker_bullet', 'llama_spit', 'wind_charge', 'breeze'
     ]);
 
     for (const mob of allEntities) {

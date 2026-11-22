@@ -145,6 +145,7 @@ export class ModernCombatController {
       await new Promise((r) => setTimeout(r, 40));
     }
 
+    (this.bot as any)._lastAttackAt = Date.now();
     this.bot.attack(targetEntity);
     this.lastStrikeTimestamp = Date.now();
 

@@ -1810,7 +1810,16 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (requestedType.includes('copper')) {
           return n === 'copper_ore' || n === 'deepslate_copper_ore';
         }
-        return n === requestedType || n.includes(requestedType) || requestedType.includes(n) || n === rawType || n.includes(rawType);
+        if (requestedType.includes('redstone')) {
+          return n === 'redstone_ore' || n === 'deepslate_redstone_ore';
+        }
+        if (requestedType.includes('lapis')) {
+          return n === 'lapis_ore' || n === 'deepslate_lapis_ore';
+        }
+        if (requestedType.includes('emerald')) {
+          return n === 'emerald_ore' || n === 'deepslate_emerald_ore';
+        }
+        return n === requestedType || n.includes(requestedType) || n === rawType || n.includes(rawType);
       };
 
       (ctx as any).lastToolFailure = null;
@@ -2405,8 +2414,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const fuelStack = invItems.find((i: any) => {
         const n = i.name.toLowerCase();
         return (
+          n === 'lava_bucket' ||
           n === 'coal' ||
           n === 'charcoal' ||
+          n === 'blaze_rod' ||
           n.endsWith('_planks') ||
           n.endsWith('_log') ||
           n === 'coal_block'
@@ -2416,7 +2427,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       if (!fuelStack) {
         return {
           success: false,
-          summary: 'No fuel (coal, charcoal, planks, or logs) in inventory to power the furnace! Gather coal_ore or wood first.',
+          summary: 'No fuel (coal, charcoal, lava_bucket, planks, or logs) in inventory to power the furnace! Gather coal_ore or wood first.',
         };
       }
 
@@ -2472,9 +2483,12 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       try {
         const amountToSmelt = Math.min(targetCount, inputStack.count);
         const furnace = await ctx.bot.openFurnace(furnaceBlock);
-        const fuelNeeded = fuelStack.name.includes('coal')
-          ? Math.min(fuelStack.count, Math.ceil(amountToSmelt / 7) + 1)
-          : Math.min(fuelStack.count, amountToSmelt);
+        const fuelNeeded =
+          fuelStack.name === 'lava_bucket'
+            ? 1
+            : fuelStack.name.includes('coal')
+            ? Math.min(fuelStack.count, Math.ceil(amountToSmelt / 7) + 1)
+            : Math.min(fuelStack.count, amountToSmelt);
         await furnace.putFuel(fuelStack.type, null, fuelNeeded);
         await furnace.putInput(inputStack.type, null, amountToSmelt);
 
@@ -2593,6 +2607,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           if (await ctx.kinematics.equipItemHumanized(s.suffix, s.dest)) {
             equippedList.push(s.suffix);
           }
+        }
+        if (!equippedList.includes('chestplate') && (await ctx.kinematics.equipItemHumanized('elytra', 'torso'))) {
+          equippedList.push('elytra');
         }
       } else {
         let dest: 'hand' | 'off-hand' | 'head' | 'torso' | 'legs' | 'feet' = 'hand';
@@ -5417,23 +5434,77 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (tgt.includes('log') || tgt.includes('wood') || tgt.includes('stem')) return 'axe';
         if (tgt.includes('grass') || tgt.includes('dirt') || tgt.includes('path') || tgt.includes('campfire')) return 'shovel';
         if (tgt.includes('pumpkin') || tgt.includes('sheep')) return 'shears';
-        if (tgt.includes('wheat') || tgt.includes('crop') || tgt.includes('carrot') || tgt.includes('potato')) return 'bone_meal';
+        if (tgt.includes('wheat') || tgt.includes('crop') || tgt.includes('carrot') || tgt.includes('potato') || tgt.includes('sapling')) return 'bone_meal';
         if (tgt.includes('obsidian') || tgt.includes('tnt') || tgt.includes('portal')) return 'flint_and_steel';
         if (tgt.includes('cow') || tgt.includes('pig') || tgt.includes('wolf') || tgt.includes('animal')) return 'lead';
+        if (tgt.includes('water') || tgt.includes('fish')) {
+          return invItems.some((it: any) => String(it.name || '').toLowerCase() === 'fishing_rod') ? 'fishing_rod' : 'water_bucket';
+        }
+        if (tgt.includes('fire') || tgt.includes('lava') || tgt.includes('farmland')) return 'water_bucket';
+        if (tgt.includes('firework') || tgt.includes('elytra') || tgt.includes('glide')) return 'elytra';
         return 'iron_shovel';
       };
 
       const requestedTool = String(args.tool || '').toLowerCase().trim() || inferToolForTarget(target);
       let resolvedTool = requestedTool;
-      const exactMatch = invItems.find((it: any) => String(it.name || '').toLowerCase() === requestedTool);
+      if (resolvedTool === 'bonemeal') resolvedTool = 'bone_meal';
+      const exactMatch = invItems.find((it: any) => String(it.name || '').toLowerCase() === resolvedTool);
       if (exactMatch) {
         resolvedTool = exactMatch.name;
       } else {
         const classMatch = ['axe', 'shovel', 'hoe', 'pickaxe', 'sword'].find(
-          (cls) => requestedTool === cls || requestedTool.endsWith(`_${cls}`)
+          (cls) => resolvedTool === cls || resolvedTool.endsWith(`_${cls}`)
         );
         if (classMatch) {
-          resolvedTool = findBestToolByClass(classMatch) || requestedTool;
+          resolvedTool = findBestToolByClass(classMatch) || resolvedTool;
+        }
+      }
+
+      // Specialized Handler 1: Elytra glide + firework rocket boost
+      if (resolvedTool === 'elytra' || resolvedTool === 'firework_rocket' || target.includes('elytra') || target.includes('firework') || target.includes('glide')) {
+        const equippedElytra = await ctx.kinematics.equipItemHumanized('elytra', 'torso');
+        const hasRockets = invItems.some((it: any) => String(it.name || '').toLowerCase() === 'firework_rocket');
+        if (hasRockets) {
+          await ctx.kinematics.equipItemHumanized('firework_rocket', 'hand');
+        }
+        if (!equippedElytra && ctx.bot.inventory?.slots?.[6]?.name !== 'elytra') {
+          return { success: false, summary: 'No elytra available in inventory or torso slot to glide.' };
+        }
+        if (!ctx.bot.entity) {
+          return { success: false, summary: 'Bot entity unavailable for elytra launch.' };
+        }
+        try {
+          await ctx.bot.look?.(ctx.bot.entity.yaw || 0, -0.1, true).catch(() => {});
+          ctx.bot.setControlState('forward', true);
+          ctx.bot.setControlState('sprint', true);
+          ctx.bot.setControlState('jump', true);
+          for (let i = 0; i < 12; i++) {
+            if (ctx.abortSignal?.aborted || !ctx.bot.entity.onGround) break;
+            await new Promise((r) => setTimeout(r, 50));
+          }
+          ctx.bot.setControlState('jump', false);
+          await new Promise((r) => setTimeout(r, 120));
+          // Send Minecraft 1.20.4 start_fall_flying (actionId: 8)
+          ctx.bot._client?.write?.('entity_action', {
+            entityId: ctx.bot.entity.id,
+            actionId: 8,
+            jumpBoost: 0,
+          });
+          await ctx.bot.look?.(ctx.bot.entity.yaw || 0, -0.15, true).catch(() => {});
+          if (hasRockets) {
+            ctx.bot.activateItem?.();
+          }
+          for (let i = 0; i < 12; i++) {
+            if (ctx.abortSignal?.aborted) break;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          return { success: true, summary: `Equipped elytra and executed glide${hasRockets ? ' + firework_rocket boost' : ''}!` };
+        } catch (e: any) {
+          return { success: false, summary: `Elytra glide failed: ${e.message}` };
+        } finally {
+          try {
+            ctx.bot.clearControlStates?.();
+          } catch {}
         }
       }
 
@@ -5442,6 +5513,69 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
 
       const entityTargets = ['sheep', 'cow', 'pig', 'wolf', 'chicken', 'animal', 'horse', 'goat', 'cat'];
       const isEntityTarget = entityTargets.some((k) => target.includes(k) || rawTarget.includes(k));
+
+      // Specialized Handler 2: Fishing rod cast into water pool
+      if (resolvedTool === 'fishing_rod' && !isEntityTarget) {
+        const waterBlock = ctx.bot.findBlock({
+          matching: (blk: any) => blk && blk.name === 'water',
+          maxDistance: 16,
+        });
+        if (!waterBlock) {
+          return { success: false, summary: 'No water pool found within 16m to cast fishing_rod.' };
+        }
+        await ctx.kinematics.pathfindTo(waterBlock.position, 2.8);
+        await ctx.kinematics.lookAtSmooth?.(waterBlock.position.offset(0.5, 0.2, 0.5), 120);
+        try {
+          ctx.bot.activateItem?.();
+          for (let i = 0; i < 12; i++) {
+            if (ctx.abortSignal?.aborted) break;
+            await new Promise((r) => setTimeout(r, 100));
+          }
+          ctx.bot.activateItem?.();
+          return { success: true, summary: 'Cast fishing_rod into water pool!' };
+        } catch (e: any) {
+          return { success: false, summary: `Could not cast fishing_rod: ${e.message}` };
+        }
+      }
+
+      // Specialized Handler 3: Water bucket deployment (obsidian, fire extinguish, hydrate farmland, elevated water clutch)
+      if (resolvedTool === 'water_bucket') {
+        const botPos = ctx.bot.entity?.position;
+        const isClutchTarget = target === 'stone' || target === 'ground' || target.includes('clutch') || target.includes('water');
+        let targetSurface = isClutchTarget && botPos
+          ? ctx.bot.blockAt(botPos.floored().offset(0, -1, 0))
+          : ctx.bot.findBlock({
+              matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || blk.name.includes(rawTarget)),
+              maxDistance: 16,
+            });
+        if (targetSurface && targetSurface.name === 'fire') {
+          targetSurface = ctx.bot.blockAt(targetSurface.position.offset(0, -1, 0)) || targetSurface;
+        } else if (targetSurface && targetSurface.name === 'lava') {
+          // Place water on a solid block adjacent to the lava source so it flows onto/converts safely
+          const adjOffsets = [new Vec3(1, 0, 0), new Vec3(-1, 0, 0), new Vec3(0, 0, 1), new Vec3(0, 0, -1)];
+          for (const off of adjOffsets) {
+            const adj = ctx.bot.blockAt(targetSurface.position.plus(off));
+            if (adj && adj.name !== 'air' && adj.name !== 'lava' && adj.name !== 'water') {
+              targetSurface = adj;
+              break;
+            }
+          }
+        }
+        if (targetSurface && targetSurface.name !== 'air') {
+          if (botPos && botPos.distanceTo(targetSurface.position) > 3.2) {
+            await ctx.kinematics.pathfindTo(targetSurface.position, 2.5);
+          }
+          await ctx.kinematics.lookAtSmooth?.(targetSurface.position.offset(0.5, 0.9, 0.5), 100);
+          try {
+            await ctx.bot.activateBlock(targetSurface).catch(() => {});
+            ctx.bot.activateItem?.();
+            await new Promise((r) => setTimeout(r, 400));
+            return { success: true, summary: `Deployed water_bucket on ${targetSurface.name}!` };
+          } catch (e: any) {
+            return { success: false, summary: `Could not deploy water_bucket: ${e.message}` };
+          }
+        }
+      }
 
       const findMatchingEntity = () =>
         Object.values(ctx.bot.entities || {})

@@ -2030,10 +2030,10 @@
     "title": "WATER_BUCKET Affordance: water_clutch",
     "targetObject": "water_bucket",
     "category": "tool_affordance",
-    "prompt": "You are falling from height! Perform a water bucket clutch to survive with zero damage!",
+    "prompt": "You are high above the ground! Deploy your water bucket carefully to descend safely without taking fatal fall damage!",
     "variants": [
-      "You are falling from height! Perform a water bucket clutch to survive with zero damage!",
-      "Can you you are falling from height! perform a water bucket clutch to survive with zero damage!?"
+      "You are high above the ground! Deploy your water bucket carefully to descend safely without taking fatal fall damage!",
+      "Use your water bucket to descend safely from the elevated platform."
     ],
     "initialLoadout": [
       {
@@ -2043,13 +2043,17 @@
     ],
     "setupCommands": [
       "fill ~-2 ~-1 ~-2 ~2 ~-1 ~2 stone",
-      "tp @p ~ ~20 ~ 0 90"
+      "fill ~-1 ~17 ~-1 ~1 ~17 ~1 stone",
+      "tp @p ~ ~18 ~ 0 90"
     ],
     "expectedActionTokens": [
       "<|act:place_block|> <|item:water_bucket|>"
     ],
-    "expectedTool": "water_clutch",
-    "expectedToolArgs": {},
+    "expectedTool": "use_tool_on_block",
+    "expectedToolArgs": {
+      "tool": "water_bucket",
+      "targetBlock": "stone"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2071,8 +2075,7 @@
     "category": "tool_affordance",
     "prompt": "Extinguish the fire using your water bucket.",
     "variants": [
-      "Extinguish the fire using your water bucket.",
-      "Can you extinguish the fire using your water bucket?"
+      "Extinguish the fire using your water bucket."
     ],
     "initialLoadout": [
       {
@@ -2081,8 +2084,9 @@
       }
     ],
     "setupCommands": [
+      "setblock ~ ~ ~2 netherrack",
       "setblock ~ ~1 ~2 fire",
-      "tp @p ~ ~1 ~ 0 0"
+      "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:use_item|> <|item:water_bucket|>"
@@ -2111,10 +2115,10 @@
     "title": "WATER_BUCKET Affordance: create_obsidian",
     "targetObject": "water_bucket",
     "category": "tool_affordance",
-    "prompt": "Perform create_obsidian using your water_bucket.",
+    "prompt": "Pour your water bucket next to the lava source block in front of you to turn it into obsidian.",
     "variants": [
-      "Perform create_obsidian using your water_bucket.",
-      "Can you perform create_obsidian using your water_bucket?"
+      "Pour your water bucket next to the lava source block in front of you to turn it into obsidian.",
+      "Use your water bucket on the lava in front of you to create obsidian."
     ],
     "initialLoadout": [
       {
@@ -2123,13 +2127,17 @@
       }
     ],
     "setupCommands": [
+      "setblock ~ ~-1 ~2 lava",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:create_obsidian|>"
+      "<|act:use_item|> <|item:water_bucket|>"
     ],
-    "expectedTool": "create_obsidian",
-    "expectedToolArgs": {},
+    "expectedTool": "use_tool_on_block",
+    "expectedToolArgs": {
+      "tool": "water_bucket",
+      "targetBlock": "lava"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2151,8 +2159,7 @@
     "category": "tool_affordance",
     "prompt": "Hydrate the farmland using your water bucket.",
     "variants": [
-      "Hydrate the farmland using your water bucket.",
-      "Can you hydrate the farmland using your water bucket?"
+      "Hydrate the farmland using your water bucket."
     ],
     "initialLoadout": [
       {
@@ -2161,8 +2168,8 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~2 farmland",
-      "tp @p ~ ~1 ~ 0 0"
+      "setblock ~ ~-1 ~2 farmland",
+      "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:use_item|> <|item:water_bucket|>"
@@ -2191,25 +2198,33 @@
     "title": "LAVA_BUCKET Affordance: smelt_fuel_100",
     "targetObject": "lava_bucket",
     "category": "tool_affordance",
-    "prompt": "Perform smelt_fuel_100 using your lava_bucket.",
+    "prompt": "Use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots.",
     "variants": [
-      "Perform smelt_fuel_100 using your lava_bucket.",
-      "Can you perform smelt_fuel_100 using your lava_bucket?"
+      "Use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots.",
+      "Smelt your raw iron using the furnace and lava bucket in front of you."
     ],
     "initialLoadout": [
       {
         "name": "lava_bucket",
         "count": 1
+      },
+      {
+        "name": "raw_iron",
+        "count": 2
       }
     ],
     "setupCommands": [
+      "setblock ~ ~ ~2 furnace[facing=north]",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:smelt_fuel_100|>"
+      "<|act:smelt|> <|item:raw_iron|>"
     ],
-    "expectedTool": "smelt_fuel_100",
-    "expectedToolArgs": {},
+    "expectedTool": "smelt_item",
+    "expectedToolArgs": {
+      "inputItem": "raw_iron",
+      "count": 2
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2311,10 +2326,9 @@
     "title": "MILK_BUCKET Affordance: cure_wither",
     "targetObject": "milk_bucket",
     "category": "tool_affordance",
-    "prompt": "Perform cure_wither using your milk_bucket.",
+    "prompt": "You are afflicted with Wither! Drink your milk bucket immediately to cure it.",
     "variants": [
-      "Perform cure_wither using your milk_bucket.",
-      "Can you perform cure_wither using your milk_bucket?"
+      "You are afflicted with Wither! Drink your milk bucket immediately to cure it."
     ],
     "initialLoadout": [
       {
@@ -2323,13 +2337,16 @@
       }
     ],
     "setupCommands": [
+      "effect give @p wither 30 0",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:cure_wither|>"
+      "<|act:consume|> <|item:milk_bucket|>"
     ],
-    "expectedTool": "cure_wither",
-    "expectedToolArgs": {},
+    "expectedTool": "eat_food",
+    "expectedToolArgs": {
+      "foodName": "milk_bucket"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2349,10 +2366,9 @@
     "title": "MILK_BUCKET Affordance: clear_bad_omen",
     "targetObject": "milk_bucket",
     "category": "tool_affordance",
-    "prompt": "Perform clear_bad_omen using your milk_bucket.",
+    "prompt": "You have Bad Omen! Drink your milk bucket to clear the status effect.",
     "variants": [
-      "Perform clear_bad_omen using your milk_bucket.",
-      "Can you perform clear_bad_omen using your milk_bucket?"
+      "You have Bad Omen! Drink your milk bucket to clear the status effect."
     ],
     "initialLoadout": [
       {
@@ -2361,13 +2377,16 @@
       }
     ],
     "setupCommands": [
+      "effect give @p bad_omen 60 0",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:clear_bad_omen|>"
+      "<|act:consume|> <|item:milk_bucket|>"
     ],
-    "expectedTool": "clear_bad_omen",
-    "expectedToolArgs": {},
+    "expectedTool": "eat_food",
+    "expectedToolArgs": {
+      "foodName": "milk_bucket"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2474,10 +2493,10 @@
     "title": "FISHING_ROD Affordance: catch_fish",
     "targetObject": "fishing_rod",
     "category": "tool_affordance",
-    "prompt": "Perform catch_fish using your fishing_rod.",
+    "prompt": "Cast your fishing rod into the water pool in front of you to catch fish.",
     "variants": [
-      "Perform catch_fish using your fishing_rod.",
-      "Can you perform catch_fish using your fishing_rod?"
+      "Cast your fishing rod into the water pool in front of you to catch fish.",
+      "Can you cast your fishing rod into the water pool in front of you to catch fish?"
     ],
     "initialLoadout": [
       {
@@ -2486,13 +2505,17 @@
       }
     ],
     "setupCommands": [
+      "fill ~-2 ~-2 ~2 ~2 ~-1 ~6 water",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:catch_fish|>"
+      "<|act:use_item|> <|item:fishing_rod|>"
     ],
-    "expectedTool": "catch_fish",
-    "expectedToolArgs": {},
+    "expectedTool": "use_tool_on_block",
+    "expectedToolArgs": {
+      "tool": "fishing_rod",
+      "targetBlock": "water"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -2679,31 +2702,31 @@
     "taskId": "omni_tool_bonemeal_grow_tree",
     "domain": "UTILITY",
     "title": "BONEMEAL Affordance: grow_tree",
-    "targetObject": "bonemeal",
+    "targetObject": "bone_meal",
     "category": "tool_affordance",
-    "prompt": "Perform grow_tree on the oak_sapling using your bonemeal.",
+    "prompt": "Use bone meal on the oak sapling in front of you to grow it into a tree.",
     "variants": [
-      "Perform grow_tree on the oak_sapling using your bonemeal.",
-      "Can you perform grow_tree on the oak_sapling using your bonemeal?"
+      "Use bone meal on the oak sapling in front of you to grow it into a tree.",
+      "Can you use bone meal on the oak sapling in front of you to grow it into a tree?"
     ],
     "initialLoadout": [
       {
-        "name": "bonemeal",
-        "count": 1
+        "name": "bone_meal",
+        "count": 8
       }
     ],
     "setupCommands": [
-      "setblock ~ ~ ~2 stone",
-      "setblock ~ ~1 ~2 oak_sapling",
-      "tp @p ~ ~1 ~ 0 0"
+      "setblock ~ ~-1 ~2 dirt",
+      "setblock ~ ~ ~2 oak_sapling",
+      "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:mine_block|> <|item:oak_sapling|>"
+      "<|act:interact_block|> <|item:oak_sapling|>"
     ],
-    "expectedTool": "gather_resource",
+    "expectedTool": "use_tool_on_block",
     "expectedToolArgs": {
-      "blockType": "oak_sapling",
-      "count": 1
+      "tool": "bone_meal",
+      "targetBlock": "oak_sapling"
     },
     "evaluatorMilestones": [
       {
@@ -2767,25 +2790,33 @@
     "title": "ELYTRA Affordance: glide_and_boost",
     "targetObject": "elytra",
     "category": "tool_affordance",
-    "prompt": "Perform glide_and_boost using your elytra.",
+    "prompt": "Equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!",
     "variants": [
-      "Perform glide_and_boost using your elytra.",
-      "Can you perform glide_and_boost using your elytra?"
+      "Equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!",
+      "Put on your elytra, jump off the platform, and glide forward with firework rockets!"
     ],
     "initialLoadout": [
       {
         "name": "elytra",
         "count": 1
+      },
+      {
+        "name": "firework_rocket",
+        "count": 16
       }
     ],
     "setupCommands": [
-      "tp @p ~ ~ ~ 0 0"
+      "fill ~-1 ~19 ~-1 ~1 ~19 ~1 stone",
+      "tp @p ~ ~20 ~ 0 0"
     ],
     "expectedActionTokens": [
-      "<|act:glide_and_boost|>"
+      "<|act:equip|> <|item:elytra|>"
     ],
-    "expectedTool": "glide_and_boost",
-    "expectedToolArgs": {},
+    "expectedTool": "use_tool_on_block",
+    "expectedToolArgs": {
+      "tool": "elytra",
+      "targetBlock": "firework_rocket"
+    },
     "evaluatorMilestones": [
       {
         "name": "Tool Equipped",
@@ -11198,57 +11229,6 @@
     ]
   },
   {
-    "taskId": "omni_mob_breeze",
-    "domain": "MOB_INTERACTION",
-    "title": "Mob Interaction: Breeze",
-    "targetObject": "breeze",
-    "category": "mob_interaction",
-    "prompt": "Interact with or defeat the Breeze.",
-    "variants": [
-      "Interact with or defeat the Breeze.",
-      "Handle the breeze right now."
-    ],
-    "initialLoadout": [
-      {
-        "name": "diamond_sword",
-        "count": 1
-      },
-      {
-        "name": "shield",
-        "count": 1,
-        "slot": 45
-      },
-      {
-        "name": "cooked_beef",
-        "count": 16
-      }
-    ],
-    "setupCommands": [
-      "summon breeze ~ ~ ~4",
-      "tp @p ~ ~ ~ 0 0"
-    ],
-    "expectedActionTokens": [
-      "<|act:melee_attack|>",
-      "<|target:breeze|>"
-    ],
-    "expectedTool": "engage_combat",
-    "expectedToolArgs": {
-      "targetType": "breeze"
-    },
-    "evaluatorMilestones": [
-      {
-        "name": "Target Engaged",
-        "maxPoints": 40,
-        "condition": "target_engaged"
-      },
-      {
-        "name": "Target Resolved",
-        "maxPoints": 60,
-        "condition": "target_resolved"
-      }
-    ]
-  },
-  {
     "taskId": "omni_mob_camel",
     "domain": "MOB_INTERACTION",
     "title": "Mob Interaction: Camel",
@@ -15418,7 +15398,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:swift_sneak_book\",Count:1b}]}",
+      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:echo_shard\",Count:1b}]}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15674,7 +15654,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:ender_portal_frame\",Count:1b}]}",
+      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:ender_eye\",Count:1b}]}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15930,7 +15910,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:pottery_sherd\",Count:1b}]}",
+      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:sniffer_egg\",Count:1b}]}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [

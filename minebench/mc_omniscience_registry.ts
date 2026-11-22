@@ -108,7 +108,7 @@ export const ALL_MC_STRUCTURES: OmniscienceStructureAffordance[] = [
   {
     id: 'ancient_city',
     dimension: 'overworld',
-    keyLoot: ['swift_sneak_book', 'echo_shard', 'disc_fragment_5', 'enchanted_golden_apple', 'warden_rib_armor_trim'],
+    keyLoot: ['echo_shard', 'disc_fragment_5', 'enchanted_golden_apple', 'warden_rib_armor_trim', 'swift_sneak_book'],
     keyMobs: ['warden'],
     hazards: ['sculk_shrieker_summoning', 'sculk_sensor_vibration', 'warden_sonic_boom', 'blindness_effect'],
     coreMechanics: ['sneak_on_wool', 'projectile_distraction', 'silence_shriekers_with_hoe'],
@@ -140,7 +140,7 @@ export const ALL_MC_STRUCTURES: OmniscienceStructureAffordance[] = [
   {
     id: 'stronghold',
     dimension: 'overworld',
-    keyLoot: ['ender_portal_frame', 'eye_of_ender', 'enchanted_book', 'iron_pickaxe', 'diamond'],
+    keyLoot: ['ender_eye', 'enchanted_book', 'iron_pickaxe', 'diamond'],
     keyMobs: ['silverfish'],
     hazards: ['silverfish_spawner', 'silverfish_infestation_swarm'],
     coreMechanics: ['destroy_spawner', 'insert_12_eyes_of_ender', 'activate_end_portal'],
@@ -172,7 +172,7 @@ export const ALL_MC_STRUCTURES: OmniscienceStructureAffordance[] = [
   {
     id: 'trail_ruins',
     dimension: 'overworld',
-    keyLoot: ['pottery_sherd', 'sniffer_egg', 'wayfinder_armor_trim', 'raiser_armor_trim'],
+    keyLoot: ['sniffer_egg', 'angler_pottery_sherd', 'wayfinder_armor_trim', 'raiser_armor_trim'],
     keyMobs: [],
     hazards: ['suffocation_gravel'],
     coreMechanics: ['brush_suspicious_gravel', 'hatch_sniffer_egg'],

@@ -82,9 +82,10 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
     random.shuffle(gold_trajectories)
     random.shuffle(grpo_trajectories)
 
-    # Prioritize real game experience, then fill remaining quota with diverse gold dataset
-    remaining_quota = max(0, max_trajectories - len(grpo_trajectories))
-    trajectories = grpo_trajectories + gold_trajectories[:remaining_quota]
+    # Prioritize real game experience, cap to max_trajectories, then fill remaining quota with gold dataset
+    selected_grpo = grpo_trajectories[:max_trajectories]
+    remaining_quota = max(0, max_trajectories - len(selected_grpo))
+    trajectories = selected_grpo + gold_trajectories[:remaining_quota]
     random.shuffle(trajectories)
 
     # Ensure all trajectories have canonical toolCall in assistant message
@@ -103,7 +104,7 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
             except Exception:
                 pass
 
-    print(f"[SLM Trainer] Active balanced training dataset: {len(trajectories)} samples ({len(grpo_trajectories)} real experience, {len(trajectories) - len(grpo_trajectories)} gold demonstrations).")
+    print(f"[SLM Trainer] Active balanced training dataset: {len(trajectories)} samples ({len(selected_grpo)} real experience, {len(trajectories) - len(selected_grpo)} gold demonstrations).")
     return trajectories
 
 
@@ -112,7 +113,7 @@ def train_slm_qlora(
     lr: float = 2e-4,
     batch_size: int = 1,
     gradient_accumulation_steps: int = 4,
-    max_length: int = 512,
+    max_length: int = 1280,
     is_best: bool = False,
     loop_idx: Optional[int] = None,
     max_trajectories: int = 512,
@@ -202,6 +203,7 @@ def train_slm_qlora(
 
     # 4. Tokenize Trajectories with Target Masking
     tokenized_data: List[Tuple[torch.Tensor, torch.Tensor, float]] = []
+    dropped_too_long = 0
     for traj in trajectories:
         msgs = traj.get("messages", [])
         if len(msgs) < 2:
@@ -220,6 +222,7 @@ def train_slm_qlora(
             # Mask prompt tokens with -100 so loss is strictly computed on assistant actions
             labels[:prompt_len] = -100
             if prompt_len >= input_ids.shape[0] or not (labels != -100).any():
+                dropped_too_long += 1
                 continue
 
             adv = float(traj.get("advantage", 0.0))
@@ -234,7 +237,7 @@ def train_slm_qlora(
         print("[SLM Trainer] Could not tokenize any valid trajectory samples.")
         return {"status": "failed", "reason": "no_valid_tokenized_data"}
 
-    print(f"[SLM Trainer] Prepared {len(tokenized_data)} tokenized samples for training.")
+    print(f"[SLM Trainer] Prepared {len(tokenized_data)} tokenized samples (dropped {dropped_too_long} exceeding max_length={max_length}).")
 
     pad_id = tokenizer.pad_token_id if tokenizer.pad_token_id is not None else tokenizer.eos_token_id
 
@@ -369,7 +372,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=2e-4)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--grad-accum", type=int, default=4)
-    parser.add_argument("--max-length", type=int, default=512)
+    parser.add_argument("--max-length", type=int, default=1280)
     parser.add_argument("--max-trajectories", type=int, default=512)
     parser.add_argument("--is-best", action="store_true")
     parser.add_argument("--fresh", action="store_true", help="Start training from pristine LoRA instead of resuming")

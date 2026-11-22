@@ -597,6 +597,7 @@ export class VLACompanionClient {
               (e.type === 'hostile' || e.type === 'mob' || (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
           );
           if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
+            (bot as any)._lastAttackAt = Date.now();
             bot.attack(target);
           }
         } catch {}

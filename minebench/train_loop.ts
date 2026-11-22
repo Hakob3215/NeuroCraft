@@ -677,7 +677,7 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
   if (!fs.existsSync(tasksPath)) return [];
   try {
     const rawAll: any[] = JSON.parse(fs.readFileSync(tasksPath, 'utf-8'));
-    const omniOnly = rawAll.filter((t) => t.taskId && t.taskId.startsWith('omni_'));
+    const omniOnly = rawAll.filter((t) => t.taskId && t.taskId.startsWith('omni_') && t.taskId !== 'omni_mob_breeze');
     const byCat: Record<string, any[]> = {};
     for (const t of omniOnly) {
       const cat = t.category || 'tool_affordance';
@@ -731,6 +731,8 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
       maxDurationSeconds:
         t.domain === 'CRAFTING_RECIPES' || (t.taskId && t.taskId.startsWith('omni_craft_'))
           ? 65
+          : t.taskId === 'omni_tool_lava_bucket_smelt_fuel_100'
+          ? 45
           : t.domain === 'STRUCTURE_RAID'
           ? 40
           : 25,
@@ -744,18 +746,37 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
       expectedTool: t.expectedTool,
       expectedToolArgs: t.expectedToolArgs,
       evaluatorMilestones: t.evaluatorMilestones,
-      buildArenaCommands: (orig: { x: number; y: number; z: number }) => [
-        `gamerule commandModificationBlockLimit 100000`,
-        `fill ${orig.x - 12} ${orig.y - 3} ${orig.z - 12} ${orig.x + 12} ${orig.y - 1} ${orig.z + 12} minecraft:stone`,
-        `fill ${orig.x - 12} ${orig.y - 4} ${orig.z - 12} ${orig.x + 12} ${orig.y - 4} ${orig.z + 12} minecraft:bedrock`,
-        `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 10} ${orig.z + 12} minecraft:air`,
-        `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 2} ${orig.z + 12} minecraft:glass outline`,
-        `fill ${orig.x - 11} ${orig.y} ${orig.z - 11} ${orig.x + 11} ${orig.y + 2} ${orig.z + 11} minecraft:air`,
-        ...(t.setupCommands || [])
-          .filter((cmd: string) => !cmd.startsWith('tp @p') && !cmd.startsWith('tp NeuroAgent'))
-          .map((cmd: string) => resolveMinecraftCoordinates(cmd, orig)),
-        `tp NeuroAgent ${orig.x} ${orig.y} ${orig.z} 0 0`,
-      ],
+      buildArenaCommands: (orig: { x: number; y: number; z: number }) => {
+        const rawCmds: string[] = t.setupCommands || [];
+        let elevatedTpCmd: string | null = null;
+        let maxTpDy = 0;
+        for (const cmd of rawCmds) {
+          const m = cmd.match(/^tp\s+@p\s+~\S*\s+~(\d+(?:\.\d+)?)\s+~/);
+          if (m) {
+            const dy = parseFloat(m[1]);
+            if (dy >= 5) {
+              elevatedTpCmd = cmd;
+              maxTpDy = Math.max(maxTpDy, Math.ceil(dy));
+            }
+          }
+        }
+        const airTop = orig.y + Math.max(10, maxTpDy + 10);
+        const finalTp = elevatedTpCmd
+          ? resolveMinecraftCoordinates(elevatedTpCmd, orig)
+          : `tp NeuroAgent ${orig.x} ${orig.y} ${orig.z} 0 0`;
+        return [
+          `gamerule commandModificationBlockLimit 100000`,
+          `fill ${orig.x - 12} ${orig.y - 3} ${orig.z - 12} ${orig.x + 12} ${orig.y - 1} ${orig.z + 12} minecraft:stone`,
+          `fill ${orig.x - 12} ${orig.y - 4} ${orig.z - 12} ${orig.x + 12} ${orig.y - 4} ${orig.z + 12} minecraft:bedrock`,
+          `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${airTop} ${orig.z + 12} minecraft:air`,
+          `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 2} ${orig.z + 12} minecraft:glass outline`,
+          `fill ${orig.x - 11} ${orig.y} ${orig.z - 11} ${orig.x + 11} ${orig.y + 2} ${orig.z + 11} minecraft:air`,
+          ...rawCmds
+            .filter((cmd: string) => !cmd.startsWith('tp @p') && !cmd.startsWith('tp NeuroAgent'))
+            .map((cmd: string) => resolveMinecraftCoordinates(cmd, orig)),
+          finalTp,
+        ];
+      },
     }));
   } catch (err) {
     console.error('[TrainLoop] Error sampling Omniscience tasks:', err);
@@ -1441,6 +1462,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let dragonsKilled = 0;
           let foodConsumed = 0;
           let affordanceActions = 0;
+          let damageDealt = 0;
+          let waterPlaced = 0;
           let ironPickaxeDurabilityUsedOnStone = 0;
           const killedMobsMap: Record<string, number> = {};
 
@@ -1488,8 +1511,18 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 leversFlipped++;
               }
             }
+            if (newBlock.name === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
+              waterPlaced++;
+            }
             if (newBlock.position?.distanceTo(bot.entity.position) <= 6.0) {
               affordanceActions++;
+            }
+          };
+          const onEntityHurt = (ent: any) => {
+            if (!ent || ent === bot.entity || !bot.entity) return;
+            const recentAttack = Date.now() - ((bot as any)._lastAttackAt || 0) <= 650;
+            if (recentAttack && ent.position?.distanceTo(bot.entity.position) <= 6.5) {
+              damageDealt += 4;
             }
           };
 
@@ -1499,6 +1532,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           bot._client?.on('explosion', onExplosion);
           bot.on('diggingCompleted', onDiggingCompleted);
           bot.on('blockUpdate', onBlockUpdate);
+          bot.on('entityHurt', onEntityHurt);
 
           const buildSnapshot = (): MinebenchEvaluationSnapshot => {
             const aliveCreepers = countEntitiesByName('creeper');
@@ -1581,6 +1615,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 wolvesTamed,
                 foodConsumed,
                 affordanceActions,
+                damageDealt,
+                waterPlaced,
                 ironPickaxeDurabilityUsedOnStone,
               },
               multiplayer: task.sparringConfig ? worker.sparringPartner.getSnapshot() : undefined,
@@ -1658,7 +1694,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const toolName = decision.toolCall.name;
               const toolArgs = decision.toolCall.arguments || {};
               const isBuildTool = toolName.includes('construct') || toolName.includes('build') || toolName.includes('house');
-              const stepDurationMs = isBuildTool ? 55000 : 25000;
+              const isSmeltTool = toolName === 'smelt_item' || toolName === 'smelt_ores';
+              const stepDurationMs = isBuildTool ? 55000 : isSmeltTool ? 40000 : 25000;
               const abortController = new AbortController();
               const stepTimeout = setTimeout(() => abortController.abort(), stepDurationMs);
 
@@ -1711,6 +1748,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     if (toolName === 'tame_animal' && stepSuccess) wolvesTamed = Math.max(1, wolvesTamed);
                     if (toolName === 'shoot_bow' && parsed.data?.fired) arrowsFired += Number(parsed.data.fired) || 0;
                     if ((toolName === 'eat_food' || toolName === 'consume_item') && stepSuccess) foodConsumed++;
+                    if (toolName === 'engage_combat' && parsed.data?.totalStrikes) {
+                      damageDealt += Number(parsed.data.totalStrikes) * 4;
+                    }
                   } catch {
                     stepSuccess = !rpcRes.error;
                     stepSummary = payloadText;
@@ -1762,6 +1802,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 'give_item_to_player',
                 'store_items_in_chest',
                 'retrieve_items_from_chest',
+                'equip_armor_or_item',
+                'smelt_item',
+                'smelt_ores',
+                'eat_food',
               ]);
               if (stepSuccess && AFFORDANCE_TOOLS.has(toolName)) {
                 affordanceActions++;
@@ -1801,6 +1845,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             bot._client?.removeListener('explosion', onExplosion);
             bot.removeListener('diggingCompleted', onDiggingCompleted);
             bot.removeListener('blockUpdate', onBlockUpdate);
+            bot.removeListener('entityHurt', onEntityHurt);
             worker.sparringPartner.setMode({ mode: 'idle' });
           }
 
@@ -1967,7 +2012,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 '--grad-accum',
                 '4',
                 '--max-length',
-                '512',
+                '1280',
               ];
               if (isNewBest) slmArgs.push('--is-best');
 

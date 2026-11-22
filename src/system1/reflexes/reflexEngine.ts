@@ -194,6 +194,7 @@ export class ReflexEngine {
                         e.username.toLowerCase().includes('spar'))))
               );
               if (target && this.bot.entity.position.distanceTo(target.position) <= 3.5) {
+                (this.bot as any)._lastAttackAt = Date.now();
                 this.bot.attack(target);
               }
             }
