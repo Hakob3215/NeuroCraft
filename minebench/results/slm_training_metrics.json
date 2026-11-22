@@ -2,12 +2,12 @@
   "status": "success",
   "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
   "epochs": 1,
-  "samplesTrained": 262,
-  "initialLoss": 0.0152,
-  "finalLoss": 0.0009,
-  "peakVramMb": 4111.7,
-  "trainingDurationSeconds": 69.73,
+  "samplesTrained": 243,
+  "initialLoss": 0.0621,
+  "finalLoss": 0.0737,
+  "peakVramMb": 5739.4,
+  "trainingDurationSeconds": 123.83,
   "savedAdapter": "C:\\Users\\hataj\\Documents\\Projects\\For_Fun\\Minecraft Agents\\neural_lab\\checkpoints\\slm_minecraft_savant_latest",
   "isBest": false,
-  "loopIdx": 74
+  "loopIdx": 76
 }

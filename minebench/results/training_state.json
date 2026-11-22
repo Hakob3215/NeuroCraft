@@ -1,14 +1,14 @@
 {
-  "sessionCount": 8,
-  "currentIteration": 74,
-  "totalEpisodesPlayed": 6216,
-  "bestPassRate": 52.4,
-  "bestMeanScore": 56.1,
-  "bestIteration": 67,
-  "latestMeanScore": 48.3,
-  "latestPassRate": 40.5,
-  "latestReward": 4379.8,
-  "lastSavedAt": "2026-11-22T06:03:53.413Z",
+  "sessionCount": 9,
+  "currentIteration": 76,
+  "totalEpisodesPlayed": 6384,
+  "bestPassRate": 60.7,
+  "bestMeanScore": 65.7,
+  "bestIteration": 75,
+  "latestMeanScore": 62.5,
+  "latestPassRate": 52.4,
+  "latestReward": 5148.3,
+  "lastSavedAt": "2026-11-22T07:20:37.581Z",
   "latestCheckpoint": "voxel_reflex_policy_latest.pt",
   "bestCheckpoint": "voxel_reflex_policy_best.pt",
   "history": [
@@ -5327,6 +5327,146 @@
         ],
         "survivalSteps": 4,
         "score": 24
+      }
+    },
+    {
+      "iteration": 75,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-22T07:09:54.866Z",
+      "meanScore": 65.7,
+      "passRate": 60.7,
+      "tasksPassed": 51,
+      "totalTasks": 84,
+      "rawReward": 5504.8,
+      "durationSeconds": 978,
+      "slmInitialLoss": 0.3802,
+      "slmFinalLoss": 0.0641,
+      "actAimErrorDeg": 4.09,
+      "actDiscreteAccPct": 97.9,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 1,
+          "total": 2,
+          "passRate": 50,
+          "meanScore": 61.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 77
+        },
+        "Tactical Combat": {
+          "passed": 16,
+          "total": 22,
+          "passRate": 72.7,
+          "meanScore": 75.9
+        },
+        "Survival & Affordances": {
+          "passed": 24,
+          "total": 27,
+          "passRate": 88.9,
+          "meanScore": 88.9
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 50
+        },
+        "Crafting & Tech": {
+          "passed": 2,
+          "total": 10,
+          "passRate": 20,
+          "meanScore": 22.5
+        },
+        "Multiplayer": {
+          "passed": 6,
+          "total": 18,
+          "passRate": 33.3,
+          "meanScore": 42.6
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "full_beacon",
+        "goalTitle": "Activate a Full Beacon",
+        "techTierReached": "Wood",
+        "advancementsUnlocked": [
+          "Homesteader & Hunter",
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 44
+      }
+    },
+    {
+      "iteration": 76,
+      "phase": "Exhaustive Loop (84 Tasks across 3 Sharded Bots + Survival)",
+      "timestamp": "2026-11-22T07:20:37.519Z",
+      "meanScore": 62.5,
+      "passRate": 52.4,
+      "tasksPassed": 44,
+      "totalTasks": 84,
+      "rawReward": 5148.3,
+      "durationSeconds": 643,
+      "slmInitialLoss": 0.0621,
+      "slmFinalLoss": 0.0737,
+      "actAimErrorDeg": 4.12,
+      "actDiscreteAccPct": 97.86,
+      "domainBreakdown": {
+        "Agility & Parkour": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 23.5
+        },
+        "Building & 3D": {
+          "passed": 2,
+          "total": 3,
+          "passRate": 66.7,
+          "meanScore": 76.7
+        },
+        "Tactical Combat": {
+          "passed": 18,
+          "total": 22,
+          "passRate": 81.8,
+          "meanScore": 85.7
+        },
+        "Survival & Affordances": {
+          "passed": 20,
+          "total": 27,
+          "passRate": 74.1,
+          "meanScore": 76.4
+        },
+        "Puzzles & Tooling": {
+          "passed": 0,
+          "total": 2,
+          "passRate": 0,
+          "meanScore": 50
+        },
+        "Crafting & Tech": {
+          "passed": 0,
+          "total": 10,
+          "passRate": 0,
+          "meanScore": 32.5
+        },
+        "Multiplayer": {
+          "passed": 4,
+          "total": 18,
+          "passRate": 22.2,
+          "meanScore": 33.2
+        }
+      },
+      "survivalCampaign": {
+        "goalId": "ocean_sponges",
+        "goalTitle": "Collect Ocean Monument Sponges",
+        "techTierReached": "Wood",
+        "advancementsUnlocked": [
+          "Homesteader & Hunter",
+          "Wood Age"
+        ],
+        "survivalSteps": 10,
+        "score": 14
       }
     }
   ]
