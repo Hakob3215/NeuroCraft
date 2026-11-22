@@ -2003,6 +2003,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 slmScript,
                 '--epochs',
                 '1',
+                '--lr',
+                '5e-5',
                 '--loop',
                 String(iter),
                 '--max-trajectories',
