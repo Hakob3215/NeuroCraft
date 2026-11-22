@@ -2076,7 +2076,37 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             await new Promise((r) => setTimeout(r, 1000 * attempt));
           }
           if (!reloaded) {
-            console.error(`[TrainLoop] ERROR: Could not confirm reload_adapter after 3 attempts!`);
+            console.error(`[TrainLoop] ERROR: Could not confirm reload_adapter after 3 attempts! Respawning neural_daemon.py on a fresh CUDA context...`);
+            try {
+              await fetch('http://127.0.0.1:8765/shutdown', { method: 'POST', signal: AbortSignal.timeout(2000) }).catch(() => {});
+              await new Promise((r) => setTimeout(r, 2000));
+              const daemonScript = path.resolve(process.cwd(), 'neural_lab', 'neural_daemon.py');
+              const freshDaemon = spawn(venvPython, [daemonScript], {
+                detached: true,
+                stdio: 'ignore',
+                cwd: process.cwd(),
+              });
+              spawnedDaemonProc = freshDaemon;
+              freshDaemon.unref();
+              let respawnHealthy = false;
+              for (let rWait = 0; rWait < 35; rWait++) {
+                await new Promise((r) => setTimeout(r, 1000));
+                try {
+                  const hCheck = await fetch('http://127.0.0.1:8765/health', { signal: AbortSignal.timeout(1500) });
+                  if (hCheck.ok) {
+                    respawnHealthy = true;
+                    break;
+                  }
+                } catch {}
+              }
+              if (respawnHealthy) {
+                console.log(`[TrainLoop] Fresh neural_daemon.py respawned and healthy on CUDA!`);
+              } else {
+                console.error(`[TrainLoop] ERROR: Respawned neural_daemon.py did not report healthy within 35s.`);
+              }
+            } catch (respawnErr: any) {
+              console.error(`[TrainLoop] ERROR during neural_daemon.py respawn: ${respawnErr?.message || respawnErr}`);
+            }
           }
         }
 

@@ -20,6 +20,17 @@ export interface ExecutedStepRecord {
  * 3. Local Ollama SLM (http://127.0.0.1:11434)
  * 4. Built-in Autonomous Tech-Tree & Heuristic Fallback
  */
+/**
+ * Strips redundant repeated "Current inventory: [...]" tails from historical step summaries
+ * since the live Inventory is already present at the top of the system prompt.
+ */
+export function compactStepSummaryForHistory(summary: string): string {
+  return String(summary || '')
+    .replace(/\s*Current inventory:\s*\[[^\]]*\]\.?/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 export class UnifiedLLMClient {
   private cachedGeminiModelId: string | null = null;
   private thinkingConfigUnsupported = new Set<string>();
@@ -102,7 +113,7 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
         (s) =>
           `Step ${s.stepNumber}: ${s.toolName}(${JSON.stringify(s.args)}) -> ${
             s.success ? 'SUCCESS' : 'FAILED'
-          }: ${s.summary}`
+          }: ${compactStepSummaryForHistory(s.summary)}`
       )
       .join('\n');
 

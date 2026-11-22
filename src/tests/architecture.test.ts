@@ -2543,6 +2543,35 @@ finally:
   assert.ok(cmds.some((c: string) => c.includes('minecraft:bedrock')), 'puzzle_tool_preservation_mining must include bedrock subfloor');
 });
 
+test('49. Zero-loss inference VRAM optimization, step-history inventory dedup, and daemon reload auto-respawn', () => {
+  const fs = require('fs');
+  const path = require('path');
+  const { compactStepSummaryForHistory } = require('../system2/llmClient');
+
+  // 1. compactStepSummaryForHistory removes redundant Current inventory dump while preserving outcome & errors
+  const verbose = 'Harvested 4 oak_log (6 blocks broken). Current inventory: [4x oak_log, 8x iron_ingot, 4x diamond].';
+  assert.equal(compactStepSummaryForHistory(verbose), 'Harvested 4 oak_log (6 blocks broken).');
+  const errMsg = 'Cannot craft stone_pickaxe: Requires 3 cobblestone and 2 stick.';
+  assert.equal(compactStepSummaryForHistory(errMsg), errMsg);
+
+  // 2. neural_daemon.py uses output_hidden_states=False, logits_to_keep=1, norm hook, and empty_cache
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const daemonSrc = fs.readFileSync(path.join(rootDir, 'neural_lab', 'neural_daemon.py'), 'utf8');
+  const runSlm = daemonSrc.slice(
+    daemonSrc.indexOf('def _run_slm_sync'),
+    daemonSrc.indexOf('async def handle_llm_chat')
+  );
+  assert.ok(runSlm.includes('"output_hidden_states": False'), '_run_slm_sync must disable output_hidden_states');
+  assert.ok(runSlm.includes('"logits_to_keep": 1'), '_run_slm_sync must set logits_to_keep=1');
+  assert.ok(runSlm.includes('register_forward_hook'), '_run_slm_sync must capture final-norm latent via forward hook');
+  assert.ok(runSlm.includes('torch.cuda.empty_cache()'), '_run_slm_sync must clear CUDA cache on long prompts/OOM');
+
+  // 3. train_loop.ts respawns neural_daemon.py if reload_adapter fails all 3 attempts
+  const trainLoopSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'train_loop.ts'), 'utf8');
+  const reloadFallback = trainLoopSrc.slice(trainLoopSrc.indexOf('if (!reloaded)'), trainLoopSrc.indexOf('if (!reloaded)') + 1200);
+  assert.ok(reloadFallback.includes('/shutdown') && reloadFallback.includes('neural_daemon.py'), 'train_loop.ts must respawn neural_daemon.py on reload failure');
+});
+
 
 
 

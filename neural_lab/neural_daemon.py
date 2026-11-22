@@ -554,7 +554,8 @@ class NeuralStackServer:
             "eos_token_id": [self.tokenizer.eos_token_id, 151643, 151645],
             "repetition_penalty": repetition_penalty,
             "return_dict_in_generate": True,
-            "output_hidden_states": True,
+            "output_hidden_states": False,
+            "logits_to_keep": 1,
             "stopping_criteria": stop_criteria,
         }
         if do_sample and temperature > 0.0:
@@ -564,18 +565,40 @@ class NeuralStackServer:
         else:
             gen_kwargs["do_sample"] = False
 
-        with torch.inference_mode():
-            gen_outputs = self.slm_model.generate(
-                **model_inputs,
-                **gen_kwargs,
-            )
+        causal_lm = self.slm_model.get_base_model() if hasattr(self.slm_model, "get_base_model") else self.slm_model
+        norm_mod = getattr(getattr(causal_lm, "model", None), "norm", None)
+        captured_h: list = [None]
+        hook_handle = None
+        if norm_mod is not None:
+            def _capture_last_norm(_mod, _inp, out):
+                t = out[0] if isinstance(out, tuple) else out
+                if isinstance(t, torch.Tensor) and t.ndim == 3:
+                    captured_h[0] = t[:, -1, :].detach()
+            hook_handle = norm_mod.register_forward_hook(_capture_last_norm)
+
+        gen_outputs = None
+        try:
+            with torch.inference_mode():
+                gen_outputs = self.slm_model.generate(
+                    **model_inputs,
+                    **gen_kwargs,
+                )
+        except (RuntimeError, Exception) as e:
+            if "out of memory" in str(e).lower() or "acceleratorerror" in type(e).__name__.lower():
+                del model_inputs, gen_outputs
+                gc.collect()
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            raise
+        finally:
+            if hook_handle is not None:
+                hook_handle.remove()
 
         new_tokens = gen_outputs.sequences[0][input_len:]
         num_tokens = len(new_tokens)
 
-        if gen_outputs.hidden_states and len(gen_outputs.hidden_states) > 0:
-            last_step_states = gen_outputs.hidden_states[-1]
-            latent_h = last_step_states[-1][:, -1, :].detach().to(dtype=torch.float32, device=self.device)
+        if captured_h[0] is not None:
+            latent_h = captured_h[0].to(dtype=torch.float32, device=self.device)
             self.latest_latent_h = latent_h
             self.bot_latents[bot_id] = latent_h
 
@@ -586,6 +609,9 @@ class NeuralStackServer:
             .replace("<|endoftext|>", "")
             .strip()
         )
+        del model_inputs, gen_outputs
+        if input_len > 1500 and torch.cuda.is_available():
+            torch.cuda.empty_cache()
         return response_text, num_tokens, input_len
 
     async def handle_llm_chat(self, request: web.Request) -> web.Response:
