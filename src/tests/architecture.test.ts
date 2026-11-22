@@ -2456,6 +2456,93 @@ print('OK')
   assert.ok(reloadSection.includes('chunk_analyzer') && reloadSection.includes('visuomotor_policy'), 'handle_reload_adapter must restore chunk_analyzer and visuomotor_policy');
 });
 
+test('48. Crafting evaluators reject bare blocksPlaced scaffolds, tail-reader bounds transition I/O, and mining puzzle has bedrock subfloor', () => {
+  const { execFileSync } = require('child_process');
+  const path = require('path');
+  const { evaluateProgressionTask, evaluateOmniscienceMilestones } = require('../../minebench/dist/minebench/evaluators');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const railTask = {
+    taskId: 'omni_craft_rail',
+    targetObject: 'rail',
+    evaluatorMilestones: [
+      { name: 'Milestone 1: Raw Harvest', maxPoints: 25, condition: 'dag_raw_harvest' },
+      { name: 'Milestone 2: Basic Refine', maxPoints: 25, condition: 'dag_basic_refine' },
+      { name: 'Milestone 3: Workstation', maxPoints: 25, condition: 'dag_workstation' },
+      { name: 'Milestone 4: Final Target Item Synthesized (rail)', maxPoints: 25, condition: 'has_rail' },
+    ],
+  };
+  const baseSnap: any = {
+    botPosition: { x: 500, y: 100, z: 500 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [{ name: 'oak_log', count: 4 }],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => null,
+    entities: [],
+    stats: { blocksPlaced: 1, blocksMined: 4, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0, endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0, ironPickaxeDurabilityUsedOnStone: 0 },
+  };
+
+  // 1. Bare blocksPlaced scaffold (no crafting_table in inventory or world) MUST only score 25 and fail!
+  const resScaffoldOnly = evaluateOmniscienceMilestones(railTask, baseSnap);
+  assert.equal(resScaffoldOnly.score, 25);
+  assert.equal(resScaffoldOnly.passed, false);
+
+  // 2. Real placed crafting_table block in world scores 75 partial credit, still passed=false until rail synthesized
+  const snapWithWorldTable: any = {
+    ...baseSnap,
+    blockAt: (x: number, y: number, z: number) => (x === 502 && y === 100 && z === 500 ? { name: 'crafting_table' } : { name: 'air' }),
+  };
+  const resWorldTable = evaluateOmniscienceMilestones(railTask, snapWithWorldTable);
+  assert.equal(resWorldTable.score, 75);
+  assert.equal(resWorldTable.passed, false);
+
+  // 3. Target rail in inventory scores 100 and passes
+  const resWithRail = evaluateOmniscienceMilestones(railTask, { ...baseSnap, inventory: [{ name: 'rail', count: 16 }] });
+  assert.equal(resWithRail.score, 100);
+  assert.equal(resWithRail.passed, true);
+
+  // 4. prog_tier1_stone_age rejects bare scaffold blocksPlaced without real crafting_table
+  const tier1Task = MINEBENCH_TASKS.find((t: any) => t.id === 'prog_tier1_stone_age');
+  const tier1Scaffold = evaluateProgressionTask(tier1Task, baseSnap);
+  assert.equal(tier1Scaffold.score, 25);
+  assert.equal(tier1Scaffold.passed, false);
+
+  // 5. read_jsonl_tail discards partial leading line and returns last N complete lines
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import os, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from minebench.rl_trainer import read_jsonl_tail as rl_tail
+from neural_lab.train_action_head import read_jsonl_tail as act_tail
+
+with tempfile.NamedTemporaryFile('wb', delete=False) as tf:
+    for i in range(10):
+        tf.write(f'{{"idx": {i}, "pad": "xxxxxxxxxx"}}\\n'.encode('utf-8'))
+    tmp_path = Path(tf.name)
+try:
+    for fn in (rl_tail, act_tail):
+        lines = fn(tmp_path, max_lines=3, max_bytes=70)
+        assert len(lines) == 2 or len(lines) == 3, lines
+        assert lines[-1].startswith('{"idx": 9,'), lines
+        for ln in lines:
+            assert ln.startswith('{"idx": '), f'Incomplete leading line not discarded: {ln}'
+    print('OK')
+finally:
+    os.unlink(tmp_path)
+`;
+  const pyOut = execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim();
+  assert.equal(pyOut, 'OK');
+
+  // 6. puzzle_tool_preservation_mining includes bedrock subfloor
+  const puzzleMining = MINEBENCH_TASKS.find((t: any) => t.id === 'puzzle_tool_preservation_mining');
+  const cmds = puzzleMining.buildArenaCommands(puzzleMining.origin);
+  assert.ok(cmds.some((c: string) => c.includes('minecraft:bedrock')), 'puzzle_tool_preservation_mining must include bedrock subfloor');
+});
+
 
 
 

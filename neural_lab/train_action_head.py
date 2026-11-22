@@ -16,7 +16,7 @@ import time
 import json
 import math
 from pathlib import Path
-from typing import Dict, Tuple, Optional
+from typing import Dict, List, Tuple, Optional
 
 import torch
 import torch.nn as nn
@@ -258,6 +258,18 @@ def _map_action_idx_to_tool_idx(act_idx: int, tool_name: Optional[str] = None) -
     return TOOL_TO_IDX["gather_resource"], 1.0
 
 
+def read_jsonl_tail(path: Path, max_lines: int = 3000, max_bytes: int = 48 * 1024 * 1024) -> List[str]:
+    """Reads up to the last `max_lines` complete lines from a JSONL file in O(1) time/memory."""
+    size = path.stat().st_size
+    with open(path, "rb") as f:
+        if size > max_bytes:
+            f.seek(size - max_bytes)
+            f.readline()  # discard partial first line
+        raw = f.read()
+    lines = raw.decode("utf-8", errors="ignore").splitlines()
+    return lines[-max_lines:]
+
+
 def load_real_transitions_dataset(
     max_samples: int = 3000,
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
@@ -273,9 +285,7 @@ def load_real_transitions_dataset(
 
     records = []
     try:
-        with open(trans_path, "r", encoding="utf-8") as f:
-            lines = f.readlines()[-max_samples:]
-        for line in lines:
+        for line in read_jsonl_tail(trans_path, max_lines=max_samples):
             line = line.strip()
             if not line:
                 continue

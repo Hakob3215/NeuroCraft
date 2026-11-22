@@ -180,6 +180,18 @@ def sanitize_loaded_grpo_entry(entry: Dict) -> Dict:
     return entry
 
 
+def read_jsonl_tail(path: Path, max_lines: int = 5000, max_bytes: int = 48 * 1024 * 1024) -> List[str]:
+    """Reads up to the last `max_lines` complete lines from a JSONL file in O(1) time/memory."""
+    size = path.stat().st_size
+    with open(path, "rb") as f:
+        if size > max_bytes:
+            f.seek(size - max_bytes)
+            f.readline()  # discard partial first line
+        raw = f.read()
+    lines = raw.decode("utf-8", errors="ignore").splitlines()
+    return lines[-max_lines:]
+
+
 def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: int = None) -> Dict:
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
@@ -200,14 +212,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
 
     step_transitions: List[Dict] = []
     if REAL_TRANSITIONS_PATH.exists():
-        with open(REAL_TRANSITIONS_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        step_transitions.append(json.loads(line))
-                    except Exception:
-                        pass
+        for line in read_jsonl_tail(REAL_TRANSITIONS_PATH, max_lines=5000):
+            line = line.strip()
+            if line:
+                try:
+                    step_transitions.append(json.loads(line))
+                except Exception:
+                    pass
 
     if not step_transitions:
         print("[RL Trainer] Note: No real server step transitions found in real_rl_transitions.jsonl. Skipping PPO gradient step.", flush=True)

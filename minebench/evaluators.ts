@@ -104,6 +104,27 @@ export function evaluateMinebenchEpisode(
   }
 }
 
+export function hasPlacedCraftingTable(
+  task: any,
+  snap: MinebenchEvaluationSnapshot
+): boolean {
+  if (typeof snap?.blockAt !== 'function') return false;
+  const center = task?.origin || snap.botPosition || { x: 0, y: 64, z: 0 };
+  const cx = Math.floor(center.x ?? 0);
+  const cy = Math.floor(center.y ?? 64);
+  const cz = Math.floor(center.z ?? 0);
+  for (let dx = -8; dx <= 8; dx++) {
+    for (let dy = -2; dy <= 3; dy++) {
+      for (let dz = -8; dz <= 8; dz++) {
+        if (snap.blockAt(cx + dx, cy + dy, cz + dz)?.name === 'crafting_table') {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
+}
+
 export function evaluateOmniscienceMilestones(
   task: any,
   snap: MinebenchEvaluationSnapshot
@@ -120,7 +141,7 @@ export function evaluateOmniscienceMilestones(
   const invNames = (snap.inventory || []).map((i) => i.name.toLowerCase());
   const hasTarget = Boolean(targetObj && invNames.includes(targetObj));
   const hasTable = invNames.includes('crafting_table');
-  const placedTable = (snap.stats?.blocksPlaced || 0) > 0;
+  const placedTable = !hasTable && !hasTarget && hasPlacedCraftingTable(task, snap);
   const hasWorkstation = hasTable || placedTable || hasTarget;
   const totalLogs = (snap.inventory || [])
     .filter((i) => i.name.toLowerCase().endsWith('_log') || i.name.toLowerCase().endsWith('_stem'))
@@ -297,8 +318,9 @@ export function evaluateOmniscienceMilestones(
 
   const deathPenalty = snap.deaths * 40;
   const finalScore = Math.max(0, Math.min(100, earnedScore - deathPenalty));
+  const isCraftDag = taskId.startsWith('omni_craft_');
   return {
-    passed: finalScore >= 60 && snap.deaths === 0,
+    passed: isCraftDag ? (hasTarget && snap.deaths === 0) : (finalScore >= 60 && snap.deaths === 0),
     score: finalScore,
     rawReward: finalScore * 1.0 - snap.deaths * 50,
     maxScore: 100,
@@ -784,7 +806,7 @@ export function evaluateProgressionTask(
     // Milestone 4: Final target item synthesized (stone_pickaxe) -> 25 pts
     const finalTarget = countItem('stone_pickaxe') > 0;
     // Milestone 3: Workstation (crafting_table crafted/placed, wooden_pickaxe crafted, or final target synthesized) -> 25 pts
-    const workstation = finalTarget || countItem('crafting_table') > 0 || countItem('wooden_pickaxe') > 0 || (snap.stats?.blocksPlaced || 0) > 0;
+    const workstation = finalTarget || countItem('crafting_table') > 0 || countItem('wooden_pickaxe') > 0 || hasPlacedCraftingTable(task, snap);
     // Milestone 2: Basic refine (planks refined, sticks crafted, or workstation reached) -> 25 pts
     const basicRefine = workstation || finalTarget || countItem('planks') >= 8 || countItem('wooden_pickaxe') > 0 || (countItem('stick') >= 2 && countItem('planks') >= 2);
     // Milestone 1: Raw harvest (oak_log mined >= 2 or inventory has >= 2 logs, or refine reached) -> 25 pts
