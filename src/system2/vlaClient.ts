@@ -176,6 +176,34 @@ export interface VLAPredictionResponse {
   latency_ms: number;
 }
 
+export const CRITICAL_BOSS_NAMES = new Set([
+  'ender_dragon',
+  'end_crystal',
+  'wither',
+  'elder_guardian',
+  'warden',
+]);
+
+export function isBossOrCrystalEntity(name: string): boolean {
+  return CRITICAL_BOSS_NAMES.has(String(name || '').toLowerCase());
+}
+
+export function getEntityPriority(name: string, type?: string): number {
+  const n = String(name || '').toLowerCase();
+  // Tier 0: Critical Objectives (Ender Dragon, End Crystals, Wither, Elder Guardian, Warden)
+  if (isBossOrCrystalEntity(n)) return 0;
+  // Tier 1: Lethal / Immediate Explosive Threats (Creeper)
+  if (n === 'creeper') return 1;
+  // Tier 2: Ranged Threats & Snipers (Skeleton, Stray, Blaze, Ghast, Pillager)
+  if (n === 'skeleton' || n === 'stray' || n === 'blaze' || n === 'ghast' || n === 'pillager') return 2;
+  // Tier 3: Standard Hostile Mobs (Enderman, Zombie, Spider, Husk, Drowned, etc.)
+  if (type === 'hostile' || n === 'enderman' || n === 'zombie' || n === 'spider' || n === 'cave_spider') return 3;
+  // Tier 4: Other Players & Sparring Partners
+  if (type === 'player') return 4;
+  // Tier 5: Passive animals, items, dropped loot, objects
+  return 5;
+}
+
 export class VLACompanionClient {
   private daemonUrl: string;
 
@@ -292,8 +320,20 @@ export class VLACompanionClient {
     ]);
 
     const sorted = Object.values(bot.entities || {})
-      .filter((e: any) => e && e !== bot.entity && e.position && e.isValid !== false)
-      .sort((a: any, b: any) => a.position.distanceTo(botPos) - b.position.distanceTo(botPos))
+      .filter((e: any) => {
+        if (!e || e === bot.entity || !e.position || e.isValid === false) return false;
+        const name = String(e.name || e.displayName || '').toLowerCase();
+        const maxRange = isBossOrCrystalEntity(name) ? 128.0 : 48.0;
+        return e.position.distanceTo(botPos) <= maxRange;
+      })
+      .sort((a: any, b: any) => {
+        const nameA = String(a.name || a.displayName || '').toLowerCase();
+        const nameB = String(b.name || b.displayName || '').toLowerCase();
+        const pA = getEntityPriority(nameA, a.type);
+        const pB = getEntityPriority(nameB, b.type);
+        if (pA !== pB) return pA - pB;
+        return a.position.distanceTo(botPos) - b.position.distanceTo(botPos);
+      })
       .slice(0, 16);
 
     for (let i = 0; i < sorted.length; i++) {
@@ -309,7 +349,7 @@ export class VLACompanionClient {
       const isHostile = e.type === 'hostile' || HOSTILE_NAMES.has(name) ? 1.0 : 0.0;
       const isCreeper = name === 'creeper' ? 1.0 : 0.0;
       const isSkeleton = name === 'skeleton' || name === 'stray' ? 1.0 : 0.0;
-      const isBossOrCrystal = name === 'ender_dragon' || name === 'end_crystal' || name === 'wither' ? 1.0 : 0.0;
+      const isBossOrCrystal = isBossOrCrystalEntity(name) ? 1.0 : 0.0;
       const fuseOrItemFlag =
         isCreeper > 0 && Number(e.metadata?.[16]) > 0
           ? 1.0

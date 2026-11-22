@@ -24,7 +24,9 @@ import { ModernCombatController } from './kinematics/combat';
 import { HumanizedInventoryController } from './kinematics/inventory';
 import { ReflexEngine } from './reflexes/reflexEngine';
 import { MINECRAFT_1_20_CUSTOM_PACKETS } from '../protocolFixes';
-import { VLACompanionClient } from '../system2/vlaClient';
+import { VLACompanionClient, getEntityPriority, isBossOrCrystalEntity } from '../system2/vlaClient';
+
+export { getEntityPriority, isBossOrCrystalEntity };
 
 export const HOSTILE_MOBS = new Set([
   'zombie',
@@ -557,17 +559,21 @@ export class System1BotController {
       const ent = entitiesObj[idStr];
       if (!ent || ent === this.bot.entity || !ent.position) continue;
 
-      const dist = botPos.distanceTo(ent.position);
-      if (dist > CONFIG.perception.maxSightDistance) continue;
-
       const rawName = (ent.name || ent.username || ent.displayName || 'unknown').toLowerCase();
+      const isBoss = isBossOrCrystalEntity(rawName);
+      const dist = botPos.distanceTo(ent.position);
+      const maxSight = isBoss ? 128.0 : CONFIG.perception.maxSightDistance;
+      if (dist > maxSight) continue;
+
       const strictlyInFov = isWithinHumanFov(eyePos, botYaw, botPitch, ent.position);
       // 360° Auditory & Peripheral Radar within 32 blocks registers unoccluded mobs/players/animals;
-      // beyond 32m requires direct 90° foveal FOV cone.
-      const inPerceptualRange = dist <= 32.0 || strictlyInFov;
+      // Bosses and End Crystals have global sky/tower prominence across 128m;
+      // Beyond 32m, standard entities require direct 90° foveal FOV cone.
+      const inPerceptualRange = isBoss || dist <= 32.0 || strictlyInFov;
       if (!inPerceptualRange) continue;
 
-      const isOccluded = isEntityOccluded(eyePos, ent.position, ent.height || 1.8, isSolidBlock);
+      // Bosses in the sky and End Crystals on open towers are not occluded by ground terrain
+      const isOccluded = isBoss ? false : isEntityOccluded(eyePos, ent.position, ent.height || 1.8, isSolidBlock);
       if (isOccluded) continue;
 
       if (!this.entityPerceptionTimestamps.has(ent.id)) {
@@ -616,7 +622,12 @@ export class System1BotController {
       });
     }
 
-    visibleEntities.sort((a, b) => a.distance - b.distance);
+    visibleEntities.sort((a, b) => {
+      const pA = getEntityPriority(a.name, a.type);
+      const pB = getEntityPriority(b.name, b.type);
+      if (pA !== pB) return pA - pB;
+      return a.distance - b.distance;
+    });
 
     // Refresh comprehensive 360° Terrain & Resource Cluster Context every 20 ticks (1s)
     if (this.tickCounter - this.lastBlockScanTick >= 20 || !this.cachedTerrainContext) {

@@ -11,7 +11,7 @@ import {
 import { SparringPartnerBot } from './sparringPartner';
 import { evaluateMinebenchEpisode, MinebenchEvaluationSnapshot } from './evaluators';
 import { HeadlessMinecraftServerManager } from './headlessServer';
-import { System1BotController, HOSTILE_MOBS } from '../src/system1/botController';
+import { System1BotController, HOSTILE_MOBS, getEntityPriority, isBossOrCrystalEntity } from '../src/system1/botController';
 import { DynamicMCPToolRegistry } from '../src/system2/mcp/toolRegistry';
 import { NeuroCraftMCPServer } from '../src/system2/mcp/mcpServer';
 import { registerBaseMCPTools } from '../src/system2/skills/baseSkills';
@@ -405,8 +405,20 @@ function sampleLiveRLTransitionState(system1: System1BotController): {
 
   const botPos = bot.entity.position;
   const rawEntities = Object.values(bot.entities || {})
-    .filter((e: any) => e && e !== bot.entity && e.position && e.isValid !== false)
-    .sort((a: any, b: any) => a.position.distanceTo(botPos) - b.position.distanceTo(botPos))
+    .filter((e: any) => {
+      if (!e || e === bot.entity || !e.position || e.isValid === false) return false;
+      const name = String(e.name || e.displayName || '').toLowerCase();
+      const maxRange = isBossOrCrystalEntity(name) ? 128.0 : 48.0;
+      return e.position.distanceTo(botPos) <= maxRange;
+    })
+    .sort((a: any, b: any) => {
+      const nameA = String(a.name || a.displayName || '').toLowerCase();
+      const nameB = String(b.name || b.displayName || '').toLowerCase();
+      const pA = getEntityPriority(nameA, a.type);
+      const pB = getEntityPriority(nameB, b.type);
+      if (pA !== pB) return pA - pB;
+      return a.position.distanceTo(botPos) - b.position.distanceTo(botPos);
+    })
     .slice(0, 16);
 
   const entities: number[][] = [];

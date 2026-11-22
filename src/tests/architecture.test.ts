@@ -2009,6 +2009,22 @@ test('41. VLACompanionClient extracts 32-class semantic 3D voxels and 16-entity 
   assert.equal(radar[0][11], 1, 'Creeper active fuse must be flagged');
   // Second entity is non-hostile cow
   assert.equal(radar[1][7], 0, 'Passive cow must not be flagged hostile');
+
+  // Assert Boss Priority Ranking: In End dimension with 25 swarming Endermen (dist 10-15m) and 1 Ender Dragon (dist 75m),
+  // Ender Dragon MUST be sorted to slot 0 (Priority 0) and not be cut off by the swarming Endermen.
+  const endMockEntities: Record<number, any> = {
+    1: { id: 1, name: 'ender_dragon', type: 'mob', position: new Vec3(0, 100, 75), velocity: new Vec3(0, 0, 0), isValid: true },
+  };
+  for (let k = 2; k <= 25; k++) {
+    endMockEntities[k] = { id: k, name: 'enderman', type: 'hostile', position: new Vec3(k % 5, 64, 10 + (k % 4)), velocity: new Vec3(0, 0, 0), isValid: true };
+  }
+  const endBot: any = {
+    ...mockBot,
+    entities: endMockEntities,
+  };
+  const endRadar = client.extractEntityRadar(endBot);
+  assert.equal(endRadar.length, 16);
+  assert.equal(endRadar[0][10], 1, 'Slot 0 MUST be the Ender Dragon (isBossOrCrystal=1.0) despite being farther than 24 Endermen');
 });
 
 test('42. HierarchicalGoalPlanner & computeGroundedAffordances track macro/sub-goals, craftable items, and replanning', () => {
