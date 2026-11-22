@@ -4,12 +4,12 @@
   "batchSize": 64,
   "totalTransitionsTrained": 4096,
   "realStepTransitionsLoaded": 5000,
-  "transitionsPerSecond": 1112.7,
-  "initialLoss": -0.2878,
-  "finalLoss": -0.2912,
-  "trainingDurationSeconds": 3.681,
-  "replayEpisodesProcessed": 9683,
-  "grpoVerifiedTrajectories": 1169,
+  "transitionsPerSecond": 662.2,
+  "initialLoss": -0.2463,
+  "finalLoss": -0.2811,
+  "trainingDurationSeconds": 6.186,
+  "replayEpisodesProcessed": 9517,
+  "grpoVerifiedTrajectories": 1217,
   "latestCheckpointSaved": "C:\\Users\\hataj\\Documents\\Projects\\For_Fun\\Minecraft Agents\\neural_lab\\checkpoints\\voxel_reflex_policy_latest.pt",
   "isBestCheckpoint": false
 }
