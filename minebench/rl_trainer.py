@@ -230,14 +230,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
 
     records: List[Dict] = []
     if REPLAY_BUFFER_PATH.exists():
-        with open(REPLAY_BUFFER_PATH, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if line:
-                    try:
-                        records.append(json.loads(line))
-                    except Exception:
-                        pass
+        for line in read_jsonl_tail(REPLAY_BUFFER_PATH, max_lines=4000):
+            line = line.strip()
+            if line:
+                try:
+                    records.append(json.loads(line))
+                except Exception:
+                    pass
 
     step_transitions: List[Dict] = []
     if REAL_TRANSITIONS_PATH.exists():
@@ -525,13 +524,21 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             if step_idx == 0 and isinstance(plan_steps, list) and len(plan_steps) > 0:
                 assistant_obj["planSteps"] = plan_steps
 
+            has_explicit_rew = "stepReward" in tool_entry and tool_entry.get("stepReward") is not None
+            step_reward_val = float(tool_entry.get("stepReward", 0.0) or 0.0)
+
             sample = {
                 "provider": provider_name,
                 "taskId": tid,
                 "domain": r.get("domain"),
+                "workerId": r.get("workerId"),
+                "passed": is_passed,
                 "advantage": round(adv, 4),
                 "rawReward": raw_r,
+                "stepReward": step_reward_val,
+                "hasExplicitStepReward": has_explicit_rew,
                 "step": step_idx,
+                "priorTools": [ps["name"] for ps in prior_steps],
                 "verifiedFinalStep": can_mark_goal_completed,
                 "messages": [
                     {
@@ -547,8 +554,11 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             }
 
             key = (tid, step_idx)
-            # Stratified Gold Bank: Keep best trajectory per (taskId, step)
-            if key not in task_gold_bank or raw_r >= float(task_gold_bank[key].get("rawReward", 0.0)):
+            # Stratified Gold Bank: Keep best PASSED trajectory per (taskId, step) over partial failures
+            prev_best = task_gold_bank.get(key)
+            prev_passed = bool(prev_best.get("passed", False)) if prev_best else False
+            prev_raw = float(prev_best.get("rawReward", 0.0)) if prev_best else -1e9
+            if prev_best is None or (is_passed and not prev_passed) or (is_passed == prev_passed and raw_r >= prev_raw):
                 task_gold_bank[key] = sample
 
             if is_recent:
@@ -556,15 +566,25 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
 
             prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
 
-    # 3. Assemble clean balanced dataset: canonical gold seeds + task bank anchors + recent verified rollouts
+    # 3. Assemble clean balanced deduplicated dataset: canonical gold seeds + task bank anchors + recent verified rollouts
     bank_samples = list(task_gold_bank.values())
-    combined_dataset = gold_seed_samples + bank_samples + recent_verified[-80:]
+    raw_combined = gold_seed_samples + bank_samples + recent_verified[-80:]
+    seen_grpo = set()
+    combined_dataset: List[Dict] = []
+    for s in raw_combined:
+        msgs = s.get("messages", [])
+        asst_c = msgs[-1].get("content", "") if isinstance(msgs, list) and msgs else ""
+        dedup_key = (s.get("provider"), s.get("taskId"), s.get("step"), asst_c)
+        if dedup_key not in seen_grpo:
+            seen_grpo.add(dedup_key)
+            combined_dataset.append(s)
 
     with open(GRPO_DATASET_PATH, "w", encoding="utf-8") as gf:
         for s in combined_dataset:
             gf.write(json.dumps(s) + "\n")
 
-    # 4. Mine contrastive DPO pairs (chosen winner vs rejected failure/bad-arg step on same non-held-out task/step)
+    # 4. Mine contrastive DPO pairs (strictly verified PASSED winner vs actual FAILED loser on matching prefix/shard)
+    coord_sensitive_tools = {"navigate_to_coordinates", "till_and_farm"}
     dpo_candidates: Dict[Tuple[str, int], Dict[Tuple[str, str], Dict]] = {}
     for r in records:
         if bool(r.get("isHeldOut", False)):
@@ -577,23 +597,43 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         exec_tools = r.get("executedTools", [])
         for step_idx, tool_entry in enumerate(exec_tools):
             winner = task_gold_bank.get((tid, step_idx))
-            if not winner:
+            if not winner or not bool(winner.get("passed", False)):
                 continue
             winner_raw_r = float(winner.get("rawReward", 0.0))
             if winner_raw_r < 50.0:
                 continue
+            if bool(winner.get("hasExplicitStepReward", False)):
+                if float(winner.get("stepReward", 0.0)) <= 0.0 and not bool(winner.get("verifiedFinalStep", False)):
+                    continue
+
             tool_name = str(tool_entry.get("name", ""))
             tool_args = tool_entry.get("args") or tool_entry.get("arguments") or {}
             step_ok = bool(tool_entry.get("success", True))
-            is_loser_step = (not step_ok) or (not is_passed) or (raw_r < winner_raw_r - 25.0)
+            rej_has_explicit_rew = "stepReward" in tool_entry and tool_entry.get("stepReward") is not None
+            rej_step_rew = float(tool_entry.get("stepReward", 0.0) or 0.0)
+            is_loser_step = (not step_ok) or (not is_passed) or (rej_has_explicit_rew and rej_step_rew <= 0.0)
             if not is_loser_step:
                 continue
+
+            if step_idx > 0:
+                rej_prior_tools = [str(pe.get("name", "")) for pe in exec_tools[:step_idx]]
+                if rej_prior_tools != list(winner.get("priorTools") or []):
+                    continue
+
             try:
                 w_parsed = json.loads(winner["messages"][2]["content"])
                 w_tool = str(w_parsed.get("toolCall", {}).get("name", ""))
                 w_args_json = json.dumps(w_parsed.get("toolCall", {}).get("arguments") or {}, sort_keys=True)
             except Exception:
                 continue
+
+            if (tool_name in coord_sensitive_tools or w_tool in coord_sensitive_tools) and (
+                winner.get("workerId") is not None
+                and r.get("workerId") is not None
+                and winner.get("workerId") != r.get("workerId")
+            ):
+                continue
+
             rej_args_json = json.dumps(tool_args if isinstance(tool_args, dict) else {}, sort_keys=True)
             if tool_name == w_tool and rej_args_json == w_args_json:
                 continue

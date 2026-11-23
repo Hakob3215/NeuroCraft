@@ -705,6 +705,7 @@
       }
     ],
     "setupCommands": [
+      "fill 744 61 94 758 62 106 minecraft:bedrock",
       "fill 744 63 94 758 63 106 minecraft:stone",
       "fill 744 64 94 758 69 106 minecraft:air",
       "fill 752 64 99 753 65 101 minecraft:sand",
@@ -2033,7 +2034,7 @@
     "prompt": "You are high above the ground! Deploy your water bucket carefully to descend safely without taking fatal fall damage!",
     "variants": [
       "You are high above the ground! Deploy your water bucket carefully to descend safely without taking fatal fall damage!",
-      "Use your water bucket to descend safely from the elevated platform."
+      "Can you you are high above the ground! deploy your water bucket carefully to descend safely without taking fatal fall damage!?"
     ],
     "initialLoadout": [
       {
@@ -2075,7 +2076,8 @@
     "category": "tool_affordance",
     "prompt": "Extinguish the fire using your water bucket.",
     "variants": [
-      "Extinguish the fire using your water bucket."
+      "Extinguish the fire using your water bucket.",
+      "Can you extinguish the fire using your water bucket?"
     ],
     "initialLoadout": [
       {
@@ -2118,7 +2120,7 @@
     "prompt": "Pour your water bucket next to the lava source block in front of you to turn it into obsidian.",
     "variants": [
       "Pour your water bucket next to the lava source block in front of you to turn it into obsidian.",
-      "Use your water bucket on the lava in front of you to create obsidian."
+      "Can you pour your water bucket next to the lava source block in front of you to turn it into obsidian?"
     ],
     "initialLoadout": [
       {
@@ -2159,7 +2161,8 @@
     "category": "tool_affordance",
     "prompt": "Hydrate the farmland using your water bucket.",
     "variants": [
-      "Hydrate the farmland using your water bucket."
+      "Hydrate the farmland using your water bucket.",
+      "Can you hydrate the farmland using your water bucket?"
     ],
     "initialLoadout": [
       {
@@ -2201,7 +2204,7 @@
     "prompt": "Use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots.",
     "variants": [
       "Use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots.",
-      "Smelt your raw iron using the furnace and lava bucket in front of you."
+      "Can you use your lava bucket to fuel the furnace in front of you and smelt your raw iron into iron ingots?"
     ],
     "initialLoadout": [
       {
@@ -2328,7 +2331,8 @@
     "category": "tool_affordance",
     "prompt": "You are afflicted with Wither! Drink your milk bucket immediately to cure it.",
     "variants": [
-      "You are afflicted with Wither! Drink your milk bucket immediately to cure it."
+      "You are afflicted with Wither! Drink your milk bucket immediately to cure it.",
+      "Can you you are afflicted with wither! drink your milk bucket immediately to cure it?"
     ],
     "initialLoadout": [
       {
@@ -2368,7 +2372,8 @@
     "category": "tool_affordance",
     "prompt": "You have Bad Omen! Drink your milk bucket to clear the status effect.",
     "variants": [
-      "You have Bad Omen! Drink your milk bucket to clear the status effect."
+      "You have Bad Omen! Drink your milk bucket to clear the status effect.",
+      "Can you you have bad omen! drink your milk bucket to clear the status effect?"
     ],
     "initialLoadout": [
       {
@@ -2793,7 +2798,7 @@
     "prompt": "Equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!",
     "variants": [
       "Equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!",
-      "Put on your elytra, jump off the platform, and glide forward with firework rockets!"
+      "Can you equip your elytra, launch off the elevated platform, and glide forward using firework rockets to boost!?"
     ],
     "initialLoadout": [
       {
@@ -7797,6 +7802,14 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "flint",
+        "count": 4
+      },
+      {
+        "name": "feather",
+        "count": 4
       }
     ],
     "setupCommands": [
@@ -8307,6 +8320,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "wheat",
+        "count": 6
       }
     ],
     "setupCommands": [
@@ -8409,6 +8426,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "apple",
+        "count": 2
       }
     ],
     "setupCommands": [
@@ -8511,6 +8532,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "carrot",
+        "count": 2
       }
     ],
     "setupCommands": [
@@ -8817,6 +8842,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "flint",
+        "count": 2
       }
     ],
     "setupCommands": [
@@ -9225,6 +9254,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "slime_ball",
+        "count": 2
       }
     ],
     "setupCommands": [
@@ -9490,7 +9523,7 @@
     "initialLoadout": [
       {
         "name": "iron_ingot",
-        "count": 8
+        "count": 32
       },
       {
         "name": "gold_ingot",
@@ -9735,6 +9768,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "sugar_cane",
+        "count": 6
       }
     ],
     "setupCommands": [
@@ -10347,6 +10384,10 @@
       {
         "name": "copper_ingot",
         "count": 4
+      },
+      {
+        "name": "slime_ball",
+        "count": 2
       }
     ],
     "setupCommands": [
@@ -15365,7 +15406,7 @@
     "title": "Structure Raid: ANCIENT CITY",
     "targetObject": "ancient_city",
     "category": "structure_raid",
-    "prompt": "Explore the ancient city, overcome its hazards (sculk_shrieker_summoning, sculk_sensor_vibration, warden_sonic_boom, blindness_effect), and retrieve key loot (swift_sneak_book, echo_shard, disc_fragment_5)!",
+    "prompt": "Explore the ancient city, overcome its hazards (sculk_shrieker_summoning, sculk_sensor_vibration, warden_sonic_boom, blindness_effect), and retrieve key loot (echo_shard, disc_fragment_5, enchanted_golden_apple)!",
     "variants": [
       "Loot the ancient_city.",
       "Raid the ancient city safely."
@@ -15621,7 +15662,7 @@
     "title": "Structure Raid: STRONGHOLD",
     "targetObject": "stronghold",
     "category": "structure_raid",
-    "prompt": "Explore the stronghold, overcome its hazards (silverfish_spawner, silverfish_infestation_swarm), and retrieve key loot (ender_portal_frame, eye_of_ender, enchanted_book)!",
+    "prompt": "Explore the stronghold, overcome its hazards (silverfish_spawner, silverfish_infestation_swarm), and retrieve key loot (ender_eye, enchanted_book, iron_pickaxe)!",
     "variants": [
       "Loot the stronghold.",
       "Raid the stronghold safely."
@@ -15877,7 +15918,7 @@
     "title": "Structure Raid: TRAIL RUINS",
     "targetObject": "trail_ruins",
     "category": "structure_raid",
-    "prompt": "Explore the trail ruins, overcome its hazards (suffocation_gravel), and retrieve key loot (pottery_sherd, sniffer_egg, wayfinder_armor_trim)!",
+    "prompt": "Explore the trail ruins, overcome its hazards (suffocation_gravel), and retrieve key loot (sniffer_egg, angler_pottery_sherd, wayfinder_armor_trim)!",
     "variants": [
       "Loot the trail_ruins.",
       "Raid the trail ruins safely."

@@ -444,7 +444,8 @@ def load_real_motor_chunks_dataset(
     actor_weights = torch.ones(n, dtype=torch.float32, device=device)
 
     for i, r in enumerate(records):
-        latents[i] = torch.tensor(r["latent_h"], dtype=torch.float32, device=device).clamp(-20.0, 20.0)
+        lat_vec = torch.tensor(r["latent_h"], dtype=torch.float32, device=device)
+        latents[i] = (lat_vec * 0.1).clamp(-10.0, 10.0)
         proprios[i] = torch.tensor(r["proprio24"], dtype=torch.float32, device=device)
         voxels[i] = torch.tensor(r["voxels"], dtype=torch.long, device=device).view(15, 15, 15).clamp(0, 31)
 
@@ -472,7 +473,7 @@ def load_real_motor_chunks_dataset(
 
         st_rew = float(r.get("reward", 0.0))
         ep_rew = float(r.get("episodeReward", 0.0))
-        tgt_val[i] = max(-1.0, min(1.0, (0.5 * st_rew + 0.5 * ep_rew) / 100.0))
+        tgt_val[i] = 1.0 / (1.0 + math.exp(-max(-5.0, min(5.0, (0.5 * st_rew + 0.5 * ep_rew) / 25.0))))
 
         ep_passed = bool(r.get("episodePassed", False))
         st_ok = bool(r.get("stepSuccess", False))

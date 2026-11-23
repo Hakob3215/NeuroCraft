@@ -516,6 +516,25 @@ function evaluateBuildingShelterIoU(
         }
       }
     }
+    for (let z = 0; z < l; z++) {
+      viewTotal += 2;
+      // Left ray (+X)
+      for (let x = 0; x < w; x++) {
+        const b = snap.blockAt(ox + x, oy + dy, oz + z);
+        if (b && b.name !== 'air' && b.name !== 'torch') {
+          viewHits++;
+          break;
+        }
+      }
+      // Right ray (-X)
+      for (let x = w - 1; x >= 0; x--) {
+        const b = snap.blockAt(ox + x, oy + dy, oz + z);
+        if (b && b.name !== 'air' && b.name !== 'torch') {
+          viewHits++;
+          break;
+        }
+      }
+    }
   }
   const viewHitRate = viewTotal > 0 ? viewHits / viewTotal : 0;
 

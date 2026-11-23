@@ -635,7 +635,7 @@ export const DQN_MULTIPLAYER_TASKS: MinebenchTaskSpec[] = [
     maxDurationSeconds: 55,
     maxSteps: 14,
     prompt:
-      'Bridge across the 18-block gap to the emerald goal platform at z+20 before DQN_Opponent reaches its goal.',
+      'Bridge across the 18-block gap to the emerald_block goal platform ahead before DQN_Opponent reaches its goal.',
     origin: { x: 1300, y: 72, z: 1000 },
     initialLoadout: [{ name: 'cobblestone', count: 64 }],
     sparringConfig: {
@@ -664,7 +664,7 @@ export const DQN_MULTIPLAYER_TASKS: MinebenchTaskSpec[] = [
     maxDurationSeconds: 50,
     maxSteps: 12,
     prompt:
-      'Navigate past the obstacle lane and reach the gold extraction beacon at z+20 before DQN_Opponent.',
+      'Navigate past the obstacle lane and reach the gold_block extraction beacon ahead before DQN_Opponent.',
     origin: { x: 1400, y: 64, z: 1000 },
     initialLoadout: [
       { name: 'iron_sword', count: 1 },
@@ -837,7 +837,7 @@ export const SELF_SPARRING_TASKS: MinebenchTaskSpec[] = [
     maxDurationSeconds: 55,
     maxSteps: 14,
     prompt:
-      'Bridge across the 18-block gap to the emerald goal platform at z+20 in friendly competition with MirrorAgent.',
+      'Bridge across the 18-block gap to the emerald_block goal platform ahead in friendly competition with MirrorAgent.',
     origin: { x: 2300, y: 72, z: 1000 },
     initialLoadout: [{ name: 'cobblestone', count: 64 }],
     sparringConfig: {
@@ -864,7 +864,7 @@ export const SELF_SPARRING_TASKS: MinebenchTaskSpec[] = [
     maxDurationSeconds: 50,
     maxSteps: 12,
     prompt:
-      'Navigate past the obstacle lane and reach the gold extraction beacon at z+20 in competition with MirrorAgent.',
+      'Navigate past the obstacle lane and reach the gold_block extraction beacon ahead in competition with MirrorAgent.',
     origin: { x: 2400, y: 64, z: 1000 },
     initialLoadout: [
       { name: 'iron_sword', count: 1 },

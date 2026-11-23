@@ -240,7 +240,15 @@ export class System1BotController {
   private cachedNotableBlocks: PerceivedBlock[] = [];
   private cachedTerrainContext: TerrainContext | undefined = undefined;
   private lastBlockScanTick = -100;
+  private lastBlockScanPos: Vec3 | null = null;
   private disconnectHandlers: Array<(reason: string) => void> = [];
+
+  public invalidatePerceptionCache(): void {
+    this.lastBlockScanTick = -999;
+    this.lastBlockScanPos = null;
+    this.cachedTerrainContext = undefined;
+    this.cachedNotableBlocks = [];
+  }
 
   public onDisconnect(handler: (reason: string) => void): void {
     this.disconnectHandlers.push(handler);
@@ -629,9 +637,15 @@ export class System1BotController {
       return a.distance - b.distance;
     });
 
-    // Refresh comprehensive 360° Terrain & Resource Cluster Context every 20 ticks (1s)
-    if (this.tickCounter - this.lastBlockScanTick >= 20 || !this.cachedTerrainContext) {
+    // Refresh comprehensive 360° Terrain & Resource Cluster Context every 20 ticks (1s) OR on >10m teleport
+    if (
+      this.tickCounter - this.lastBlockScanTick >= 20 ||
+      !this.cachedTerrainContext ||
+      !this.lastBlockScanPos ||
+      botPos.distanceTo(this.lastBlockScanPos) > 10
+    ) {
       this.lastBlockScanTick = this.tickCounter;
+      this.lastBlockScanPos = botPos.clone();
       const scanResult = this.scanEnvironmentAndClusters();
       this.cachedNotableBlocks = scanResult.notableBlocks;
       this.cachedTerrainContext = scanResult.terrainContext;
@@ -1032,7 +1046,8 @@ export class System1BotController {
           await this.executeNeuralMotorChunk(
             `Navigate towards target at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
             target,
-            2
+            2,
+            { allowItemDrop: false, allowDig: false }
           );
         } catch {}
       }
@@ -1074,7 +1089,8 @@ export class System1BotController {
   public async executeNeuralMotorChunk(
     prompt: string,
     targetPos?: Vec3,
-    maxTicks = 2
+    maxTicks = 2,
+    options?: { allowItemDrop?: boolean; allowDig?: boolean }
   ): Promise<boolean> {
     if (!this.bot?.entity) return false;
     try {
@@ -1084,7 +1100,8 @@ export class System1BotController {
           this.bot,
           motorControls.action_chunk,
           targetPos,
-          maxTicks
+          maxTicks,
+          options
         );
         return true;
       }
@@ -1589,7 +1606,12 @@ export class System1BotController {
       await new Promise((r) => setTimeout(r, 60));
 
       const afterBlock = this.bot.blockAt(targetFloored);
-      return Boolean(afterBlock && afterBlock.name !== 'air' && afterBlock.boundingBox === 'block');
+      return Boolean(
+        afterBlock &&
+          afterBlock.name !== 'air' &&
+          afterBlock.name !== 'cave_air' &&
+          afterBlock.name !== 'void_air'
+      );
     } catch {
       return false;
     }

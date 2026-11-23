@@ -222,9 +222,12 @@ export class VLACompanionClient {
     v[0] = Math.max(0, Math.min(1, (bot.health || 20) / 20));
     // 1: Food [0..20] -> [0..1]
     v[1] = Math.max(0, Math.min(1, (bot.food || 20) / 20));
-    // 2-3: Normalized Yaw & Pitch [-pi..pi] -> [-1..1]
-    v[2] = (bot.entity.yaw || 0) / Math.PI;
-    v[3] = (bot.entity.pitch || 0) / (Math.PI / 2);
+    // 2-3: Normalized Yaw [-pi..pi] & Pitch [-pi/2..pi/2] -> [-1..1]
+    let rawYaw = (bot.entity.yaw || 0) % (2 * Math.PI);
+    if (rawYaw > Math.PI) rawYaw -= 2 * Math.PI;
+    if (rawYaw < -Math.PI) rawYaw += 2 * Math.PI;
+    v[2] = rawYaw / Math.PI;
+    v[3] = Math.max(-1, Math.min(1, (bot.entity.pitch || 0) / (Math.PI / 2)));
     // 4-6: Velocity (vx, vy, vz)
     v[4] = Math.max(-1, Math.min(1, bot.entity.velocity.x));
     v[5] = Math.max(-1, Math.min(1, bot.entity.velocity.y));
@@ -538,7 +541,8 @@ export class VLACompanionClient {
     bot: Bot,
     chunk?: VLAMotorControls['action_chunk'],
     targetPos?: Vec3,
-    maxTicks = 4
+    maxTicks = 4,
+    options?: { allowItemDrop?: boolean; allowDig?: boolean }
   ): Promise<void> {
     if (!chunk || chunk.length === 0 || !bot?.entity) return;
 
@@ -555,89 +559,109 @@ export class VLACompanionClient {
       }
     }
 
+    const allowDig = options?.allowDig !== false;
+    const allowItemDrop = options?.allowItemDrop === true;
+    let itemActivated = false;
+
     const slice = chunk.slice(0, Math.max(1, maxTicks));
-    for (const step of slice) {
-      if (!bot.entity) break;
+    try {
+      for (const step of slice) {
+        if (!bot.entity) break;
 
-      // 1. Aim adjustment (continuous camera aim relative to target-aligned orientation)
-      if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || targetPos) {
-        const clampedDyaw = Math.max(-25, Math.min(25, step.delta_yaw || 0));
-        const clampedDpitch = Math.max(-20, Math.min(20, step.delta_pitch || 0));
-        const targetYaw = baseYaw + (clampedDyaw * Math.PI) / 180;
-        const targetPitch = Math.max(
-          -Math.PI / 2,
-          Math.min(Math.PI / 2, basePitch + (clampedDpitch * Math.PI) / 180)
-        );
-        try {
-          await bot.look(targetYaw, targetPitch, true);
-        } catch {}
-      }
-
-      // 2. Continuous velocity / movement control states
-      bot.setControlState('forward', step.vz > 0.1);
-      bot.setControlState('back', step.vz < -0.1);
-      bot.setControlState('left', step.vx < -0.1);
-      bot.setControlState('right', step.vx > 0.1);
-      if (step.jump && bot.entity.onGround) {
-        bot.setControlState('jump', true);
-      } else {
-        bot.setControlState('jump', false);
-      }
-      bot.setControlState('sprint', step.sprint);
-      bot.setControlState('sneak', step.sneak);
-
-      // 3. Discrete motor actions
-      if (step.attack) {
-        try {
-          bot.swingArm('right');
-          const target = bot.nearestEntity(
-            (e: any) =>
-              e &&
-              e !== bot.entity &&
-              (e.type === 'hostile' || e.type === 'mob' || (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
+        // 1. Aim adjustment (continuous camera aim relative to target-aligned orientation)
+        if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || targetPos) {
+          const clampedDyaw = Math.max(-25, Math.min(25, step.delta_yaw || 0));
+          const clampedDpitch = Math.max(-20, Math.min(20, step.delta_pitch || 0));
+          const targetYaw = baseYaw + (clampedDyaw * Math.PI) / 180;
+          const targetPitch = Math.max(
+            -Math.PI / 2,
+            Math.min(Math.PI / 2, basePitch + (clampedDpitch * Math.PI) / 180)
           );
-          if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
-            (bot as any)._lastAttackAt = Date.now();
-            bot.attack(target);
+          try {
+            await bot.look(targetYaw, targetPitch, true);
+          } catch {}
+        }
+
+        // 2. Continuous velocity / movement control states
+        bot.setControlState('forward', step.vz > 0.1);
+        bot.setControlState('back', step.vz < -0.1);
+        bot.setControlState('left', step.vx < -0.1);
+        bot.setControlState('right', step.vx > 0.1);
+        if (step.jump && bot.entity.onGround) {
+          bot.setControlState('jump', true);
+        } else {
+          bot.setControlState('jump', false);
+        }
+        bot.setControlState('sprint', step.sprint);
+        bot.setControlState('sneak', step.sneak);
+
+        // 3. Discrete motor actions
+        if (step.attack) {
+          try {
+            bot.swingArm('right');
+            const target = bot.nearestEntity(
+              (e: any) =>
+                e &&
+                e !== bot.entity &&
+                (e.type === 'hostile' || e.type === 'mob' || (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
+            );
+            if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
+              (bot as any)._lastAttackAt = Date.now();
+              bot.attack(target);
+            }
+          } catch {}
+        }
+
+        if (step.use_item) {
+          if (!itemActivated) {
+            try {
+              bot.activateItem();
+              itemActivated = true;
+            } catch {}
           }
-        } catch {}
-      }
+        } else if (itemActivated) {
+          try {
+            bot.deactivateItem();
+          } catch {}
+          itemActivated = false;
+        }
 
-      if (step.use_item) {
+        if (allowDig && step.dig_block) {
+          try {
+            const targetBlk = typeof (bot as any).blockAtCursor === 'function' ? (bot as any).blockAtCursor(4.5) : null;
+            if (
+              targetBlk &&
+              targetBlk.name !== 'air' &&
+              targetBlk.name !== 'bedrock' &&
+              !(bot as any).targetDigBlock &&
+              typeof bot.dig === 'function'
+            ) {
+              void bot.dig(targetBlk, 'ignore').catch(() => {});
+            }
+          } catch {}
+        }
+
+        if (allowItemDrop && step.drop_item && bot.heldItem && typeof bot.toss === 'function') {
+          try {
+            (bot as any)._lastDropAt = Date.now();
+            void bot.toss(bot.heldItem.type, null, 1).catch(() => {});
+          } catch {}
+        }
+
+        // 20Hz tick timing (50ms)
+        await new Promise((r) => setTimeout(r, 50));
+      }
+    } finally {
+      if (itemActivated) {
         try {
-          bot.activateItem();
+          bot.deactivateItem();
         } catch {}
       }
-
-      if (step.dig_block) {
+      if (!targetPos) {
         try {
-          const targetBlk = typeof (bot as any).blockAtCursor === 'function' ? (bot as any).blockAtCursor(4.5) : null;
-          if (
-            targetBlk &&
-            targetBlk.name !== 'air' &&
-            targetBlk.name !== 'bedrock' &&
-            !(bot as any).targetDigBlock &&
-            typeof bot.dig === 'function'
-          ) {
-            void bot.dig(targetBlk, 'ignore').catch(() => {});
-          }
+          bot.clearControlStates();
         } catch {}
       }
-
-      if (step.drop_item && bot.heldItem && typeof bot.toss === 'function') {
-        try {
-          void bot.toss(bot.heldItem.type, null, 1).catch(() => {});
-        } catch {}
-      }
-
-      // 20Hz tick timing (50ms)
-      await new Promise((r) => setTimeout(r, 50));
-    }
-
-    if (!targetPos) {
-      try {
-        bot.clearControlStates();
-      } catch {}
     }
   }
 }

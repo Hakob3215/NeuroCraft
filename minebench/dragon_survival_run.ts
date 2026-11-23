@@ -252,9 +252,10 @@ export async function runVanillaDragonSurvivalRun(maxSteps = 30): Promise<Dragon
 
       let success = false;
       let summary = '';
+      let hardTimer: ReturnType<typeof setTimeout> | null = null;
 
       try {
-        const res = await mcpServer.handleRpcRequest(
+        const rpcPromise = mcpServer.handleRpcRequest(
           {
             jsonrpc: '2.0',
             id: subtask.id,
@@ -263,6 +264,13 @@ export async function runVanillaDragonSurvivalRun(maxSteps = 30): Promise<Dragon
           },
           () => system1.createToolExecutionContext(subtask, async () => {}, abortController.signal)
         );
+        const hardTimeoutPromise = new Promise<{ result?: any; error?: { message: string } }>((resolve) => {
+          hardTimer = setTimeout(() => {
+            try { abortController.abort(); } catch {}
+            resolve({ error: { message: 'Dragon survival step hard timeout (35000ms)' } });
+          }, 35000);
+        });
+        const res = await Promise.race([rpcPromise, hardTimeoutPromise]);
 
         const text = res.result?.content?.[0]?.text;
         if (text) {
@@ -279,10 +287,14 @@ export async function runVanillaDragonSurvivalRun(maxSteps = 30): Promise<Dragon
             success = !res.error;
             summary = text;
           }
+        } else if (res.error) {
+          success = false;
+          summary = String(res.error.message || 'Step timeout');
         }
       } catch (err: any) {
         summary = err.message;
       } finally {
+        if (hardTimer) clearTimeout(hardTimer);
         clearTimeout(stepTimeout);
       }
 

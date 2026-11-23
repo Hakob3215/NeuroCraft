@@ -2900,8 +2900,451 @@ with tempfile.TemporaryDirectory() as tmp:
     assert tuple(ext_t.shape) == (1, 8, 2)
     assert tuple(tool_t.shape) == (1,) and int(tool_t[0].item()) == TOOL_TO_IDX["engage_combat"]
     assert float(gate_t[0].item()) == 1.0
-    assert abs(float(lat_t[0, 5].item()) - 0.25) < 1e-4
+    assert abs(float(lat_t[0, 5].item()) - 0.025) < 1e-4
     assert abs(float(w_t[0].item()) - 1.5) < 1e-4
+    assert 0.0 <= float(val_t[0].item()) <= 1.0
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('54. System1 perception cache invalidates on >10m teleport and safePlaceBlock accepts non-solid torches', async () => {
+  const { System1BotController } = require('../system1/botController');
+  const s1: any = new System1BotController();
+
+  let currentPos = new Vec3(0, 64, 0);
+  const blockLookup = (pos: Vec3) => {
+    if (Math.floor(pos.x) === 0 && Math.floor(pos.y) === 64 && Math.floor(pos.z) === 2) {
+      return { name: 'iron_ore', boundingBox: 'block', position: new Vec3(0, 64, 2) };
+    }
+    if (Math.floor(pos.x) === 50 && Math.floor(pos.y) === 64 && Math.floor(pos.z) === 2) {
+      return { name: 'diamond_ore', boundingBox: 'block', position: new Vec3(50, 64, 2) };
+    }
+    if (Math.floor(pos.y) === 63) return { name: 'stone', boundingBox: 'block', position: pos.floored() };
+    return { name: 'air', boundingBox: 'empty', position: pos.floored() };
+  };
+
+  s1.bot = {
+    username: 'NeuroAgent_Test',
+    health: 20,
+    food: 20,
+    entity: { position: currentPos, yaw: 0, pitch: 0, velocity: new Vec3(0, 0, 0), onGround: true },
+    entities: {},
+    inventory: { items: () => [] },
+    time: { timeOfDay: 1000 },
+    blockAt: blockLookup,
+  };
+  s1.reflexEngine = { getActiveHazard: () => null };
+  s1.auditory = { getRecentCues: () => [] };
+  s1.tickCounter = 25;
+
+  const ws1 = s1.buildSanitizedWorldState();
+  assert.ok(ws1.nearbyNotableBlocks.some((b: any) => b.name === 'iron_ore'), 'Must detect iron_ore before teleport');
+
+  // Teleport > 10m within the same tick window (<20 ticks later)
+  s1.tickCounter = 26;
+  s1.bot.entity.position = new Vec3(50, 64, 0);
+  const ws2 = s1.buildSanitizedWorldState();
+  assert.ok(ws2.nearbyNotableBlocks.some((b: any) => b.name === 'diamond_ore'), 'Teleport >10m must force immediate rescan');
+  assert.ok(!ws2.nearbyNotableBlocks.some((b: any) => b.name === 'iron_ore'), 'Old iron_ore must be flushed after teleport');
+
+  // safePlaceBlock accepts placed torch (boundingBox === "empty")
+  let torchPlaced = false;
+  s1.bot = {
+    username: 'NeuroAgent_Test',
+    entity: { position: new Vec3(0, 64, 0), yaw: 0, pitch: 0 },
+    heldItem: { name: 'torch', count: 4 },
+    inventory: { items: () => [{ name: 'torch', count: 4, slot: 36 }] },
+    blockAt: (p: Vec3) => {
+      const fx = Math.floor(p.x);
+      const fy = Math.floor(p.y);
+      const fz = Math.floor(p.z);
+      if (fx === 1 && fy === 64 && fz === 0) return { name: 'oak_planks', boundingBox: 'block', position: new Vec3(1, 64, 0) };
+      if (fx === 1 && fy === 65 && fz === 0) {
+        return torchPlaced
+          ? { name: 'torch', boundingBox: 'empty', position: new Vec3(1, 65, 0) }
+          : { name: 'air', boundingBox: 'empty', position: new Vec3(1, 65, 0) };
+      }
+      return { name: 'air', boundingBox: 'empty', position: new Vec3(fx, fy, fz) };
+    },
+    placeBlock: async () => {
+      torchPlaced = true;
+    },
+  };
+  s1.inventory = { equipItemHumanized: async () => true };
+  s1.camera = { lookAtSmooth: async () => {} };
+  const placedOk = await s1.safePlaceBlock(new Vec3(1, 65, 0), 'torch', false);
+  assert.equal(placedOk, true, 'safePlaceBlock must accept placed torch even though boundingBox is empty');
+});
+
+test('55. VLACompanionClient wraps yaw into [-1, 1], deactivates use_item cleanly, and blocks accidental drop_item', async () => {
+  const { VLACompanionClient } = require('../system2/vlaClient');
+  const client = new VLACompanionClient();
+
+  for (const yawVal of [3.5, -5.0, 5.5, 12.2]) {
+    const p24 = client.extractProprioception({
+      entity: { position: new Vec3(0, 64, 0), yaw: yawVal, pitch: 0.2, velocity: new Vec3(0, 0, 0), onGround: true },
+      health: 20,
+      food: 20,
+      entities: {},
+    } as any);
+    assert.ok(p24[2] >= -1.0 && p24[2] <= 1.0, `Normalized yaw ${p24[2]} out of [-1, 1] for raw yaw ${yawVal}`);
+  }
+
+  let activeCalls = 0;
+  let deactiveCalls = 0;
+  let tossCalls = 0;
+  const mockBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 0, pitch: 0, onGround: true },
+    heldItem: { type: 274, name: 'stone_pickaxe', count: 1 },
+    entities: {},
+    look: async () => {},
+    setControlState: () => {},
+    clearControlStates: () => {},
+    activateItem: () => {
+      activeCalls++;
+    },
+    deactivateItem: () => {
+      deactiveCalls++;
+    },
+    toss: async () => {
+      tossCalls++;
+    },
+  };
+
+  await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false, dig_block: false, drop_item: true },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: false, sprint: false, sneak: false, attack: false, use_item: false, swap_slot: false, dig_block: false, drop_item: true },
+    ],
+    undefined,
+    2,
+    { allowItemDrop: false, allowDig: false }
+  );
+  assert.equal(activeCalls, 1);
+  assert.equal(deactiveCalls, 1, 'deactivateItem must fire when use_item transitions true -> false');
+  assert.equal(tossCalls, 0, 'drop_item must never toss tools when allowItemDrop=false');
+
+  // Even when chunk ends with use_item still true, finally must deactivate it
+  deactiveCalls = 0;
+  await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false, dig_block: false, drop_item: false },
+    ],
+    undefined,
+    1
+  );
+  assert.equal(deactiveCalls, 1, 'finally block must call deactivateItem on chunk exit');
+});
+
+test('56. 1.20.4 lever powered state, combat death abort, strict craft_item args, and strict toolRegistry matching', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+
+  const prevStrict = process.env.STRICT_LLM_BENCHMARK;
+  process.env.STRICT_LLM_BENCHMARK = 'true';
+  try {
+    assert.equal(registry.getTool('crafting_table'), undefined, 'Hallucinated tool must fail under STRICT_LLM_BENCHMARK=true');
+    assert.equal(registry.getTool('deliver_resource'), undefined, 'Unregistered deliver_resource must fail under strict mode');
+  } finally {
+    process.env.STRICT_LLM_BENCHMARK = prevStrict;
+  }
+
+  // craft_item rejects empty itemName
+  const craftTool = registry.getTool('craft_item')!;
+  const emptyCraftRes = await craftTool.handler({}, {
+    bot: { inventory: { items: () => [{ name: 'oak_log', count: 4 }] } },
+  } as any);
+  assert.equal(emptyCraftRes.success, false, 'craft_item({}) must fail instead of defaulting to oak_planks');
+
+  // 1.20.4 unpowered lever (powered=false, metadata=9) triggers retry in interact_block_or_puzzle
+  let leverActivations = 0;
+  let leverPowered = false;
+  const interactTool = registry.getTool('interact_block_or_puzzle')!;
+  await interactTool.handler(
+    { blockType: 'lever' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [] },
+        findBlock: () => ({ position: new Vec3(2, 65, 0), name: 'lever' }),
+        blockAt: () => ({
+          name: 'lever',
+          metadata: 9,
+          getProperties: () => ({ face: 'wall', facing: 'north', powered: leverPowered }),
+        }),
+        activateBlock: async () => {
+          leverActivations++;
+          if (leverActivations >= 2) leverPowered = true;
+        },
+        lookAt: async () => {},
+      },
+      kinematics: { pathfindTo: async () => true, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(leverActivations, 2, '1.20.4 lever with powered=false and metadata=9 must be detected as unpowered and retried');
+
+  // engage_combat aborts immediately on bot death with success=false and 0 false kills
+  const { EventEmitter } = require('events');
+  const combatBot: any = new EventEmitter();
+  const opponentEnt: any = {
+    type: 'player',
+    username: 'DQN_Opponent_1',
+    name: 'player',
+    isValid: true,
+    position: new Vec3(2, 64, 0),
+  };
+  combatBot.username = 'NeuroAgent_1';
+  combatBot.health = 20;
+  combatBot.entity = { position: new Vec3(0, 64, 0) };
+  combatBot.entities = { opp: opponentEnt };
+  combatBot.inventory = { items: () => [] };
+  combatBot.pathfinder = { setGoal: () => {} };
+  combatBot.setControlState = () => {};
+
+  const combatTool = registry.getTool('engage_combat')!;
+  const combatRes = await combatTool.handler(
+    { targetType: 'DQN_Opponent_1', count: 1 },
+    {
+      bot: combatBot,
+      kinematics: {
+        pathfindTo: async () => true,
+        equipItemHumanized: async () => true,
+        lookAtSmooth: async () => {},
+        strikeTarget: async () => {
+          // Simulate bot getting slain and respawned (invalidating opponentEnt)
+          combatBot.health = 0;
+          combatBot.emit('death');
+          opponentEnt.isValid = false;
+          return true;
+        },
+      },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+      abortSignal: new AbortController().signal,
+    } as any
+  );
+  assert.equal(combatRes.success, false, 'engage_combat must return success=false when bot dies');
+  assert.equal(combatRes.data.kills, 0, 'Bot death must not increment kills');
+  assert.equal(combatRes.data.botDied, true);
+
+  // Target surviving >= 2 strikes must NOT falsely count as killed
+  let strikeCnt = 0;
+  const tankBot: any = new EventEmitter();
+  const tankEnt: any = {
+    type: 'player',
+    username: 'DQN_Opponent_2',
+    name: 'player',
+    isValid: true,
+    position: new Vec3(2, 64, 0),
+  };
+  tankBot.username = 'NeuroAgent_2';
+  tankBot.health = 20;
+  tankBot.entity = { position: new Vec3(0, 64, 0) };
+  tankBot.entities = { opp: tankEnt };
+  tankBot.inventory = { items: () => [] };
+  tankBot.pathfinder = { setGoal: () => {} };
+  tankBot.setControlState = () => {};
+  const tankAbort = new AbortController();
+  const tankRes = await combatTool.handler(
+    { targetType: 'DQN_Opponent_2', count: 1 },
+    {
+      bot: tankBot,
+      kinematics: {
+        pathfindTo: async () => true,
+        equipItemHumanized: async () => true,
+        lookAtSmooth: async () => {},
+        strikeTarget: async () => {
+          strikeCnt++;
+          if (strikeCnt >= 3) tankAbort.abort();
+          return true;
+        },
+      },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+      abortSignal: tankAbort.signal,
+    } as any
+  );
+  assert.equal(tankRes.success, false, 'Target surviving >=2 strikes must not count as killed');
+  assert.equal(tankRes.data.kills, 0);
+});
+
+test('57. All 48 omni_craft_* tasks have complete 1.20.4 raw ingredients without silver-platter intermediates', () => {
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasks: any[] = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8')
+  );
+  const craftTasks = tasks.filter((t) => t.taskId?.startsWith('omni_craft_'));
+  assert.equal(craftTasks.length, 48, 'Expected 48 omni_craft_* tasks');
+
+  const forbiddenPreCrafted = new Set(['oak_planks', 'spruce_planks', 'birch_planks', 'stick', 'crafting_table', 'book', 'paper']);
+  const countInLoadout = (task: any, item: string): number =>
+    (task.initialLoadout || []).filter((x: any) => x.name === item).reduce((s: number, x: any) => s + x.count, 0);
+
+  for (const t of craftTasks) {
+    for (const item of t.initialLoadout || []) {
+      assert.ok(!forbiddenPreCrafted.has(item.name), `${t.taskId} must not pre-grant ${item.name}`);
+    }
+  }
+
+  const findCraft = (id: string) => craftTasks.find((t) => t.taskId === id);
+  assert.ok(countInLoadout(findCraft('omni_craft_arrow'), 'flint') >= 1 && countInLoadout(findCraft('omni_craft_arrow'), 'feather') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_bread'), 'wheat') >= 3);
+  assert.ok(countInLoadout(findCraft('omni_craft_golden_apple'), 'apple') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_golden_carrot'), 'carrot') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_flint_and_steel'), 'flint') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_sticky_piston'), 'slime_ball') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_lead'), 'slime_ball') >= 1);
+  assert.ok(countInLoadout(findCraft('omni_craft_enchanting_table'), 'sugar_cane') >= 3);
+  assert.ok(countInLoadout(findCraft('omni_craft_anvil'), 'iron_ingot') >= 31, 'anvil requires 31 iron_ingot');
+});
+
+test('58. DPO refuses failed/zero-reward winners, deduplicates GRPO, and ActionHead normalizes latents and sigmoid values', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile, torch
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+import minebench.rl_trainer as rt
+from neural_lab.train_action_head import load_real_motor_chunks_dataset
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    rows = [
+        # 1) Failed episode with high partial score=62 must NEVER become a DPO winner
+        {
+            "taskId": "build_enclosed_shelter",
+            "domain": "ARCHITECTURE_BUILDING",
+            "workerId": 0,
+            "prompt": "Build house",
+            "passed": False,
+            "score": 62,
+            "rawReward": 60.03,
+            "executedTools": [
+                {"name": "construct_modular_structure", "args": {"width": 5, "roofBlock": "stick"}, "success": True, "stepReward": 60.0, "thought": "Roof from stick"}
+            ],
+        },
+        {
+            "taskId": "build_enclosed_shelter",
+            "domain": "ARCHITECTURE_BUILDING",
+            "workerId": 0,
+            "prompt": "Build house",
+            "passed": False,
+            "score": 12,
+            "rawReward": 10.0,
+            "executedTools": [
+                {"name": "build_simple_house", "args": {"width": 8}, "success": False, "stepReward": 0.0, "thought": "Aborted"}
+            ],
+        },
+        # 2) Passed episode with stepReward == 0 on step 0 must NOT become a DPO winner
+        {
+            "taskId": "mp_bridge_race",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 1,
+            "prompt": "Bridge",
+            "passed": True,
+            "score": 100,
+            "rawReward": 140.0,
+            "executedTools": [
+                {"name": "navigate_to_coordinates", "args": {"x": 5301, "y": 72, "z": 1004}, "success": True, "stepReward": 0.0, "thought": "Walk"},
+                {"name": "navigate_parkour_or_bridge", "args": {"goalBlock": "emerald_block"}, "success": True, "stepReward": 140.0, "thought": "Bridge"}
+            ],
+        },
+        {
+            "taskId": "mp_bridge_race",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 0,
+            "prompt": "Bridge",
+            "passed": False,
+            "score": 59,
+            "rawReward": 10.0,
+            "executedTools": [
+                {"name": "navigate_parkour_or_bridge", "args": {"goalBlock": "emerald_goal_platform"}, "success": False, "stepReward": 0.0, "thought": "Fell"},
+                {"name": "navigate_to_coordinates", "args": {"x": 1300, "y": 71, "z": 1018}, "success": False, "stepReward": 0.0, "thought": "Stuck"}
+            ],
+        },
+        # 3) Two passed episodes with positive stepReward must NOT pair on reward noise
+        {
+            "taskId": "homestead_crop_farm",
+            "domain": "HOMESTEADING_ECONOMY",
+            "workerId": 0,
+            "prompt": "Till farm",
+            "passed": True,
+            "score": 100,
+            "rawReward": 175.0,
+            "executedTools": [
+                {"name": "till_and_farm", "args": {"plots": "A"}, "success": True, "stepReward": 90.0, "thought": "Tilled A"}
+            ],
+        },
+        {
+            "taskId": "homestead_crop_farm",
+            "domain": "HOMESTEADING_ECONOMY",
+            "workerId": 0,
+            "prompt": "Till farm",
+            "passed": True,
+            "score": 100,
+            "rawReward": 145.0,
+            "executedTools": [
+                {"name": "till_and_farm", "args": {"plots": "B"}, "success": True, "stepReward": 70.0, "thought": "Tilled B"}
+            ],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(r) for r in rows) + "\\n", encoding="utf-8")
+    trans_row = {"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}
+    trans_p.write_text(json.dumps(trans_row) + "\\n", encoding="utf-8")
+    orig_paths = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH = replay_p
+        rt.REAL_TRANSITIONS_PATH = trans_p
+        rt.GRPO_DATASET_PATH = grpo_p
+        rt.DPO_PAIRS_PATH = dpo_p
+        rt.RL_METRICS_PATH = metrics_p
+        rt.CHECKPOINT_DIR = tp / "ckpt"
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.RESULTS_DIR = tp / "res"
+        rt.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 0, f"Expected 0 polluted DPO pairs, got {dpo_items}"
+        grpo_lines = [l for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(grpo_lines) == len(set(grpo_lines)), "GRPO dataset must be deduplicated"
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig_paths
+
+    # Check latent 0.1 scaling + sigmoid [0, 1] value normalization in ActionHead loader
+    mc_p = tp / "mc.jsonl"
+    mc_rec = {
+        "taskId": "combat_zombie_skirmish",
+        "toolName": "engage_combat",
+        "latent_h": [10.0] + [0.0] * 1535,
+        "proprio24": [0.5] * 24,
+        "voxels": [0] * 3375,
+        "entities": [],
+        "aimTargets": [[0.0, 0.0]] * 8,
+        "moveTargets": [[0.0, 0.0]] * 8,
+        "discreteTargets": [[0, 0, 0, 0, 0, 0]] * 8,
+        "extendedTargets": [[0, 0]] * 8,
+        "stepSuccess": True,
+        "reward": -50.0,
+        "episodePassed": False,
+        "episodeReward": -50.0,
+    }
+    mc_p.write_text(json.dumps(mc_rec) + "\\n", encoding="utf-8")
+    ds = load_real_motor_chunks_dataset(max_samples=8, device="cpu", chunks_path=mc_p)
+    assert ds is not None
+    assert abs(float(ds[0][0, 0].item()) - 1.0) < 1e-4
+    assert 0.0 <= float(ds[10][0].item()) <= 1.0
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');

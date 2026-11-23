@@ -1482,20 +1482,20 @@ async function craftItemWithAutoPrereqs(
       oak_planks: 'Requires oak_log. Gather oak_log first.',
       spruce_planks: 'Requires spruce_log. Gather spruce_log first.',
       birch_planks: 'Requires birch_log. Gather birch_log first.',
-      crafting_table: 'Requires 4 oak_planks. Gather oak_log and craft oak_planks first.',
-      stick: 'Requires 2 oak_planks. Craft oak_planks first.',
-      wooden_pickaxe: 'Requires 3 oak_planks and 2 sticks.',
+      crafting_table: 'Requires 4 matching planks of any wood species. Gather any logs and craft planks first.',
+      stick: 'Requires 2 matching planks of any wood species. Craft planks from logs first.',
+      wooden_pickaxe: 'Requires 3 matching planks and 2 sticks at crafting_table.',
       stone_pickaxe: 'Requires 3 cobblestone and 2 sticks at crafting_table. Mine stone with wooden_pickaxe first.',
       iron_pickaxe: 'Requires 3 iron_ingots and 2 sticks at crafting_table. Mine iron_ore and smelt with furnace.',
       diamond_pickaxe: 'Requires 3 diamonds and 2 sticks at crafting_table. Mine diamond_ore with iron_pickaxe.',
       furnace: 'Requires 8 cobblestone at crafting_table. Mine stone with wooden_pickaxe first.',
-      chest: 'Requires 8 oak_planks at crafting_table.',
+      chest: 'Requires 8 matching planks at crafting_table.',
       iron_helmet: 'Requires 5 iron_ingots at crafting_table.',
       iron_chestplate: 'Requires 8 iron_ingots at crafting_table.',
       iron_leggings: 'Requires 7 iron_ingots at crafting_table.',
       iron_boots: 'Requires 4 iron_ingots at crafting_table.',
-      shield: 'Requires 6 oak_planks and 1 iron_ingot at crafting_table.',
-      wooden_sword: 'Requires 2 oak_planks and 1 stick.',
+      shield: 'Requires 6 planks of any wood species and 1 iron_ingot at crafting_table.',
+      wooden_sword: 'Requires 2 matching planks and 1 stick at crafting_table.',
       stone_sword: 'Requires 2 cobblestone and 1 stick at crafting_table.',
       iron_sword: 'Requires 2 iron_ingots and 1 stick at crafting_table.',
       bucket: 'Requires 3 iron_ingots at crafting_table.',
@@ -1719,30 +1719,38 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return { success: false, summary: 'Invalid (x, y, z) coordinates provided.' };
       }
 
-      const targetVec = new Vec3(tx, ty, tz);
+      const targetFloored = new Vec3(Math.floor(tx), Math.floor(ty), Math.floor(tz));
+      const targetBlk = ctx.bot.blockAt(targetFloored);
+      const standTarget =
+        targetBlk && targetBlk.boundingBox === 'block'
+          ? new Vec3(targetFloored.x + 0.5, targetFloored.y + 1.0, targetFloored.z + 0.5)
+          : new Vec3(tx, ty, tz);
+
       if (ctx.kinematics?.pathfindTo) {
-        await ctx.kinematics.pathfindTo(targetVec, 2.5);
+        await ctx.kinematics.pathfindTo(standTarget, 1.0);
       }
       if (
-        ctx.bot.entity.position.distanceTo(targetVec) > 4.5 &&
-        ctx.bot.entity.position.y < ty - 1.5
+        ctx.bot.entity.position.distanceTo(standTarget) > 3.5 &&
+        ctx.bot.entity.position.y < standTarget.y - 1.5
       ) {
-        await tunnelToBlock(ctx, targetVec.floored());
+        await tunnelToBlock(ctx, standTarget.floored());
         if (ctx.kinematics?.pathfindTo) {
-          await ctx.kinematics.pathfindTo(targetVec, 2.5);
+          await ctx.kinematics.pathfindTo(standTarget, 1.0);
         }
       }
 
       ctx.bot.pathfinder.setGoal(null);
       ctx.reportProgress(1.0);
-      const finalDist = ctx.bot.entity.position.distanceTo(targetVec);
+      const posNow = ctx.bot.entity.position;
+      const hDist = Math.hypot(posNow.x - standTarget.x, posNow.z - standTarget.z);
+      const vDist = Math.abs(posNow.y - standTarget.y);
+      const arrived = hDist <= 1.6 && vDist <= 1.8;
 
       return {
-        success: finalDist <= 5.0,
-        summary:
-          finalDist <= 5.0
-            ? `Arrived at coordinates (${tx}, ${ty}, ${tz})!`
-            : `Moved closer to (${tx}, ${ty}, ${tz}), currently ${finalDist.toFixed(1)}m away.`,
+        success: arrived,
+        summary: arrived
+          ? `Arrived at coordinates (${tx}, ${ty}, ${tz})!`
+          : `Moved closer to (${tx}, ${ty}, ${tz}), currently ${hDist.toFixed(1)}m away (dy=${vDist.toFixed(1)}m).`,
       };
     }
   );
@@ -2335,7 +2343,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['craft', 'make', 'recipe', 'pickaxe', 'sword', 'planks', 'stick', 'table', 'furnace', 'armor', 'iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'],
     },
     async (args, ctx) => {
-      const itemName = String(args.itemName || 'oak_planks').toLowerCase().trim();
+      const itemName = String(args.itemName || args.recipeName || args.item || '').toLowerCase().trim();
+      if (!itemName) {
+        return { success: false, summary: 'Missing required itemName argument for craft_item.' };
+      }
       const count = Math.max(1, Number(args.count) || 1);
       return await craftItemWithAutoPrereqs(ctx, itemName, count, true, false);
     }
@@ -2687,7 +2698,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const rawTargetType = String(args.targetType || args.targetMob || args.target || 'hostile').toLowerCase().trim();
       const normalizedTarget = rawTargetType
         .replace(/\s+/g, '_')
-        .replace(/^(hostiles|mobs|monsters|enemies|any)$/, 'hostile')
+        .replace(/^(hostiles|mobs|monsters|enemies|enemy|any)$/, 'hostile')
         .replace(/^(wolves)$/, 'wolf')
         .replace(/s$/, '');
 
@@ -2836,12 +2847,12 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           const rawUnderscore = rawTargetType.replace(/\s+/g, '_');
           const isExplicitPlayerTarget = (
             normalizedTarget === 'player' ||
-            normalizedTarget === 'opponent' ||
-            normalizedTarget === 'rival' ||
-            normalizedTarget === 'dqn' ||
-            normalizedTarget === 'spar' ||
-            normalizedTarget === 'mirror' ||
-            normalizedTarget === 'clone' ||
+            normalizedTarget.includes('opponent') ||
+            normalizedTarget.includes('rival') ||
+            normalizedTarget.includes('dqn') ||
+            normalizedTarget.includes('spar') ||
+            normalizedTarget.includes('mirror') ||
+            normalizedTarget.includes('clone') ||
             normalizedTarget === 'agent' ||
             u === normalizedTarget ||
             u === rawUnderscore ||
@@ -2950,133 +2961,160 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       let kills = 0;
       let totalStrikes = 0;
       let lastMobName = normalizedTarget === 'hostile' ? 'hostile mob' : rawTargetType;
+      let botDied = false;
+      const onBotDeath = () => {
+        botDied = true;
+      };
+      ctx.bot.once?.('death', onBotDeath);
 
-      for (let targetIdx = 0; targetIdx < targetCount; targetIdx++) {
-        if (ctx.abortSignal?.aborted) break;
+      try {
+        for (let targetIdx = 0; targetIdx < targetCount; targetIdx++) {
+          if (ctx.abortSignal?.aborted || botDied || (ctx.bot.health ?? 20) <= 0) break;
 
-        const targetEntity = findNextTarget();
-        if (!targetEntity) {
-          if (targetIdx === 0) {
-            if (!normalizedTarget || normalizedTarget === 'hostile') {
+          const targetEntity = findNextTarget();
+          if (!targetEntity) {
+            if (targetIdx === 0) {
+              if (!normalizedTarget || normalizedTarget === 'hostile') {
+                return {
+                  success: true,
+                  summary: 'Area is clear! No hostile mobs detected within range.',
+                };
+              }
               return {
-                success: true,
-                summary: 'Area is clear! No hostile mobs detected within range.',
+                success: false,
+                summary: `No ${rawTargetType} detected within ${maxRange}m.`,
               };
             }
-            return {
-              success: false,
-              summary: `No ${rawTargetType} detected within ${maxRange}m.`,
-            };
+            break;
           }
-          break;
-        }
 
-        lastMobName = targetEntity.name || lastMobName;
-        const isCreeper = String(targetEntity.name || '').toLowerCase() === 'creeper';
-        let strikesOnTarget = 0;
-        let isFollowingTarget = false;
-        let lastDistCheckTime = Date.now();
-        let lastDistValue = ctx.bot.entity.position.distanceTo(targetEntity.position);
-        const combatStart = Date.now();
-        const lastTargetPos = targetEntity.position.clone();
+          lastMobName = targetEntity.name || lastMobName;
+          const isCreeper = String(targetEntity.name || '').toLowerCase() === 'creeper';
+          let strikesOnTarget = 0;
+          let isFollowingTarget = false;
+          let lastDistCheckTime = Date.now();
+          let lastDistValue = ctx.bot.entity.position.distanceTo(targetEntity.position);
+          const combatStart = Date.now();
+          const lastTargetPos = targetEntity.position.clone();
 
-        while (
-          targetEntity.isValid &&
-          Date.now() - combatStart < 14000 &&
-          !ctx.abortSignal?.aborted
-        ) {
-          if (targetEntity.position) {
-            lastTargetPos.set(
-              targetEntity.position.x,
-              targetEntity.position.y,
-              targetEntity.position.z
-            );
-          }
-          const dist = ctx.bot.entity.position.distanceTo(targetEntity.position);
-          const isFuseLit =
-            isCreeper &&
-            (targetEntity.metadata?.[16] === 1 || targetEntity.metadata?.[18] === true);
-
-          if (isFuseLit && dist < 6.0) {
-            // Creeper fuse is actively hissing! Backpedal / kite outside blast radius until fuse resets
-            if (isFollowingTarget) {
-              ctx.bot.pathfinder.setGoal(null);
-              isFollowingTarget = false;
+          while (
+            targetEntity.isValid &&
+            Date.now() - combatStart < 14000 &&
+            !ctx.abortSignal?.aborted &&
+            !botDied &&
+            (ctx.bot.health ?? 20) > 0
+          ) {
+            if (targetEntity.position) {
+              lastTargetPos.set(
+                targetEntity.position.x,
+                targetEntity.position.y,
+                targetEntity.position.z
+              );
             }
-            await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.2, 0), 80);
-            ctx.bot.setControlState('back', true);
-            ctx.bot.setControlState('sprint', false);
-            await new Promise((r) => setTimeout(r, 280));
-            ctx.bot.setControlState('back', false);
-            continue;
-          }
+            const dist = ctx.bot.entity.position.distanceTo(targetEntity.position);
+            const isFuseLit =
+              isCreeper &&
+              (targetEntity.metadata?.[16] === 1 || targetEntity.metadata?.[18] === true);
 
-          // 80.8M Action Chunking Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
-          if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function' && dist <= 12.0) {
-            await ctx.kinematics.executeNeuralMotorChunk(
-              `Engage and attack ${targetEntity.name || 'hostile mob'} in combat`,
-              targetEntity.position,
-              2
-            );
-          }
-
-          if (dist > 3.1) {
-            if (ctx.kinematics?.pathfindTo) {
-              await ctx.kinematics.pathfindTo(targetEntity.position, 2.2, 800);
+            if (isFuseLit && dist < 6.0) {
+              // Creeper fuse is actively hissing! Backpedal / kite outside blast radius until fuse resets
+              if (isFollowingTarget) {
+                ctx.bot.pathfinder.setGoal(null);
+                isFollowingTarget = false;
+              }
+              await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.2, 0), 80);
+              ctx.bot.setControlState('back', true);
+              ctx.bot.setControlState('sprint', false);
+              await new Promise((r) => setTimeout(r, 280));
+              ctx.bot.setControlState('back', false);
+              continue;
             }
-          } else {
-            const hit = await ctx.kinematics.strikeTarget(targetEntity);
-            if (hit) {
-              strikesOnTarget++;
-              totalStrikes++;
-              if (isCreeper && targetEntity.isValid) {
-                // Hit-and-run kiting against Creepers: step back outside 3m ignition radius between swings
-                ctx.bot.setControlState('back', true);
-                await new Promise((r) => setTimeout(r, 200));
-                ctx.bot.setControlState('back', false);
+
+            // 80.8M Action Chunking Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
+            if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function' && dist <= 12.0) {
+              await ctx.kinematics.executeNeuralMotorChunk(
+                `Engage and attack ${targetEntity.name || 'hostile mob'} in combat`,
+                targetEntity.position,
+                2
+              );
+            }
+
+            if (dist > 3.1) {
+              if (ctx.kinematics?.pathfindTo) {
+                await ctx.kinematics.pathfindTo(targetEntity.position, 2.2, 800);
+              }
+            } else {
+              const hit = await ctx.kinematics.strikeTarget(targetEntity);
+              if (hit) {
+                strikesOnTarget++;
+                totalStrikes++;
+                if (isCreeper && targetEntity.isValid) {
+                  // Hit-and-run kiting against Creepers: step back outside 3m ignition radius between swings
+                  ctx.bot.setControlState('back', true);
+                  await new Promise((r) => setTimeout(r, 200));
+                  ctx.bot.setControlState('back', false);
+                }
               }
             }
+
+            const overallProgress =
+              (targetIdx + Math.min(0.95, (Date.now() - combatStart) / 8000)) / targetCount;
+            ctx.reportProgress(Math.min(0.95, overallProgress));
           }
 
-          const overallProgress =
-            (targetIdx + Math.min(0.95, (Date.now() - combatStart) / 8000)) / targetCount;
-          ctx.reportProgress(Math.min(0.95, overallProgress));
-        }
+          ctx.bot.pathfinder.setGoal(null);
+          ctx.bot.setControlState('back', false);
 
+          if (botDied || (ctx.bot.health ?? 20) <= 0) {
+            botDied = true;
+            break;
+          }
+
+          if (!targetEntity.isValid) {
+            kills++;
+          }
+
+          // Brief pause for item drops to spawn on death, then auto-collect nearby loot drops
+          await new Promise((r) => setTimeout(r, 180));
+          const nearbyDrops = Object.values(ctx.bot.entities || {}).filter(
+            (e: any) =>
+              e &&
+              e.isValid !== false &&
+              e.position &&
+              (e.name === 'item' || e.type === 'object' || e.displayName === 'Item') &&
+              (e.position.distanceTo(lastTargetPos) <= 6.5 ||
+                e.position.distanceTo(ctx.bot.entity.position) <= 6.5)
+          );
+          if (nearbyDrops.length > 0 && ctx.kinematics?.pathfindTo) {
+            const nearestDrop: any = nearbyDrops[0];
+            await ctx.kinematics.pathfindTo(nearestDrop.position, 1.2);
+            await new Promise((r) => setTimeout(r, 150));
+          }
+        }
+      } finally {
+        ctx.bot.removeListener?.('death', onBotDeath);
         ctx.bot.pathfinder.setGoal(null);
         ctx.bot.setControlState('back', false);
-
-        if (!targetEntity.isValid || strikesOnTarget >= 2) {
-          kills++;
-        }
-
-        // Brief pause for item drops to spawn on death, then auto-collect nearby loot drops
-        await new Promise((r) => setTimeout(r, 180));
-        const nearbyDrops = Object.values(ctx.bot.entities || {}).filter(
-          (e: any) =>
-            e &&
-            e.isValid !== false &&
-            e.position &&
-            (e.name === 'item' || e.type === 'object' || e.displayName === 'Item') &&
-            (e.position.distanceTo(lastTargetPos) <= 6.5 ||
-              e.position.distanceTo(ctx.bot.entity.position) <= 6.5)
-        );
-        if (nearbyDrops.length > 0 && ctx.kinematics?.pathfindTo) {
-          const nearestDrop: any = nearbyDrops[0];
-          await ctx.kinematics.pathfindTo(nearestDrop.position, 1.2);
-          await new Promise((r) => setTimeout(r, 150));
-        }
       }
 
-      ctx.bot.pathfinder.setGoal(null);
       ctx.reportProgress(1.0);
 
+      if (botDied) {
+        return {
+          success: false,
+          summary: `Defeated in combat against ${lastMobName} after ${totalStrikes} strike(s).`,
+          data: { kills, totalStrikes, botDied: true, targetType: lastMobName },
+        };
+      }
+
       return {
-        success: totalStrikes > 0 || kills > 0,
+        success: kills > 0,
         summary:
-          targetCount > 1
-            ? `Eliminated ${kills}/${targetCount} ${lastMobName}(s) with ${totalStrikes} timed 1.9+ strikes and collected drops.`
-            : `Engaged ${lastMobName} with ${totalStrikes} timed 1.9+ strikes${kills > 0 ? ' (target eliminated)' : ''}.`,
+          kills > 0
+            ? targetCount > 1
+              ? `Eliminated ${kills}/${targetCount} ${lastMobName}(s) with ${totalStrikes} timed 1.9+ strikes and collected drops.`
+              : `Engaged ${lastMobName} with ${totalStrikes} timed 1.9+ strikes (target eliminated).`
+            : `Engaged ${lastMobName} with ${totalStrikes} timed 1.9+ strikes, target still alive.`,
         data: { kills, totalStrikes, targetType: lastMobName },
       };
     }
@@ -3109,7 +3147,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const matchedItem =
         itemQuery === 'any'
           ? items[0]
-          : items.find((i: any) => i.name.toLowerCase().includes(itemQuery)) || items[0];
+          : items.find((i: any) => i.name.toLowerCase().includes(itemQuery));
+      if (!matchedItem) {
+        return { success: false, summary: `Could not find ${itemQuery} in inventory to give.` };
+      }
 
       const isGenericRef =
         !playerName ||
@@ -3135,27 +3176,43 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         );
       }
 
-      if (targetEntity) {
-        if (
-          ctx.bot.entity.position.distanceTo(targetEntity.position) > 2.0 &&
-          ctx.kinematics?.pathfindTo
-        ) {
-          await ctx.kinematics.pathfindTo(targetEntity.position, 1.4);
-        }
-        await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.5, 0), 220);
+      if (!targetEntity) {
+        return {
+          success: false,
+          summary: `Could not locate recipient ${playerName || 'companion'} nearby to hand over ${matchedItem.name}.`,
+        };
       }
+
+      if (
+        ctx.bot.entity.position.distanceTo(targetEntity.position) > 2.0 &&
+        ctx.kinematics?.pathfindTo
+      ) {
+        await ctx.kinematics.pathfindTo(targetEntity.position, 1.4);
+      }
+      await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.5, 0), 220);
 
       const resolvedRecipient = targetEntity?.username || playerName || 'nearby player';
       await new Promise((r) => setTimeout(r, 180));
       try {
         await ctx.bot.tossStack(matchedItem);
-        // Step back and pause briefly so we do not re-absorb our own toss before teammate picks it up
+        // Step back and poll until the tossed stack is picked up (up to 1800ms)
         try {
           ctx.bot.setControlState?.('back', true);
           await new Promise((r) => setTimeout(r, 300));
           ctx.bot.clearControlStates?.();
         } catch {}
-        await new Promise((r) => setTimeout(r, 700));
+        for (let w = 0; w < 12; w++) {
+          await new Promise((r) => setTimeout(r, 150));
+          const nearbyDrop = ctx.bot.nearestEntity?.(
+            (e: any) =>
+              e &&
+              e.isValid !== false &&
+              e.position &&
+              (e.name === 'item' || e.type === 'object' || e.displayName === 'Item') &&
+              e.position.distanceTo(ctx.bot.entity.position) <= 4.0
+          );
+          if (!nearbyDrop) break;
+        }
         ctx.reportProgress(1.0);
         return {
           success: true,
@@ -4780,7 +4837,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         const isLeverPowered = (blk: any) => {
           if (!blk) return false;
           const p = typeof blk.getProperties === 'function' ? blk.getProperties() : {};
-          return p?.powered === true || p?.powered === 'true' || ((blk.metadata ?? 0) & 8) !== 0;
+          if (p && 'powered' in p) {
+            return p.powered === true || p.powered === 'true';
+          }
+          return ((blk.metadata ?? 0) & 8) !== 0;
         };
         if (refreshed && !isLeverPowered(refreshed)) {
           await ctx.bot.lookAt?.(foundPos.offset(0.5, 0.5, 0.5), true).catch(() => {});
@@ -4862,7 +4922,11 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         try {
           ctx.bot.clearControlStates?.();
         } catch {}
-        if (ctx.bot.entity.position.distanceTo(goalPos) <= 2.5) {
+        const isAtGoalPlatform = (horizTol = 2.5) => {
+          const p = ctx.bot.entity.position;
+          return p.y >= goalPos.y - 0.5 && Math.hypot(p.x - goalPos.x, p.z - goalPos.z) <= horizTol;
+        };
+        if (isAtGoalPlatform(2.5)) {
           return {
             success: true,
             summary: `Successfully navigated parkour course via 80.8M Action Head to ${goalBlockName}!`,
@@ -4870,12 +4934,16 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       }
 
+      const isAtGoalPlatform = (horizTol = 2.5) => {
+        const p = ctx.bot.entity.position;
+        return p.y >= goalPos.y - 0.5 && Math.hypot(p.x - goalPos.x, p.z - goalPos.z) <= horizTol;
+      };
+
       // Pure sensorimotor parkour navigation via System 1 20Hz continuous steering & sprint-jumping
-      let reached = false;
       if (ctx.kinematics?.pathfindTo) {
-        reached = await ctx.kinematics.pathfindTo(goalPos.offset(0, 1, 0), 1.4, 25000);
+        await ctx.kinematics.pathfindTo(goalPos.offset(0, 1, 0), 1.4, 25000);
       }
-      if (reached || ctx.bot.entity.position.distanceTo(goalPos) <= 2.5) {
+      if (isAtGoalPlatform(2.5)) {
         return {
           success: true,
           summary: `Successfully navigated parkour/bridge course and reached ${goalBlockName} at (${goalPos.x}, ${goalPos.y}, ${goalPos.z})!`,
@@ -4899,7 +4967,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           for (let step = 0; step < 18; step++) {
             if (ctx.abortSignal?.aborted) break;
             const cur = ctx.bot.entity.position.floored();
-            if (cur.distanceTo(goalPos) <= 2.2) break;
+            if (isAtGoalPlatform(2.2)) break;
             let dx = Math.sign(goalPos.x - cur.x);
             let dz = Math.sign(goalPos.z - cur.z);
             // Orthogonal stepping prevents impossible diagonal mid-air placements
@@ -4939,7 +5007,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             }
           }
           await ctx.kinematics.pathfindTo(goalPos.offset(0, 1, 0), 1.4);
-          const reached = ctx.bot.entity.position.distanceTo(goalPos) <= 3.0;
+          const reached = isAtGoalPlatform(2.5);
           return {
             success: reached,
             summary: reached
@@ -4949,9 +5017,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       }
 
+      const finalReached = isAtGoalPlatform(2.5);
       return {
-        success: ctx.bot.entity.position.distanceTo(goalPos) <= 3.0,
-        summary: `Reached within ${ctx.bot.entity.position.distanceTo(goalPos).toFixed(1)}m of ${goalBlockName}.`,
+        success: finalReached,
+        summary: `Reached within ${ctx.bot.entity.position.distanceTo(goalPos).toFixed(1)}m of ${goalBlockName} (y=${ctx.bot.entity.position.y.toFixed(1)}).`,
       };
     }
   );
@@ -5028,7 +5097,6 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (ctx.abortSignal?.aborted) return false;
         const current = ctx.bot.blockAt(pos);
         if (current && (current.name === mat || (current.name !== 'air' && current.name !== 'water' && current.name !== 'lava'))) {
-          totalPlaced++;
           return true;
         }
 
@@ -5121,13 +5189,13 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
 
       // Phase 4: Roof System
       if (mode === 'shelter') {
-        for (let dx = -1; dx <= width; dx++) {
-          for (let dz = -1; dz <= length; dz++) {
+        for (let dx = 0; dx < width; dx++) {
+          for (let dz = 0; dz < length; dz++) {
             const p = new Vec3(anchorX + dx, groundY + height, anchorZ + dz);
             await placeVoxel(p, plankMat);
           }
         }
-        phasesCompleted.push('Phase 4: Sealed Roof System with Overhang');
+        phasesCompleted.push('Phase 4: Sealed Flush Roof System');
       } else {
         phasesCompleted.push('Phase 4: Open Creative Layout (Roof seal skipped)');
       }
@@ -5136,7 +5204,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       if (mode === 'shelter') {
         const utilPos = new Vec3(anchorX + 1, groundY + 1, anchorZ + 1);
         await placeVoxel(utilPos, 'crafting_table');
-        const torchPos = new Vec3(anchorX + 2, groundY + 2, anchorZ + 1);
+        const torchPos = new Vec3(anchorX + Math.max(1, width - 2), groundY + 2, anchorZ + 1);
         await placeVoxel(torchPos, 'torch');
         phasesCompleted.push('Phase 5: Interior Utilities (Crafting table & torch lighting)');
       } else {

@@ -763,8 +763,9 @@ class NeuralStackServer:
                 entity_tensor = None
                 if isinstance(entities_list, list) and len(entities_list) == 16:
                     entity_tensor = torch.tensor(entities_list, dtype=torch.float32, device=self.device).view(1, 16, 12)
+                latent_h_act = (latent_h * 0.1).clamp(-10.0, 10.0)
                 motor_controls = self.action_head.predict_action_dict(
-                    latent_h, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor
+                    latent_h_act, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor
                 )
 
         dt_ms = (time.perf_counter() - t0) * 1000.0
@@ -799,21 +800,24 @@ class NeuralStackServer:
         entities_list = data.get("entities", None)
 
         base_latent = self.bot_latents.get(bot_id, self.latest_latent_h)
-        latent_h = (base_latent * 0.1).clone()  # Keep normalized SLM residual magnitude aligned with ACT head scale
-
-        # Condition latent semantic slices aligned with train_action_head.py representations
-        if "kite" in intent or "creeper" in intent:
-            latent_h[:, 0:32] += 1.5
-        elif "combat" in intent or "attack" in intent or "engage" in intent or "slay" in intent:
-            latent_h[:, 32:64] += 1.5
-        elif "parkour" in intent or "navigate" in intent or "bridge" in intent or "sprint" in intent:
-            latent_h[:, 64:96] += 1.5
-        elif "mine" in intent or "gather" in intent or "dig" in intent or "chop" in intent:
-            latent_h[:, 96:128] += 1.5
-        elif any(k in intent for k in ("craft", "smelt", "equip", "chest", "eat", "drop")):
-            latent_h[:, 160:192] += 1.5
+        has_real_latent = base_latent is not None and float(base_latent.abs().max().item()) >= 1e-4
+        if has_real_latent:
+            latent_h = (base_latent * 0.1).clamp(-10.0, 10.0).clone()
         else:
-            latent_h[:, 224:256] += 1.0
+            latent_h = torch.zeros(1, 1536, device=self.device)
+            # Bootstrap fallback slice conditioning ONLY before first real SLM latent exists
+            if "kite" in intent or "creeper" in intent:
+                latent_h[:, 0:32] += 1.5
+            elif "combat" in intent or "attack" in intent or "engage" in intent or "slay" in intent:
+                latent_h[:, 32:64] += 1.5
+            elif "parkour" in intent or "navigate" in intent or "bridge" in intent or "sprint" in intent:
+                latent_h[:, 64:96] += 1.5
+            elif "mine" in intent or "gather" in intent or "dig" in intent or "chop" in intent:
+                latent_h[:, 96:128] += 1.5
+            elif any(k in intent for k in ("craft", "smelt", "equip", "chest", "eat", "drop")):
+                latent_h[:, 160:192] += 1.5
+            else:
+                latent_h[:, 224:256] += 1.0
 
         proprio_tensor = torch.tensor(proprio_list, dtype=torch.float32, device=self.device)
         voxel_tensor = None
@@ -873,89 +877,93 @@ class NeuralStackServer:
         if self.llm_lock is None:
             self.llm_lock = asyncio.Lock()
 
-        async with self.llm_lock:
+        def _sync_reload() -> Dict:
             from peft import PeftModel
+            target_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+
+            if has_adapter:
+                # Reversibly unmerge & unload previous PeftModel so base weights W_0 NEVER stack across loops
+                if isinstance(self.slm_model, PeftModel):
+                    try:
+                        if hasattr(self.slm_model, "unmerge_adapter"):
+                            self.slm_model.unmerge_adapter()
+                    except Exception:
+                        pass
+                    try:
+                        base = self.slm_model.unload()
+                    except Exception:
+                        base = self.slm_model.get_base_model()
+                    self.slm_model = PeftModel.from_pretrained(base, adapter_dir)
+                else:
+                    self.slm_model = PeftModel.from_pretrained(self.slm_model, adapter_dir)
+
+                try:
+                    self.slm_model.merge_adapter()
+                    print(f"[System 2] Merged reloaded LoRA adapter reversibly into PeftModel (zero weight stacking).", flush=True)
+                except Exception as fe:
+                    print(f"[System 2] Warning: Could not merge reloaded LoRA: {fe}", flush=True)
+
+            # Always ensure SLM is safely restored to target device and in eval mode
+            self.slm_model = self.slm_model.to(dtype=target_dtype)
+            self.slm_model = self.slm_model.to(self.device)
+            self.slm_model.eval()
+            if has_adapter:
+                self.active_adapter = adapter_dir
+            param_device = next(self.slm_model.parameters()).device
+
+            # Hot-reload 211M Multi-Modal Action Head weights and restore to GPU
+            head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
+            if self.action_head is not None:
+                act_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+                try:
+                    if os.path.exists(head_ckpt):
+                        self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
+                        print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
+                except Exception as he:
+                    print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}", flush=True)
+                finally:
+                    self.action_head = self.action_head.to(device=self.device, dtype=act_dtype)
+                    self.action_head.eval()
+
+            # Hot-reload System 1 PPO VoxelReflexPolicy weights and restore to GPU
+            reflex_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "voxel_reflex_policy_latest.pt")
+            reflex_reloaded = False
+            if self.reflex_policy is not None:
+                try:
+                    if os.path.exists(reflex_ckpt):
+                        self.reflex_policy.load_state_dict(torch.load(reflex_ckpt, map_location=self.device, weights_only=True))
+                        reflex_reloaded = True
+                        print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}", flush=True)
+                except Exception as re_err:
+                    print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}", flush=True)
+                finally:
+                    self.reflex_policy = self.reflex_policy.to(self.device)
+                    self.reflex_policy.eval()
+
+            # Restore VolumetricChunkAnalyzer & VisuomotorPolicy to GPU
+            if self.chunk_analyzer is not None:
+                self.chunk_analyzer = self.chunk_analyzer.to(self.device)
+                self.chunk_analyzer.eval()
+            if self.visuomotor_policy is not None:
+                self.visuomotor_policy = self.visuomotor_policy.to(self.device)
+                self.visuomotor_policy.eval()
+
+            vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
+            print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
+            return {
+                "status": "ok",
+                "active_adapter": adapter_dir,
+                "slm_device": str(param_device),
+                "action_head_reloaded": bool(self.action_head is not None),
+                "reflex_reloaded": reflex_reloaded,
+                "vram_allocated_mb": round(vram_mb, 1),
+                "reloaded_at": time.time(),
+            }
+
+        async with self.llm_lock:
             try:
-                target_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-
-                if has_adapter:
-                    # Reversibly unmerge & unload previous PeftModel so base weights W_0 NEVER stack across loops
-                    if isinstance(self.slm_model, PeftModel):
-                        try:
-                            if hasattr(self.slm_model, "unmerge_adapter"):
-                                self.slm_model.unmerge_adapter()
-                        except Exception:
-                            pass
-                        try:
-                            base = self.slm_model.unload()
-                        except Exception:
-                            base = self.slm_model.get_base_model()
-                        self.slm_model = PeftModel.from_pretrained(base, adapter_dir)
-                    else:
-                        self.slm_model = PeftModel.from_pretrained(self.slm_model, adapter_dir)
-
-                    try:
-                        self.slm_model.merge_adapter()
-                        print(f"[System 2] Merged reloaded LoRA adapter reversibly into PeftModel (zero weight stacking).", flush=True)
-                    except Exception as fe:
-                        print(f"[System 2] Warning: Could not merge reloaded LoRA: {fe}", flush=True)
-
-                # Always ensure SLM is safely restored to target device and in eval mode
-                self.slm_model = self.slm_model.to(dtype=target_dtype)
-                self.slm_model = self.slm_model.to(self.device)
-                self.slm_model.eval()
-                if has_adapter:
-                    self.active_adapter = adapter_dir
-                param_device = next(self.slm_model.parameters()).device
-
-                # Hot-reload 211M Multi-Modal Action Head weights and restore to GPU
-                head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
-                if self.action_head is not None:
-                    act_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
-                    try:
-                        if os.path.exists(head_ckpt):
-                            self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
-                            print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
-                    except Exception as he:
-                        print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}", flush=True)
-                    finally:
-                        self.action_head = self.action_head.to(device=self.device, dtype=act_dtype)
-                        self.action_head.eval()
-
-                # Hot-reload System 1 PPO VoxelReflexPolicy weights and restore to GPU
-                reflex_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "voxel_reflex_policy_latest.pt")
-                reflex_reloaded = False
-                if self.reflex_policy is not None:
-                    try:
-                        if os.path.exists(reflex_ckpt):
-                            self.reflex_policy.load_state_dict(torch.load(reflex_ckpt, map_location=self.device, weights_only=True))
-                            reflex_reloaded = True
-                            print(f"[System 1] Hot-reloaded VoxelReflexPolicy from {reflex_ckpt}", flush=True)
-                    except Exception as re_err:
-                        print(f"[System 1] Warning: Failed to hot-reload VoxelReflexPolicy: {re_err}", flush=True)
-                    finally:
-                        self.reflex_policy = self.reflex_policy.to(self.device)
-                        self.reflex_policy.eval()
-
-                # Restore VolumetricChunkAnalyzer & VisuomotorPolicy to GPU
-                if self.chunk_analyzer is not None:
-                    self.chunk_analyzer = self.chunk_analyzer.to(self.device)
-                    self.chunk_analyzer.eval()
-                if self.visuomotor_policy is not None:
-                    self.visuomotor_policy = self.visuomotor_policy.to(self.device)
-                    self.visuomotor_policy.eval()
-
-                vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
-                print(f"[System 2] Hot-reloaded LoRA adapter on {param_device} from {adapter_dir} (Active VRAM: {vram_mb:.1f} MiB)", flush=True)
-                return web.json_response({
-                    "status": "ok",
-                    "active_adapter": adapter_dir,
-                    "slm_device": str(param_device),
-                    "action_head_reloaded": bool(self.action_head is not None),
-                    "reflex_reloaded": reflex_reloaded,
-                    "vram_allocated_mb": round(vram_mb, 1),
-                    "reloaded_at": time.time(),
-                })
+                payload = await asyncio.to_thread(_sync_reload)
+                return web.json_response(payload)
             except Exception as e:
                 print(f"[System 2] Failed to hot-reload adapter: {e}")
                 return web.json_response({"error": str(e)}, status=500)

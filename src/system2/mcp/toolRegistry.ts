@@ -227,9 +227,11 @@ export class DynamicMCPToolRegistry extends EventEmitter {
     if (snake.startsWith('kill_') || snake.startsWith('attack_') || snake.startsWith('fight_') || snake.startsWith('hunt_') || snake.startsWith('slay_')) return this.tools.get('engage_combat');
     if (snake.startsWith('parkour_') || snake.startsWith('bridge_')) return this.tools.get('navigate_parkour_or_bridge');
 
-    const matches = this.searchMatchingTools(snake, 1);
-    if (matches && matches.length > 0 && matches[0].similarity >= 0.25) {
-      return this.tools.get(matches[0].schema.name);
+    if (process.env.STRICT_LLM_BENCHMARK !== 'true') {
+      const matches = this.searchMatchingTools(snake, 1);
+      if (matches && matches.length > 0 && matches[0].similarity >= 0.25) {
+        return this.tools.get(matches[0].schema.name);
+      }
     }
 
     return undefined;

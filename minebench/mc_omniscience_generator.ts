@@ -585,9 +585,43 @@ export class MinecraftOmniscienceGenerator {
       'boat', 'minecart', 'rail', 'powered_rail', 'lead',
     ];
 
+    const RECIPE_RAW_SUPPLEMENTS: Record<string, Array<{ name: string; count: number }>> = {
+      arrow: [{ name: 'flint', count: 4 }, { name: 'feather', count: 4 }],
+      bread: [{ name: 'wheat', count: 6 }],
+      golden_apple: [{ name: 'apple', count: 2 }],
+      golden_carrot: [{ name: 'carrot', count: 2 }],
+      flint_and_steel: [{ name: 'flint', count: 2 }],
+      sticky_piston: [{ name: 'slime_ball', count: 2 }],
+      lead: [{ name: 'slime_ball', count: 2 }],
+      enchanting_table: [{ name: 'sugar_cane', count: 6 }],
+      anvil: [{ name: 'iron_ingot', count: 32 }],
+    };
+
     for (const itemName of KEY_CRAFT_ITEMS) {
       const itemInfo = mcData.itemsByName[itemName];
       if (!itemInfo) continue;
+
+      const baseLoadout = [
+        { name: 'iron_ingot', count: 8 },
+        { name: 'gold_ingot', count: 8 },
+        { name: 'diamond', count: 4 },
+        { name: 'obsidian', count: 4 },
+        { name: 'redstone', count: 8 },
+        { name: 'quartz', count: 4 },
+        { name: 'coal', count: 8 },
+        { name: 'blaze_rod', count: 2 },
+        { name: 'string', count: 4 },
+        { name: 'leather', count: 4 },
+        { name: 'copper_ingot', count: 4 },
+      ];
+      for (const sup of RECIPE_RAW_SUPPLEMENTS[itemName] || []) {
+        const existing = baseLoadout.find((x) => x.name === sup.name);
+        if (existing) {
+          existing.count = Math.max(existing.count, sup.count);
+        } else {
+          baseLoadout.push({ ...sup });
+        }
+      }
 
       tasks.push({
         taskId: `omni_craft_${itemName}`,
@@ -601,19 +635,9 @@ export class MinecraftOmniscienceGenerator {
           `Can you craft a ${itemInfo.displayName || itemName}?`,
         ],
         // Pure unassisted loadout: strictly NO silver-platter planks, sticks, logs, or crafting tables!
-        initialLoadout: [
-          { name: 'iron_ingot', count: 8 },
-          { name: 'gold_ingot', count: 8 },
-          { name: 'diamond', count: 4 },
-          { name: 'obsidian', count: 4 },
-          { name: 'redstone', count: 8 },
-          { name: 'quartz', count: 4 },
-          { name: 'coal', count: 8 },
-          { name: 'blaze_rod', count: 2 },
-          { name: 'string', count: 4 },
-          { name: 'leather', count: 4 },
-          { name: 'copper_ingot', count: 4 },
-        ].filter((i) => !['crafting_table', 'oak_planks', 'oak_log', 'stick', 'oak_slab'].includes(i.name)),
+        initialLoadout: baseLoadout.filter(
+          (i) => !['crafting_table', 'oak_planks', 'oak_log', 'stick', 'oak_slab'].includes(i.name)
+        ),
         // Procedurally spawn natural environment with real trees, stone outcrops, and ore veins
         setupCommands: [
           'fill ~-8 ~-1 ~-8 ~8 ~-1 ~8 grass_block',

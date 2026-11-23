@@ -1,7 +1,84 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { execFileSync, spawn } from 'child_process';
+import { spawn } from 'child_process';
 import { Vec3 } from 'vec3';
+
+function forceKillPid(pid: number | undefined): void {
+  if (!pid || pid <= 0) return;
+  try {
+    if (process.platform === 'win32') {
+      spawn('taskkill', ['/PID', String(pid), '/T', '/F'], { detached: true, stdio: 'ignore' }).unref();
+    } else {
+      process.kill(pid, 'SIGKILL');
+    }
+  } catch {}
+}
+
+function trimJsonlFileIfTooLarge(filePath: string, maxBytes: number, keepLines: number): void {
+  try {
+    if (!fs.existsSync(filePath)) return;
+    const st = fs.statSync(filePath);
+    if (st.size <= maxBytes) return;
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const lines = raw.split(/\r?\n/).filter((l) => l.trim().length > 0);
+    if (lines.length <= keepLines) return;
+    const tail = lines.slice(-keepLines).join('\n') + '\n';
+    const tmp = `${filePath}.trim.tmp`;
+    fs.writeFileSync(tmp, tail, 'utf-8');
+    fs.renameSync(tmp, filePath);
+    console.log(
+      `[TrainLoop] Rotated ${path.basename(filePath)} (${(st.size / (1024 * 1024)).toFixed(1)} MB -> tail ${keepLines} lines).`
+    );
+  } catch (err: any) {
+    console.warn(`[TrainLoop] Warning rotating ${path.basename(filePath)}: ${err?.message || err}`);
+  }
+}
+
+async function runPythonScriptAsync(
+  pythonExe: string,
+  args: string[],
+  timeoutMs: number
+): Promise<string> {
+  return await new Promise<string>((resolve, reject) => {
+    const proc = spawn(pythonExe, args, { cwd: process.cwd(), stdio: ['ignore', 'pipe', 'pipe'] });
+    const maxTailChars = 65536;
+    let stdoutTail = '';
+    let stderrTail = '';
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      forceKillPid(proc.pid);
+      reject(new Error(`Python script timed out after ${timeoutMs}ms: ${path.basename(args[0] || 'script')}`));
+    }, timeoutMs);
+
+    proc.stdout?.on('data', (chunk: Buffer) => {
+      stdoutTail += chunk.toString('utf-8');
+      if (stdoutTail.length > maxTailChars) stdoutTail = stdoutTail.slice(-maxTailChars);
+    });
+    proc.stderr?.on('data', (chunk: Buffer) => {
+      stderrTail += chunk.toString('utf-8');
+      if (stderrTail.length > 16384) stderrTail = stderrTail.slice(-16384);
+    });
+    proc.on('error', (err) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      reject(err);
+    });
+    proc.on('close', (code) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      if (code === 0) {
+        resolve(stdoutTail);
+      } else {
+        reject(new Error(`Python script exited ${code}: ${stderrTail.slice(-500) || stdoutTail.slice(-300)}`));
+      }
+    });
+  });
+}
 import {
   MINEBENCH_TASKS,
   MULTIPLAYER_TASKS,
@@ -1147,7 +1224,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let heldOutPassed = 0;
       let heldOutTotal = 0;
       let heldOutScoreSum = 0;
-      const iterStepTransitions: any[] = [];
       const domainStats: Record<string, { passed: number; total: number; scoreSum: number }> = {};
 
       const classifyDomainBucket = (t: MinebenchTaskSpec): string => {
@@ -1281,17 +1357,19 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 status: 'RUNNING',
               };
 
+              let hardTimer: ReturnType<typeof setTimeout> | null = null;
               try {
                 const rpcPromise = survivalWorker.mcpServer.handleRpcRequest(
                   { jsonrpc: '2.0', id: sub.id, method: 'tools/call', params: { name: toolName, arguments: toolArgs } },
                   () => survivalWorker!.system1.createToolExecutionContext(sub, async () => {}, abortCtrl.signal)
                 );
-                const hardTimer = new Promise<any>((resolve) => {
-                  setTimeout(() => {
+                const hardTimeout = new Promise<any>((resolve) => {
+                  hardTimer = setTimeout(() => {
+                    try { abortCtrl.abort(); } catch {}
                     resolve({ error: { code: -32000, message: `Survival tool execution hard timeout exceeded (${dur}ms)` } });
                   }, dur + 4000);
                 });
-                const rpcRes = await Promise.race([rpcPromise, hardTimer]);
+                const rpcRes = await Promise.race([rpcPromise, hardTimeout]);
                 const payloadText = rpcRes.result?.content?.[0]?.text;
                 if (payloadText) {
                   try {
@@ -1302,9 +1380,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     ok = !rpcRes.error;
                     summary = payloadText;
                   }
+                } else if (rpcRes.error) {
+                  ok = false;
+                  summary = String(rpcRes.error.message || 'Survival step timeout');
                 }
               } finally {
+                if (hardTimer) clearTimeout(hardTimer);
                 clearTimeout(timer);
+                try {
+                  sBot.deactivateItem?.();
+                } catch {}
                 try {
                   sBot.pathfinder?.setGoal(null);
                   sBot.clearControlStates?.();
@@ -1442,6 +1527,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
                   await new Promise((r) => setTimeout(r, 600));
                 }
+                if (survivalWorker) {
+                  try {
+                    survivalWorker.system1.bot?.quit();
+                    await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+                  } catch {}
+                }
               } else {
                 try {
                   await worker.system1.connect('127.0.0.1', serverPort, worker.botUsername);
@@ -1454,6 +1545,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     try { w.system1.bot?.quit(); } catch {}
                     await w.system1.connect('127.0.0.1', serverPort, w.botUsername);
                     await new Promise((r) => setTimeout(r, 600));
+                  }
+                  if (survivalWorker) {
+                    try {
+                      survivalWorker.system1.bot?.quit();
+                      await survivalWorker.system1.connect('127.0.0.1', serverPort, survivalWorker.botUsername);
+                    } catch {}
                   }
                 }
               }
@@ -1488,6 +1585,30 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               concurrency > 1
             );
           });
+
+          // Synchronize Step-0 packets (teleport, terrain chunk, initial loadout, sparring entity) and invalidate stale scan cache
+          const postResetBot = worker.system1.bot;
+          const postOriginVec = new Vec3(shardedTask.origin.x, shardedTask.origin.y, shardedTask.origin.z);
+          const syncStart = Date.now();
+          while (Date.now() - syncStart < 1500) {
+            const pNow = postResetBot?.entity?.position;
+            const posOk = Boolean(pNow && pNow.distanceTo(postOriginVec) <= 4.0);
+            const floorBlk = postResetBot?.blockAt?.(postOriginVec.offset(0, -1, 0));
+            const floorOk = Boolean(floorBlk && floorBlk.name !== 'void_air');
+            const needLoadout = Array.isArray(task.initialLoadout) && task.initialLoadout.length > 0;
+            const invOk = !needLoadout || (postResetBot?.inventory?.items?.()?.length || 0) > 0;
+            const oppOk =
+              !task.sparringConfig ||
+              Object.values(postResetBot?.entities || {}).some(
+                (e: any) =>
+                  e &&
+                  e.username &&
+                  e.username.toLowerCase() === worker.sparringPartner.username.toLowerCase()
+              );
+            if (posOk && floorOk && invOk && oppOk) break;
+            await new Promise((r) => setTimeout(r, 50));
+          }
+          worker.system1.invalidatePerceptionCache();
 
           // Sparring partner mode is activated at step 0 so both agents engage simultaneously
           worker.sparringPartner.setMode({ mode: 'idle' });
@@ -1532,6 +1653,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let damageDealt = 0;
           let waterPlaced = 0;
           let ironPickaxeDurabilityUsedOnStone = 0;
+          let activeStepAbortController: AbortController | null = null;
           const killedMobsMap: Record<string, number> = {};
 
           const targetEntityName = String((task as any).targetObject || '').toLowerCase();
@@ -1540,6 +1662,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const onDeath = () => {
             deaths++;
             worker.sparringPartner.recordAgentDeath();
+            try {
+              activeStepAbortController?.abort();
+            } catch {}
             try {
               server.sendCommand(`tp ${worker.botUsername} ${shardedTask.origin.x} ${shardedTask.origin.y} ${shardedTask.origin.z} 0 0`);
             } catch {}
@@ -1561,6 +1686,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               ironPickaxeDurabilityUsedOnStone++;
             }
           };
+          const isBlockPowered = (blk: any): boolean => {
+            const props = typeof blk?.getProperties === 'function' ? blk.getProperties() : {};
+            if (props && 'powered' in props) {
+              return props.powered === true || props.powered === 'true';
+            }
+            return ((blk?.metadata ?? 0) & 8) !== 0;
+          };
           const onBlockUpdate = (oldBlock: any, newBlock: any) => {
             if (!oldBlock || !newBlock || !bot.entity) return;
             if (
@@ -1572,11 +1704,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             ) {
               blocksPlaced++;
             }
-            if (newBlock.name === 'lever') {
-              const props = typeof newBlock.getProperties === 'function' ? newBlock.getProperties() : {};
-              if (props?.powered === true || props?.powered === 'true' || ((newBlock.metadata ?? 0) & 8) !== 0) {
-                leversFlipped++;
-              }
+            if (newBlock.name === 'lever' && isBlockPowered(newBlock)) {
+              leversFlipped++;
             }
             if (newBlock.name === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               waterPlaced++;
@@ -1611,11 +1740,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
             const leverPos = new Vec3(shardedTask.origin.x + 3, shardedTask.origin.y + 1, shardedTask.origin.z - 1);
             const leverBlock = bot.blockAt(leverPos);
-            if (leverBlock && leverBlock.name === 'lever') {
-              const props = typeof leverBlock.getProperties === 'function' ? leverBlock.getProperties() : {};
-              if (props?.powered === true || props?.powered === 'true' || ((leverBlock.metadata ?? 0) & 8) !== 0) {
-                leversFlipped = Math.max(1, leversFlipped);
-              }
+            if (leverBlock && leverBlock.name === 'lever' && isBlockPowered(leverBlock)) {
+              leversFlipped = Math.max(1, leversFlipped);
             }
 
             const wolves = Object.values(bot.entities || {}).filter(
@@ -1697,6 +1823,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const goalPlanner = new HierarchicalGoalPlanner();
           goalPlanner.setMacroGoal(task.prompt);
           let activeGoal = task.prompt;
+          let lastEffectivePrompt = task.prompt;
 
           try {
             for (let stepIdx = 0; stepIdx < task.maxSteps; stepIdx++) {
@@ -1740,6 +1867,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 .replace(/\bDQN_Opponent\b/g, worker.sparringPartner.username)
                 .replace(/\bMirrorAgent\b/g, worker.sparringPartner.username)
                 .replace(/\bCompanion_Player\b/g, worker.sparringPartner.username);
+              lastEffectivePrompt = effectivePrompt;
 
               const continuationGoal = goalPlanner.formatGoalHorizonContext(worldState);
               const isCoop = task.domain === 'MULTIPLAYER_ARENA' && task.id.startsWith('coop_');
@@ -1780,6 +1908,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const isSmeltTool = toolName === 'smelt_item' || toolName === 'smelt_ores';
               const stepDurationMs = isBuildTool ? 55000 : isSmeltTool ? 40000 : 25000;
               const abortController = new AbortController();
+              activeStepAbortController = abortController;
               const stepTimeout = setTimeout(() => abortController.abort(), stepDurationMs);
 
               const subtask: SubtaskStatus = {
@@ -1912,13 +2041,19 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     return c;
                   }
                 );
+                let hardStepTimer: ReturnType<typeof setTimeout> | null = null;
                 const hardStepTimeoutPromise = new Promise<{ result?: any; error?: { code: number; message: string } }>((resolve) => {
-                  setTimeout(() => {
+                  hardStepTimer = setTimeout(() => {
+                    try { abortController.abort(); } catch {}
                     resolve({ error: { code: -32000, message: `Tool execution hard timeout exceeded (${stepDurationMs}ms)` } });
                   }, stepDurationMs + 4000);
                 });
 
                 const rpcRes = await Promise.race([rpcPromise, hardStepTimeoutPromise]);
+                if (hardStepTimer) {
+                  clearTimeout(hardStepTimer);
+                  hardStepTimer = null;
+                }
 
                 const payloadText = rpcRes.result?.content?.[0]?.text;
                 if (payloadText) {
@@ -1977,6 +2112,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   });
                 }
                 clearTimeout(stepTimeout);
+                activeStepAbortController = null;
+                try {
+                  bot.deactivateItem?.();
+                } catch {}
                 try {
                   bot.pathfinder?.setGoal(null);
                   bot.clearControlStates?.();
@@ -2081,7 +2220,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
             for (const tr of episodeTransitions) {
               fs.appendFileSync(transitionsPath, JSON.stringify(tr) + '\n', 'utf-8');
-              iterStepTransitions.push(tr);
             }
 
             if (episodeMotorChunks.length > 0) {
@@ -2104,7 +2242,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               botUsername: worker.botUsername,
               domain: task.domain,
               tier: task.tier,
-              prompt: task.prompt,
+              prompt: lastEffectivePrompt,
               passed: grading.passed,
               score: grading.score,
               rawReward: grading.rawReward,
@@ -2199,7 +2337,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           try {
             const pyArgs = [rlScript, '--epochs', '8', '--loop', String(iter)];
             if (isNewBest) pyArgs.push('--is-best');
-            const stdout = execFileSync(venvPython, pyArgs, { encoding: 'utf-8', timeout: 90000 });
+            const stdout = await runPythonScriptAsync(venvPython, pyArgs, 90000);
             const parsed = JSON.parse(stdout.trim().split('\n').pop() || '{}');
             rlLossDelta = `PPO: ${parsed.initialLoss} -> ${parsed.finalLoss} (${parsed.transitionsPerSecond} trans/s)`;
           } catch (err: any) {
@@ -2239,12 +2377,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               // Offload daemon's SLM to CPU to free VRAM for trainer
               try {
-                const pauseRes = await fetch('http://127.0.0.1:8765/pause_slm', { method: 'POST' });
+                const pauseRes = await fetch('http://127.0.0.1:8765/pause_slm', {
+                  method: 'POST',
+                  headers: { 'Connection': 'close' },
+                  signal: AbortSignal.timeout(30000),
+                });
                 await pauseRes.json();
                 await new Promise((r) => setTimeout(r, 2000));
               } catch {}
 
-              const slmOut = execFileSync(venvPython, slmArgs, { encoding: 'utf-8', timeout: 360000 });
+              const slmOut = await runPythonScriptAsync(venvPython, slmArgs, 360000);
               const slmMetricsPath = path.resolve(resultsDir, 'slm_training_metrics.json');
               if (fs.existsSync(slmMetricsPath)) {
                 const parsedSlm = JSON.parse(fs.readFileSync(slmMetricsPath, 'utf-8'));
@@ -2263,7 +2405,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             try {
               const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
               if (isNewBest) actArgs.push('--is-best');
-              const actOut = execFileSync(venvPython, actArgs, { encoding: 'utf-8', timeout: 180000 });
+              const actOut = await runPythonScriptAsync(venvPython, actArgs, 180000);
               const parsedAct = JSON.parse(actOut.trim().split('\n').pop() || '{}');
               actAimErrorDeg = typeof parsedAct.aim_error_deg === 'number' ? parsedAct.aim_error_deg : undefined;
               actDiscreteAccPct =
@@ -2282,6 +2424,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Connection': 'close' },
                 body: JSON.stringify({ adapter_name: 'slm_minecraft_savant_latest' }),
+                signal: AbortSignal.timeout(90000),
               });
               if (reloadRes.ok) {
                 const rData: any = await reloadRes.json();
@@ -2300,7 +2443,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             console.error(`[TrainLoop] ERROR: Could not confirm reload_adapter after 3 attempts! Respawning neural_daemon.py on a fresh CUDA context...`);
             try {
               await fetch('http://127.0.0.1:8765/shutdown', { method: 'POST', signal: AbortSignal.timeout(2000) }).catch(() => {});
-              await new Promise((r) => setTimeout(r, 2000));
+              await new Promise((r) => setTimeout(r, 1500));
+              forceKillPid(spawnedDaemonProc?.pid);
+              await new Promise((r) => setTimeout(r, 500));
               const daemonScript = path.resolve(process.cwd(), 'neural_lab', 'neural_daemon.py');
               const freshDaemon = spawn(venvPython, [daemonScript], {
                 detached: true,
@@ -2330,6 +2475,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             }
           }
         }
+
+        // Keep JSONL buffers bounded so 500+ iteration sustained runs never hit disk or parse-timeout ceilings
+        trimJsonlFileIfTooLarge(motorChunksPath, 80 * 1024 * 1024, 5000);
+        trimJsonlFileIfTooLarge(transitionsPath, 50 * 1024 * 1024, 6000);
+        trimJsonlFileIfTooLarge(replayPath, 40 * 1024 * 1024, 3500);
 
         if (!isFinalCyclePlanned && !isShuttingDown) {
           // Reconnect worker bots and sparring partners cleanly to live server after backprop and adapter reload
@@ -2530,6 +2680,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         try {
           await fetch('http://127.0.0.1:8765/shutdown', { method: 'POST', signal: AbortSignal.timeout(1500) }).catch(() => {});
         } catch {}
+        forceKillPid(spawnedDaemonProc.pid);
         try {
           spawnedDaemonProc.kill();
         } catch {}
@@ -2539,8 +2690,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 }
 
 if (require.main === module) {
-  runContinuousTrainingLoop().catch((err) => {
-    console.error(`[TrainLoop Fatal Error]`, err);
-    process.exit(1);
-  });
+  runContinuousTrainingLoop()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch((err) => {
+      console.error(`[TrainLoop Fatal Error]`, err);
+      process.exit(1);
+    });
 }
