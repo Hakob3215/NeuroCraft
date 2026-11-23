@@ -1,12 +1,12 @@
 {
-  "completedAt": "2026-11-22T23:23:32.283Z",
+  "completedAt": "2026-11-23T01:30:17.206Z",
   "totalStepsExecuted": 30,
   "progressDepthScore": 0,
   "progressDepthPercent": 0,
-  "efficiencyScore": 25,
+  "efficiencyScore": 32,
   "efficiencyBreakdown": {
     "parEfficiencyPercent": 0,
-    "actionSuccessPercent": 13,
+    "actionSuccessPercent": 33,
     "healthPreservationPercent": 100,
     "finalHealth": 20
   },
@@ -74,181 +74,181 @@
       "stepNumber": 1,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "oak_log",
-        "count": 5
-      },
-      "success": true,
-      "summary": "Harvested 4 oak_log (6 blocks broken). Current inventory: [4x acacia_log]."
-    },
-    {
-      "stepNumber": 2,
-      "toolName": "craft_item",
-      "args": {
-        "itemName": "acacia_log",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [5x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [empty]."
+    },
+    {
+      "stepNumber": 2,
+      "toolName": "gather_resource",
+      "args": {
+        "blockType": "wood",
+        "count": 5
+      },
+      "success": false,
+      "summary": "Collected 0 wood into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [empty]."
     },
     {
       "stepNumber": 3,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
+        "itemName": "stick",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [empty])."
     },
     {
       "stepNumber": 4,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 5
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [empty])."
     },
     {
       "stepNumber": 5,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "acacia_log",
+        "blockType": "stone",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [5x acacia_log])."
+      "summary": "Collected 0 stone into inventory (0 blocks broken). Stopped early: Missing required tool (wooden_pickaxe) to harvest stone (currently holding: hand) and lack materials in inventory to auto-craft a replacement. Current inventory: [empty]."
     },
     {
       "stepNumber": 6,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (4 blocks broken). Current inventory: [6x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 7,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
+        "itemName": "dandelion_flower",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Unknown Minecraft item name \"dandelion_flower\"."
     },
     {
       "stepNumber": 8,
       "toolName": "craft_item",
       "args": {
-        "itemName": "acacia_log",
+        "itemName": "stick",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [5x acacia_log])."
+      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [7x dirt, 1x dandelion])."
     },
     {
       "stepNumber": 9,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
+        "itemName": "oak_plank",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Unknown Minecraft item name \"oak_plank\"."
     },
     {
       "stepNumber": 10,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 5
+        "itemName": "wooden_pickaxe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Cannot craft wooden_pickaxe: Requires 3 oak_planks and 2 sticks. (Inventory: [7x dirt, 1x dandelion])."
     },
     {
       "stepNumber": 11,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [7x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 12,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [5x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [7x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 13,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "log",
+        "blockType": "dirt",
         "count": 5
       },
       "success": true,
-      "summary": "Harvested 4 log (4 blocks broken). Current inventory: [9x acacia_log]."
+      "summary": "Harvested 5 dirt (4 blocks broken). Current inventory: [12x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 14,
       "toolName": "gather_resource",
       "args": {
-        "blockType": "log",
+        "blockType": "dirt",
         "count": 5
       },
       "success": true,
-      "summary": "Harvested 4 log (6 blocks broken). Current inventory: [14x acacia_log]."
+      "summary": "Harvested 5 dirt (6 blocks broken). Current inventory: [17x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 15,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "acacia_log",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [14x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [18x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 16,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [14x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (6 blocks broken). Current inventory: [23x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 17,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [14x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (6 blocks broken). Current inventory: [29x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 18,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "acacia_log",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [14x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [30x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 19,
@@ -257,118 +257,118 @@
         "blockType": "log",
         "count": 5
       },
-      "success": true,
-      "summary": "Harvested 5 log (5 blocks broken). Current inventory: [19x acacia_log]."
+      "success": false,
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [30x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 20,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (3 blocks broken). Current inventory: [35x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 21,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
+        "itemName": "stick",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [36x dirt, 1x dandelion])."
     },
     {
       "stepNumber": 22,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
-        "count": 5
+        "blockType": "oak_plank",
+        "count": 2
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "summary": "Collected 0 oak_plank into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [36x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 23,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 5
+        "itemName": "wooden_axe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "summary": "Cannot craft wooden_axe: A 3x3 crafting table is required to craft wooden_axe, but no table was nearby and placing one failed. (Inventory: [36x dirt, 1x dandelion])."
     },
     {
       "stepNumber": 24,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (6 blocks broken). Current inventory: [41x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 25,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "acacia_log",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [19x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (6 blocks broken). Current inventory: [47x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 26,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "success": true,
+      "summary": "Harvested 5 dirt (5 blocks broken). Current inventory: [53x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 27,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "log",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "summary": "Collected 0 log into inventory (0 blocks broken). Call explore_or_dig_for_ores (mode=\"staircase_mine\") to dig down to stone/ore layer! Current inventory: [54x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 28,
       "toolName": "craft_item",
       "args": {
-        "itemName": "acacia_log",
+        "itemName": "stick",
         "count": 5
       },
       "success": false,
-      "summary": "Cannot craft acacia_log: Missing raw materials or recipe prerequisites for acacia_log. (Inventory: [19x acacia_log])."
+      "summary": "Cannot craft stick: Requires 2 oak_planks. Craft oak_planks first. (Inventory: [54x dirt, 1x dandelion])."
     },
     {
       "stepNumber": 29,
-      "toolName": "craft_item",
+      "toolName": "gather_resource",
       "args": {
-        "itemName": "oak_planks",
+        "blockType": "dirt",
         "count": 5
       },
-      "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "success": true,
+      "summary": "Harvested 6 dirt (5 blocks broken). Current inventory: [60x dirt, 1x dandelion]."
     },
     {
       "stepNumber": 30,
       "toolName": "craft_item",
       "args": {
-        "itemName": "oak_planks",
-        "count": 5
+        "itemName": "wooden_hoe",
+        "count": 1
       },
       "success": false,
-      "summary": "Cannot craft oak_planks: Requires oak_log. Gather oak_log first. (Inventory: [19x acacia_log])."
+      "summary": "Cannot craft wooden_hoe: A 3x3 crafting table is required to craft wooden_hoe, but no table was nearby and placing one failed. (Inventory: [60x dirt, 1x dandelion])."
     }
   ]
 }
