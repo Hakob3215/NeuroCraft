@@ -18,6 +18,7 @@ agent connected to the official Mojang 1.20.4 Headless Server (`server.jar`):
 import argparse
 import json
 import math
+import re
 import shutil
 import sys
 import time
@@ -39,6 +40,7 @@ RESULTS_DIR = ROOT_DIR / "minebench" / "results"
 REPLAY_BUFFER_PATH = RESULTS_DIR / "rl_replay_buffer.jsonl"
 REAL_TRANSITIONS_PATH = RESULTS_DIR / "real_rl_transitions.jsonl"
 GRPO_DATASET_PATH = RESULTS_DIR / "grpo_verified_trajectories.jsonl"
+DPO_PAIRS_PATH = RESULTS_DIR / "dpo_pairs.jsonl"
 RL_METRICS_PATH = RESULTS_DIR / "rl_training_metrics.json"
 
 
@@ -138,6 +140,33 @@ def is_valid_tool_for_task(task_id: str, prompt: str, tool_name: str) -> bool:
         return False
 
     return True
+
+
+REQUIRED_TOOL_ARG_ALIASES = {
+    "gather_resource": ("blockType", "resource", "block"),
+    "craft_item": ("itemName", "recipeName", "item"),
+    "smelt_item": ("inputItem", "itemName", "oreType"),
+    "equip_armor_or_item": ("itemName", "item"),
+    "eat_food": ("foodName", "itemName", "food"),
+    "give_item_to_player": ("itemName", "item"),
+}
+
+
+def has_required_args(tool_name: str, tool_args: Dict) -> bool:
+    """Rejects empty/missing required arguments so degenerate calls are excluded from positive GRPO training."""
+    t = (tool_name or "").strip()
+    required = REQUIRED_TOOL_ARG_ALIASES.get(t)
+    if not required:
+        return True
+    if not isinstance(tool_args, dict):
+        return False
+    return any(isinstance(tool_args.get(k), str) and len(tool_args.get(k).strip()) > 0 for k in required)
+
+
+def compact_step_summary(summary: str) -> str:
+    """Strips redundant Current inventory tails from historical step summaries for train/inference parity."""
+    cleaned = re.sub(r"\s*Current inventory:\s*\[[^\]]*\]\.?", "", str(summary or ""), flags=re.IGNORECASE)
+    return re.sub(r"\s+", " ", cleaned).strip()
 
 
 def should_mark_goal_completed(
@@ -409,6 +438,8 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
     recent_verified: List[Dict] = []
 
     for r_idx, r in enumerate(records):
+        if bool(r.get("isHeldOut", False)):
+            continue
         is_passed = bool(r.get("passed", False))
         score_val = float(r.get("score", 0.0))
         raw_r = float(r.get("rawReward", 0.0))
@@ -442,10 +473,10 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             tool_name = str(tool_entry.get("name", ""))
             tool_args = tool_entry.get("args") or tool_entry.get("arguments") or {}
             step_ok = bool(tool_entry.get("success", True))
-            step_summary = str(tool_entry.get("summary") or f"Executed {tool_name}")
+            step_summary = compact_step_summary(str(tool_entry.get("summary") or f"Executed {tool_name}"))
 
-            # STRICT PURITY: Only teach successful, task-valid tool invocations
-            if not step_ok or not is_valid_tool_for_task(tid, prompt, tool_name):
+            # STRICT PURITY: Only teach successful, task-valid, non-empty-arg tool invocations
+            if not step_ok or not is_valid_tool_for_task(tid, prompt, tool_name) or not has_required_args(tool_name, tool_args):
                 prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
                 continue
 
@@ -481,6 +512,19 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 step_idx=step_idx,
             )
 
+            real_thought = str(tool_entry.get("thought") or "").strip()
+            assistant_obj: Dict = {
+                "thought": real_thought if real_thought else f"Executing {tool_name} to progress toward objective.",
+                "toolCall": {
+                    "name": tool_name,
+                    "arguments": tool_args,
+                },
+                "goalCompleted": can_mark_goal_completed,
+            }
+            plan_steps = tool_entry.get("planSteps")
+            if step_idx == 0 and isinstance(plan_steps, list) and len(plan_steps) > 0:
+                assistant_obj["planSteps"] = plan_steps
+
             sample = {
                 "provider": provider_name,
                 "taskId": tid,
@@ -497,16 +541,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                     {"role": "user", "content": user_content},
                     {
                         "role": "assistant",
-                        "content": json.dumps(
-                            {
-                                "thought": f"Executing {tool_name} to progress toward objective.",
-                                "toolCall": {
-                                    "name": tool_name,
-                                    "arguments": tool_args,
-                                },
-                                "goalCompleted": can_mark_goal_completed,
-                            }
-                        ),
+                        "content": json.dumps(assistant_obj),
                     },
                 ],
             }
@@ -529,7 +564,76 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         for s in combined_dataset:
             gf.write(json.dumps(s) + "\n")
 
-    print(f"[RL Trainer] Clean Stratified Task Bank: {len(gold_seed_samples)} seeds + {len(task_gold_bank)} task anchors = {len(combined_dataset)} pure samples saved.")
+    # 4. Mine contrastive DPO pairs (chosen winner vs rejected failure/bad-arg step on same non-held-out task/step)
+    dpo_candidates: Dict[Tuple[str, int], Dict[Tuple[str, str], Dict]] = {}
+    for r in records:
+        if bool(r.get("isHeldOut", False)):
+            continue
+        tid = r.get("taskId")
+        if not tid:
+            continue
+        is_passed = bool(r.get("passed", False))
+        raw_r = float(r.get("rawReward", 0.0))
+        exec_tools = r.get("executedTools", [])
+        for step_idx, tool_entry in enumerate(exec_tools):
+            winner = task_gold_bank.get((tid, step_idx))
+            if not winner:
+                continue
+            winner_raw_r = float(winner.get("rawReward", 0.0))
+            if winner_raw_r < 50.0:
+                continue
+            tool_name = str(tool_entry.get("name", ""))
+            tool_args = tool_entry.get("args") or tool_entry.get("arguments") or {}
+            step_ok = bool(tool_entry.get("success", True))
+            is_loser_step = (not step_ok) or (not is_passed) or (raw_r < winner_raw_r - 25.0)
+            if not is_loser_step:
+                continue
+            try:
+                w_parsed = json.loads(winner["messages"][2]["content"])
+                w_tool = str(w_parsed.get("toolCall", {}).get("name", ""))
+                w_args_json = json.dumps(w_parsed.get("toolCall", {}).get("arguments") or {}, sort_keys=True)
+            except Exception:
+                continue
+            rej_args_json = json.dumps(tool_args if isinstance(tool_args, dict) else {}, sort_keys=True)
+            if tool_name == w_tool and rej_args_json == w_args_json:
+                continue
+
+            rej_thought = str(tool_entry.get("thought") or "").strip() or f"Executing {tool_name}."
+            rejected_content = json.dumps(
+                {
+                    "thought": rej_thought,
+                    "toolCall": {
+                        "name": tool_name,
+                        "arguments": tool_args if isinstance(tool_args, dict) else {},
+                    },
+                    "goalCompleted": False,
+                }
+            )
+            margin = round(winner_raw_r - raw_r, 2)
+            key = (tid, step_idx)
+            sig = (tool_name, rej_args_json)
+            bucket = dpo_candidates.setdefault(key, {})
+            if sig not in bucket or margin > float(bucket[sig].get("margin", 0.0)):
+                bucket[sig] = {
+                    "taskId": tid,
+                    "domain": winner.get("domain") or r.get("domain"),
+                    "step": step_idx,
+                    "margin": margin,
+                    "prompt_messages": winner["messages"][:2],
+                    "chosen": winner["messages"][2]["content"],
+                    "rejected": rejected_content,
+                }
+
+    dpo_pairs: List[Dict] = []
+    for bucket in dpo_candidates.values():
+        top_two = sorted(bucket.values(), key=lambda x: float(x.get("margin", 0.0)), reverse=True)[:2]
+        dpo_pairs.extend(top_two)
+
+    with open(DPO_PAIRS_PATH, "w", encoding="utf-8") as df:
+        for p in dpo_pairs:
+            df.write(json.dumps(p) + "\n")
+
+    print(f"[RL Trainer] Clean Stratified Task Bank: {len(gold_seed_samples)} seeds + {len(task_gold_bank)} task anchors = {len(combined_dataset)} pure samples | DPO pairs: {len(dpo_pairs)}.")
 
     metrics = {
         "device": gpu_name,
@@ -543,6 +647,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         "trainingDurationSeconds": round(elapsed_s, 3),
         "replayEpisodesProcessed": len(records),
         "grpoVerifiedTrajectories": len(combined_dataset),
+        "dpoPairsSaved": len(dpo_pairs),
         "latestCheckpointSaved": str(latest_path),
         "isBestCheckpoint": is_best,
     }

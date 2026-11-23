@@ -394,6 +394,19 @@ function evaluateBuildingShelterIoU(
   const l = 5;
   const h = 4;
 
+  // Support both oy+4 (build_simple_house) and oy+3 (construct_modular_structure where groundY=oy-1) roofs
+  let roofAtH = 0;
+  let roofAtHMinus1 = 0;
+  for (let x = 1; x < w - 1; x++) {
+    for (let z = 1; z < l - 1; z++) {
+      const bTop = snap.blockAt(ox + x, oy + h, oz + z);
+      if (bTop && bTop.name !== 'air') roofAtH++;
+      const bMid = snap.blockAt(ox + x, oy + h - 1, oz + z);
+      if (bMid && bMid.name !== 'air') roofAtHMinus1++;
+    }
+  }
+  const effectiveH = roofAtHMinus1 > roofAtH ? h - 1 : h;
+
   let expectedWallRoofVoxels = 0;
   let matchedWallRoofVoxels = 0;
   let roofCoveredCells = 0;
@@ -425,14 +438,14 @@ function evaluateBuildingShelterIoU(
         }
       } else {
         totalInteriorFloorCells++;
-        const roofBlock = snap.blockAt(ox + x, oy + h, oz + z);
+        const roofBlock = snap.blockAt(ox + x, oy + effectiveH, oz + z);
         if (roofBlock && roofBlock.name !== 'air') {
           roofCoveredCells++;
         }
       }
 
-      // Check walls (dy = 0..h-1)
-      for (let dy = 0; dy < h; dy++) {
+      // Check walls (dy = 0..effectiveH-1)
+      for (let dy = 0; dy < effectiveH; dy++) {
         const b = snap.blockAt(ox + x, oy + dy, oz + z);
         if (b && b.name === 'torch') hasTorchLight = true;
 
@@ -452,9 +465,9 @@ function evaluateBuildingShelterIoU(
         }
       }
 
-      // Check roof (dy = h)
+      // Check roof (dy = effectiveH)
       expectedWallRoofVoxels++;
-      const rb = snap.blockAt(ox + x, oy + h, oz + z);
+      const rb = snap.blockAt(ox + x, oy + effectiveH, oz + z);
       if (rb && (solidMaterials.has(rb.name) || rb.name !== 'air')) {
         matchedWallRoofVoxels++;
       }
@@ -473,7 +486,7 @@ function evaluateBuildingShelterIoU(
   for (let x = 0; x < w; x++) {
     for (let z = 0; z < l; z++) {
       viewTotal++;
-      for (let dy = h; dy >= 0; dy--) {
+      for (let dy = effectiveH; dy >= 0; dy--) {
         const b = snap.blockAt(ox + x, oy + dy, oz + z);
         if (b && b.name !== 'air' && b.name !== 'torch') {
           viewHits++;
@@ -483,7 +496,7 @@ function evaluateBuildingShelterIoU(
     }
   }
   // 4 Lateral elevation views (Front/Back along Z, Left/Right along X)
-  for (let dy = 0; dy <= h; dy++) {
+  for (let dy = 0; dy <= effectiveH; dy++) {
     for (let x = 0; x < w; x++) {
       viewTotal += 2;
       // Front ray (+Z)
@@ -512,7 +525,7 @@ function evaluateBuildingShelterIoU(
   for (let x = 0; x < w; x++) {
     const mirrorX = w - 1 - x;
     for (let z = 0; z < l; z++) {
-      for (let dy = 0; dy <= h; dy++) {
+      for (let dy = 0; dy <= effectiveH; dy++) {
         const b1 = snap.blockAt(ox + x, oy + dy, oz + z);
         const b2 = snap.blockAt(ox + mirrorX, oy + dy, oz + z);
         const occ1 = Boolean(b1 && b1.name !== 'air' && b1.name !== 'torch');

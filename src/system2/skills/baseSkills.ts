@@ -3145,13 +3145,21 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.5, 0), 220);
       }
 
+      const resolvedRecipient = targetEntity?.username || playerName || 'nearby player';
       await new Promise((r) => setTimeout(r, 180));
       try {
         await ctx.bot.tossStack(matchedItem);
+        // Step back and pause briefly so we do not re-absorb our own toss before teammate picks it up
+        try {
+          ctx.bot.setControlState?.('back', true);
+          await new Promise((r) => setTimeout(r, 300));
+          ctx.bot.clearControlStates?.();
+        } catch {}
+        await new Promise((r) => setTimeout(r, 700));
         ctx.reportProgress(1.0);
         return {
           success: true,
-          summary: `Tossed ${matchedItem.count}x ${matchedItem.name} to ${playerName}.`,
+          summary: `Tossed ${matchedItem.count}x ${matchedItem.name} to ${resolvedRecipient}.`,
         };
       } catch (err: any) {
         return {
@@ -4738,14 +4746,14 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       }
 
       if (targetName.includes('pressure_plate') || targetName.includes('gold_block') || targetName.includes('emerald_block')) {
-        await ctx.kinematics.pathfindTo(foundPos, 0.5);
+        await ctx.kinematics.pathfindTo(foundPos.offset(0.5, 1.0, 0.5), 0.6);
         return {
           success: true,
           summary: `Stepped directly onto ${targetName} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}).`,
         };
       }
 
-      await ctx.kinematics.pathfindTo(foundPos, 2.4);
+      await ctx.kinematics.pathfindTo(foundPos, 1.8);
       const block = ctx.bot.blockAt(foundPos);
       if (!block) {
         return { success: false, summary: `Block at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}) disappeared.` };
@@ -4766,6 +4774,20 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       }
 
       await ctx.bot.activateBlock(block);
+      if (block.name.includes('lever')) {
+        await new Promise((r) => setTimeout(r, 250));
+        const refreshed = ctx.bot.blockAt(foundPos);
+        const isLeverPowered = (blk: any) => {
+          if (!blk) return false;
+          const p = typeof blk.getProperties === 'function' ? blk.getProperties() : {};
+          return p?.powered === true || p?.powered === 'true' || ((blk.metadata ?? 0) & 8) !== 0;
+        };
+        if (refreshed && !isLeverPowered(refreshed)) {
+          await ctx.bot.lookAt?.(foundPos.offset(0.5, 0.5, 0.5), true).catch(() => {});
+          await ctx.bot.activateBlock(refreshed);
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
       return {
         success: true,
         summary: `Activated ${block.name} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z})!`,

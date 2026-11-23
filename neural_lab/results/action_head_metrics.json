@@ -3,13 +3,15 @@
   "model": "MinecraftActionHead",
   "parameters": 211357480,
   "epochs": 4,
-  "initial_loss": 0.5591,
-  "final_loss": 0.4883,
-  "discrete_accuracy_pct": 98.03,
-  "tool_dispatch_accuracy_pct": 92.36,
-  "aim_error_deg": 4.44,
-  "peak_vram_mb": 2285.5,
-  "training_time_s": 53.63,
+  "initial_loss": 0.815,
+  "final_loss": 0.7071,
+  "discrete_accuracy_pct": 95.47,
+  "tool_dispatch_accuracy_pct": 86.46,
+  "aim_error_deg": 3.61,
+  "realTransitionsLoaded": 542,
+  "realMotorChunksLoaded": 380,
+  "peak_vram_mb": 2214.7,
+  "training_time_s": 44.95,
   "checkpoint_path": "C:\\Users\\hataj\\Documents\\Projects\\For_Fun\\Minecraft Agents\\neural_lab\\checkpoints\\action_head_latest.pt",
-  "loopIdx": 121
+  "loopIdx": 2
 }

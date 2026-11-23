@@ -34,6 +34,10 @@ export interface IterationRecord {
   passRate: number;
   tasksPassed: number;
   totalTasks: number;
+  heldOutMeanScore?: number;
+  heldOutPassRate?: number;
+  heldOutPassed?: number;
+  heldOutTotal?: number;
   rawReward?: number;
   durationSeconds?: number;
   slmInitialLoss?: number;
@@ -161,11 +165,11 @@ export function generateTrainingVisuals(): void {
   // 1. Export CSV
   const csvPath = path.join(resultsDir, 'training_history.csv');
   const csvRows = [
-    'iteration,phase,timestamp,mean_score,pass_rate_pct,tasks_passed,total_tasks,slm_initial_loss,slm_final_loss,act_aim_err_deg,survival_tier,survival_advancements,dragon_survival_score,milestone',
+    'iteration,phase,timestamp,mean_score,pass_rate_pct,tasks_passed,total_tasks,held_out_score,held_out_pass_pct,slm_initial_loss,slm_final_loss,act_aim_err_deg,survival_tier,survival_advancements,dragon_survival_score,milestone',
   ];
   for (const h of history) {
     csvRows.push(
-      `${h.iteration},"${h.phase || ''}","${h.timestamp}",${h.meanScore},${h.passRate},${h.tasksPassed},${h.totalTasks},${h.slmInitialLoss ?? ''},${h.slmFinalLoss ?? ''},${h.actAimErrorDeg ?? ''},"${h.survivalCampaign?.techTierReached ?? ''}",${h.survivalCampaign?.advancementsUnlocked?.length ?? ''},${h.dragonSurvivalScore ?? ''},"${h.milestone || ''}"`
+      `${h.iteration},"${h.phase || ''}","${h.timestamp}",${h.meanScore},${h.passRate},${h.tasksPassed},${h.totalTasks},${h.heldOutMeanScore ?? ''},${h.heldOutPassRate ?? ''},${h.slmInitialLoss ?? ''},${h.slmFinalLoss ?? ''},${h.actAimErrorDeg ?? ''},"${h.survivalCampaign?.techTierReached ?? ''}",${h.survivalCampaign?.advancementsUnlocked?.length ?? ''},${h.dragonSurvivalScore ?? ''},"${h.milestone || ''}"`
     );
   }
   fs.writeFileSync(csvPath, csvRows.join('\n'), 'utf-8');
@@ -231,6 +235,10 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
   const passPath = history
     .map((h, i) => `${i === 0 ? 'M' : 'L'} ${getX(h.iteration).toFixed(1)} ${getYScore(h.passRate).toFixed(1)}`)
     .join(' ');
+  const heldOutPoints = history.filter((h) => typeof h.heldOutMeanScore === 'number');
+  const heldOutPath = heldOutPoints
+    .map((h, i) => `${i === 0 ? 'M' : 'L'} ${getX(h.iteration).toFixed(1)} ${getYScore(h.heldOutMeanScore!).toFixed(1)}`)
+    .join(' ');
 
   const lossPoints = history.filter((h) => typeof h.slmFinalLoss === 'number');
   const lossPath = lossPoints
@@ -275,6 +283,7 @@ function renderSvgChart(history: IterationRecord[], state: PersistentTrainingSta
     return `<line x1="${margin.left}" y1="${yy}" x2="${margin.left + plotW}" y2="${yy}" stroke="#334155" stroke-width="1" stroke-dasharray="2,2"/><text x="${margin.left - 8}" y="${yy + 4}" fill="#64748b" font-size="10" text-anchor="end">${v}</text>`;
   }).join('')}
   ${passPath ? `<path d="${passPath}" fill="none" stroke="#10b981" stroke-width="2.5" stroke-dasharray="5,4"/>` : ''}
+  ${heldOutPath ? `<path d="${heldOutPath}" fill="none" stroke="#f59e0b" stroke-width="2" stroke-dasharray="3,3"/>` : ''}
   ${scorePath ? `<path d="${scorePath}" fill="none" stroke="#3b82f6" stroke-width="3"/>` : `<text x="${margin.left + plotW / 2}" y="${y1 + plotH1 / 2}" fill="#94a3b8" font-size="14" text-anchor="middle">Loop 0 Initialized — Ready for Iteration #1</text>`}
 
   <!-- Panel 2: Domain Bar Breakdown -->
@@ -480,6 +489,15 @@ function renderHtmlDashboard(history: IterationRecord[], state: PersistentTraini
             borderColor: '#10b981',
             borderWidth: 2,
             borderDash: [5, 5],
+            tension: 0.2,
+          },
+          {
+            label: '20% Held-Out Eval Score',
+            data: historyData.map(h => h.heldOutMeanScore ?? null),
+            borderColor: '#f59e0b',
+            borderWidth: 2,
+            borderDash: [3, 3],
+            spanGaps: true,
             tension: 0.2,
           }
         ]

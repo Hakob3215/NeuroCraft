@@ -673,21 +673,68 @@ export function evaluateSurvivalAdvancements(
   return { unlocked, techTier, score };
 }
 
+export function isHeldOutEvalTask(taskId: string): boolean {
+  const id = String(taskId || '');
+  if (!id.startsWith('omni_')) return false;
+  // Deterministic 20% FNV-1a split so held-out tasks stay isolated across every training loop
+  let hash = 2166136261;
+  for (let i = 0; i < id.length; i++) {
+    hash ^= id.charCodeAt(i);
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return hash % 5 === 0;
+}
+
+export const WOOD_SPECIES_POOL = ['oak', 'birch', 'spruce', 'acacia', 'jungle', 'dark_oak'] as const;
+
+export function applyRandomWoodSpecies(task: MinebenchTaskSpec, fixedSpecies?: string): MinebenchTaskSpec {
+  const tid = String(task?.id || '');
+  if (!tid.startsWith('omni_craft_') && tid !== 'prog_tier1_stone_age' && tid !== 'prog_tier3_iron_armor') {
+    return task;
+  }
+  const species =
+    fixedSpecies || WOOD_SPECIES_POOL[Math.floor(Math.random() * WOOD_SPECIES_POOL.length)];
+  if (!species || species === 'oak') return task;
+
+  const updatedPrompt = String(task.prompt || '')
+    .replace(/\boak logs\b/gi, `${species} logs`)
+    .replace(/\boak_log\b/g, `${species}_log`);
+
+  const origBuild = task.buildArenaCommands;
+  if (!origBuild) {
+    return {
+      ...task,
+      prompt: updatedPrompt,
+    };
+  }
+  return {
+    ...task,
+    prompt: updatedPrompt,
+    buildArenaCommands: (orig) =>
+      origBuild(orig).map((cmd) =>
+        cmd
+          .replace(/\boak_log\b/g, `${species}_log`)
+          .replace(/\boak_leaves\b/g, `${species}_leaves`)
+      ),
+  };
+}
+
 function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): MinebenchTaskSpec[] {
   if (!fs.existsSync(tasksPath)) return [];
   try {
     const rawAll: any[] = JSON.parse(fs.readFileSync(tasksPath, 'utf-8'));
     const omniOnly = rawAll.filter((t) => t.taskId && t.taskId.startsWith('omni_') && t.taskId !== 'omni_mob_breeze');
-    const byCat: Record<string, any[]> = {};
+    const trainByCat: Record<string, any[]> = {};
+    const evalByCat: Record<string, any[]> = {};
     for (const t of omniOnly) {
       const cat = t.category || 'tool_affordance';
-      if (!byCat[cat]) byCat[cat] = [];
-      byCat[cat].push(t);
+      const bucketMap = isHeldOutEvalTask(t.taskId) ? evalByCat : trainByCat;
+      if (!bucketMap[cat]) bucketMap[cat] = [];
+      bucketMap[cat].push(t);
     }
 
-    for (const cat in byCat) {
-      byCat[cat].sort(() => Math.random() - 0.5);
-    }
+    for (const cat in trainByCat) trainByCat[cat].sort(() => Math.random() - 0.5);
+    for (const cat in evalByCat) evalByCat[cat].sort(() => Math.random() - 0.5);
 
     const quotas: Record<string, number> = {
       tool_affordance: 8,
@@ -699,11 +746,22 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
       structure_raid: 3,
     };
 
-    const selected: any[] = [];
+    const targetEvalCount = count >= 5 ? Math.max(1, Math.round(count * 0.2)) : 0;
+    const selectedEval: any[] = [];
+    const selectedTrain: any[] = [];
+
     for (const [cat, quota] of Object.entries(quotas)) {
-      const pool = byCat[cat] || [];
-      selected.push(...pool.slice(0, quota));
+      const evalQuota = targetEvalCount > 0 ? Math.max(1, Math.round(quota * 0.2)) : 0;
+      const trainQuota = Math.max(0, quota - evalQuota);
+      if (evalQuota > 0 && evalByCat[cat]) {
+        selectedEval.push(...evalByCat[cat].slice(0, evalQuota));
+      }
+      if (trainByCat[cat]) {
+        selectedTrain.push(...trainByCat[cat].slice(0, trainQuota));
+      }
     }
+
+    const selected: any[] = [...selectedTrain.slice(0, count - targetEvalCount), ...selectedEval.slice(0, targetEvalCount)];
 
     if (selected.length < count) {
       const selectedIds = new Set(selected.map((t) => t.taskId));
@@ -826,6 +884,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
   const statePath = path.join(resultsDir, 'training_state.json');
   const replayPath = path.join(resultsDir, 'rl_replay_buffer.jsonl');
   const transitionsPath = path.join(resultsDir, 'real_rl_transitions.jsonl');
+  const motorChunksPath = path.join(resultsDir, 'real_motor_chunks.jsonl');
 
   // Load existing persistent training state or initialize
   let state: TrainingState = {
@@ -1062,9 +1121,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       const iter = state.currentIteration;
       const iterStartTime = Date.now();
       const tasksPath = path.resolve(process.cwd(), 'minebench', 'results', 'omniscience_tasks.json');
-      const sampledOmniTasks = sampleDiverseOmniscienceTasks(tasksPath, omniTaskCount);
+      const sampledOmniTasks = sampleDiverseOmniscienceTasks(tasksPath, omniTaskCount).map((t) =>
+        applyRandomWoodSpecies(t)
+      );
+      const canonicalTasks = MINEBENCH_TASKS.map((t) => applyRandomWoodSpecies(t));
       const loopTasks: MinebenchTaskSpec[] = [
-        ...MINEBENCH_TASKS,
+        ...canonicalTasks,
         ...sampledOmniTasks,
         ...MULTIPLAYER_TASKS,
       ];
@@ -1073,7 +1135,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       console.log(`\n======================================================================`);
       console.log(`>>> [Iteration #${iter}] Starting Exhaustive Anti-Collapse Curriculum Pass:`);
       console.log(`    - 16 Canonical MINEbench Challenges`);
-      console.log(`    - ${sampledOmniTasks.length} Stratified Omniscience Affordances across 7 categories`);
+      console.log(`    - ${sampledOmniTasks.length} Stratified Omniscience Affordances across 7 categories (~20% held-out)`);
       console.log(`    - ${MULTIPLAYER_TASKS.length} Guaranteed Multiplayer Scenarios`);
       console.log(`    - Total In-Game Physical Scenarios: ${numTasks}`);
       console.log(`    - Active Bot Concurrency: ${concurrency} Worker(s) (Spatial Arena Sharding ΔX=4000)`);
@@ -1082,6 +1144,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let iterPassed = 0;
       let iterScoreSum = 0;
       let iterRewardSum = 0;
+      let heldOutPassed = 0;
+      let heldOutTotal = 0;
+      let heldOutScoreSum = 0;
       const iterStepTransitions: any[] = [];
       const domainStats: Record<string, { passed: number; total: number; scoreSum: number }> = {};
 
@@ -1264,6 +1329,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 name: toolName,
                 arguments: toolArgs,
                 args: toolArgs,
+                thought: dec.thought || '',
+                planSteps: Array.isArray(dec.planSteps) ? dec.planSteps : undefined,
                 success: ok,
                 summary,
                 stepReward: rewardDelta,
@@ -1626,6 +1693,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const stepHistory: ExecutedStepRecord[] = [];
           const executedTools: any[] = [];
           const episodeTransitions: any[] = [];
+          const episodeMotorChunks: any[] = [];
           const goalPlanner = new HierarchicalGoalPlanner();
           goalPlanner.setMacroGoal(task.prompt);
           let activeGoal = task.prompt;
@@ -1691,6 +1759,21 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 continue;
               }
 
+              // Fetch real System 2 latent h (1536-dim) for passive System 1 20Hz motor chunk logging
+              let stepLatentH: number[] | null = null;
+              try {
+                const latRes = await fetch(
+                  `http://127.0.0.1:8765/vla/latest_latent?bot_id=${encodeURIComponent(worker.botUsername)}`,
+                  { signal: AbortSignal.timeout(1000) }
+                );
+                if (latRes.ok) {
+                  const latData: any = await latRes.json();
+                  if (Array.isArray(latData?.latent_h) && latData.latent_h.length === 1536) {
+                    stepLatentH = latData.latent_h;
+                  }
+                }
+              } catch {}
+
               const toolName = decision.toolCall.name;
               const toolArgs = decision.toolCall.arguments || {};
               const isBuildTool = toolName.includes('construct') || toolName.includes('build') || toolName.includes('house');
@@ -1713,6 +1796,104 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               let stepSuccess = false;
               let stepSummary = '';
               let stepReward = 0;
+
+              // Shadow 20Hz 8-tick physics sampler during live execution (up to 2 chunks/step, non-intrusive)
+              const pendingStepChunks: any[] = [];
+              let activeChunkTicks: any[] = [];
+              let activeChunkPre: {
+                voxels: number[];
+                entities: number[][];
+                proprio24: number[];
+                baseYaw: number;
+                basePitch: number;
+              } | null = null;
+              let motorSampleInterval: ReturnType<typeof setInterval> | null = null;
+
+              const flushShadowChunk = () => {
+                if (!activeChunkPre || activeChunkTicks.length < 4 || pendingStepChunks.length >= 2) {
+                  activeChunkTicks = [];
+                  activeChunkPre = null;
+                  return;
+                }
+                while (activeChunkTicks.length < 8) {
+                  activeChunkTicks.push({ ...activeChunkTicks[activeChunkTicks.length - 1] });
+                }
+                const ticks = activeChunkTicks.slice(0, 8);
+                pendingStepChunks.push({
+                  taskId: task.id,
+                  toolName,
+                  latent_h: stepLatentH,
+                  proprio24: activeChunkPre.proprio24,
+                  voxels: activeChunkPre.voxels,
+                  entities: activeChunkPre.entities,
+                  aimTargets: ticks.map((t) => [t.dyawDeg, t.dpitchDeg]),
+                  moveTargets: ticks.map((t) => [t.vx, t.vz]),
+                  discreteTargets: ticks.map((t) => [t.jump, t.sprint, t.sneak, t.attack, t.useItem, t.swapSlot]),
+                  extendedTargets: ticks.map((t) => [t.digBlock, t.dropItem]),
+                });
+                activeChunkTicks = [];
+                activeChunkPre = null;
+              };
+
+              if (stepLatentH && preRlState) {
+                const startYaw = bot.entity?.yaw || 0;
+                const startPitch = bot.entity?.pitch || 0;
+                const initProprio24 =
+                  worker.system1.vlaClient?.extractProprioception?.(bot) || new Array(24).fill(0);
+                activeChunkPre = {
+                  voxels: preRlState.voxels,
+                  entities: preRlState.entities,
+                  proprio24: initProprio24.map((v: number) => Number(Number(v || 0).toFixed(4))),
+                  baseYaw: startYaw,
+                  basePitch: startPitch,
+                };
+                const wrapDeg = (rad: number) => {
+                  let a = rad % (2 * Math.PI);
+                  if (a > Math.PI) a -= 2 * Math.PI;
+                  if (a < -Math.PI) a += 2 * Math.PI;
+                  return Number(Math.max(-180, Math.min(180, (a * 180) / Math.PI)).toFixed(2));
+                };
+                motorSampleInterval = setInterval(() => {
+                  try {
+                    if (!bot?.entity || pendingStepChunks.length >= 2) return;
+                    if (!activeChunkPre) {
+                      const s = sampleLiveRLTransitionState(worker.system1);
+                      if (!s) return;
+                      const p24 = worker.system1.vlaClient?.extractProprioception?.(bot) || new Array(24).fill(0);
+                      activeChunkPre = {
+                        voxels: s.voxels,
+                        entities: s.entities,
+                        proprio24: p24.map((v: number) => Number(Number(v || 0).toFixed(4))),
+                        baseYaw: bot.entity.yaw || 0,
+                        basePitch: bot.entity.pitch || 0,
+                      };
+                    }
+                    const cs: any = bot.controlState || {};
+                    const nowMs = Date.now();
+                    const dyawDeg = wrapDeg((bot.entity.yaw || 0) - activeChunkPre.baseYaw);
+                    const dpitchDeg = Number(
+                      Math.max(-90, Math.min(90, (((bot.entity.pitch || 0) - activeChunkPre.basePitch) * 180) / Math.PI)).toFixed(2)
+                    );
+                    activeChunkTicks.push({
+                      dyawDeg,
+                      dpitchDeg,
+                      vx: (cs.right ? 1 : 0) - (cs.left ? 1 : 0),
+                      vz: (cs.forward ? 1 : 0) - (cs.back ? 1 : 0),
+                      jump: cs.jump ? 1 : 0,
+                      sprint: cs.sprint ? 1 : 0,
+                      sneak: cs.sneak ? 1 : 0,
+                      attack: nowMs - ((bot as any)._lastAttackAt || 0) <= 120 ? 1 : 0,
+                      useItem: (bot as any).usingHeldItem ? 1 : 0,
+                      swapSlot: 0,
+                      digBlock: (bot as any).targetDigBlock ? 1 : 0,
+                      dropItem: 0,
+                    });
+                    if (activeChunkTicks.length >= 8) {
+                      flushShadowChunk();
+                    }
+                  } catch {}
+                }, 50);
+              }
 
               try {
                 const prevYaw = bot.entity?.yaw || 0;
@@ -1783,6 +1964,18 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   episodeTransitions.push(transitionRecord);
                 }
               } finally {
+                if (motorSampleInterval) {
+                  clearInterval(motorSampleInterval);
+                  motorSampleInterval = null;
+                }
+                flushShadowChunk();
+                for (const mc of pendingStepChunks) {
+                  episodeMotorChunks.push({
+                    ...mc,
+                    stepSuccess,
+                    reward: stepReward,
+                  });
+                }
                 clearTimeout(stepTimeout);
                 try {
                   bot.pathfinder?.setGoal(null);
@@ -1814,6 +2007,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 name: toolName,
                 arguments: toolArgs,
                 args: toolArgs,
+                thought: decision.thought || '',
+                planSteps: Array.isArray(decision.planSteps) ? decision.planSteps : undefined,
                 success: stepSuccess,
                 summary: stepSummary,
                 stepReward,
@@ -1866,11 +2061,17 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           server.sendCommand(`scoreboard players get ${worker.botUsername} craft_bench`);
           server.sendCommand(`scoreboard players get ${worker.botUsername} craft_pick`);
 
+          const taskIsHeldOut = isHeldOutEvalTask(task.id);
           await stateWriteMutex.runExclusive(async () => {
             state.totalEpisodesPlayed++;
             if (grading.passed) iterPassed++;
             iterScoreSum += grading.score;
             iterRewardSum += grading.rawReward;
+            if (taskIsHeldOut) {
+              heldOutTotal++;
+              if (grading.passed) heldOutPassed++;
+              heldOutScoreSum += grading.score;
+            }
 
             const bucket = classifyDomainBucket(task);
             if (!domainStats[bucket]) domainStats[bucket] = { passed: 0, total: 0, scoreSum: 0 };
@@ -1883,11 +2084,22 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               iterStepTransitions.push(tr);
             }
 
+            if (episodeMotorChunks.length > 0) {
+              for (const mc of episodeMotorChunks) {
+                fs.appendFileSync(
+                  motorChunksPath,
+                  JSON.stringify({ ...mc, episodePassed: grading.passed, episodeReward: grading.rawReward }) + '\n',
+                  'utf-8'
+                );
+              }
+            }
+
             const replayRecord = {
               timestamp: new Date().toISOString(),
               iteration: iter,
               provider: 'local_gpu',
               taskId: task.id,
+              isHeldOut: taskIsHeldOut,
               workerId: worker.id,
               botUsername: worker.botUsername,
               domain: task.domain,
@@ -1996,15 +2208,22 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         }
 
         try {
-          // 2. Trigger RTX 5060 System 2 Cognitive SLM QLoRA Fine-Tuning ('Minecraft Savant')
+          // 2. Trigger RTX 5060 System 2 Cognitive SLM Hybrid DPO+NLL QLoRA Fine-Tuning ('Minecraft Savant')
           if (fs.existsSync(venvPython) && fs.existsSync(slmScript)) {
             try {
+              const slmLr = iter <= 15 ? '1.5e-4' : iter <= 50 ? '1e-4' : '5e-5';
               const slmArgs = [
                 slmScript,
                 '--epochs',
                 '1',
                 '--lr',
-                '5e-5',
+                slmLr,
+                '--dpo-beta',
+                '0.1',
+                '--nll-weight',
+                '0.3',
+                '--label-smoothing',
+                '0.04',
                 '--loop',
                 String(iter),
                 '--max-trajectories',
@@ -2223,6 +2442,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         }
       }
 
+      const heldOutMeanScore = heldOutTotal > 0 ? Number((heldOutScoreSum / heldOutTotal).toFixed(1)) : undefined;
+      const heldOutPassRate = heldOutTotal > 0 ? Number(((heldOutPassed / heldOutTotal) * 100).toFixed(1)) : undefined;
+
       state.history.push({
         iteration: iter,
         phase: `Exhaustive Loop (${numTasks} Tasks across ${concurrency} Sharded Bots${survivalWorker ? ' + Survival' : ''})`,
@@ -2231,6 +2453,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         passRate: iterPassRate,
         tasksPassed: iterPassed,
         totalTasks: numTasks,
+        heldOutMeanScore,
+        heldOutPassRate,
+        heldOutPassed: heldOutTotal > 0 ? heldOutPassed : undefined,
+        heldOutTotal: heldOutTotal > 0 ? heldOutTotal : undefined,
         rawReward: iterTotalReward,
         durationSeconds: Math.round((Date.now() - iterStartTime) / 1000),
         slmInitialLoss: slmInitLoss,
@@ -2251,6 +2477,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       console.log(
         `✓ [Iteration #${iter} Finished in ${elapsedMinutes}m] Pass Rate: ${iterPassed}/${numTasks} (${iterPassRate}%) | Mean Score: ${iterMeanScore}/100`
       );
+      if (heldOutMeanScore !== undefined) {
+        console.log(
+          `  20% Held-Out Eval:    ${heldOutPassed}/${heldOutTotal} (${heldOutPassRate}%) | Mean Score: ${heldOutMeanScore}/100`
+        );
+      }
       console.log(
         `  All-Time Best: ${state.bestMeanScore}/100 (${state.bestPassRate}% at Iteration #${state.bestIteration})`
       );

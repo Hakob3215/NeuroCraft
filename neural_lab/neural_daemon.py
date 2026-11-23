@@ -982,6 +982,14 @@ class NeuralStackServer:
             "q_values": [round(float(v), 4) for v in q_vals.tolist()],
         })
 
+    async def handle_vla_latest_latent(self, request: web.Request) -> web.Response:
+        bot_id = str(request.query.get("bot_id", "default"))
+        latent = self.bot_latents.get(bot_id, self.latest_latent_h)
+        if latent is None:
+            return web.json_response({"bot_id": bot_id, "latent_h": None})
+        vec = [round(float(x), 3) for x in latent.detach().view(-1).cpu().tolist()[:1536]]
+        return web.json_response({"bot_id": bot_id, "latent_h": vec})
+
 
 def main():
     parser = argparse.ArgumentParser(description="NeuroCraft RTX 5060 Local Neural Daemon")
@@ -1010,6 +1018,7 @@ def main():
 
     app = web.Application()
     app.router.add_get("/health", server.handle_health)
+    app.router.add_get("/vla/latest_latent", server.handle_vla_latest_latent)
     app.router.add_post("/reflex", server.handle_reflex)
     app.router.add_post("/chunk_scan", server.handle_chunk_scan)
     app.router.add_post("/llm/chat", server.handle_llm_chat)

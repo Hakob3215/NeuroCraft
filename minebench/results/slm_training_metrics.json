@@ -3,11 +3,16 @@
   "device": "NVIDIA GeForce RTX 5060 Laptop GPU",
   "epochs": 1,
   "samplesTrained": 248,
-  "initialLoss": 0.0078,
-  "finalLoss": 0.0061,
-  "peakVramMb": 3488.1,
-  "trainingDurationSeconds": 127.17,
+  "sftSamplesTrained": 226,
+  "dpoPairsTrained": 22,
+  "dpoBeta": 0.1,
+  "nllWeight": 0.3,
+  "labelSmoothing": 0.04,
+  "initialLoss": 0.8759,
+  "finalLoss": 0.8368,
+  "peakVramMb": 3594.1,
+  "trainingDurationSeconds": 103.01,
   "savedAdapter": "C:\\Users\\hataj\\Documents\\Projects\\For_Fun\\Minecraft Agents\\neural_lab\\checkpoints\\slm_minecraft_savant_latest",
-  "isBest": false,
-  "loopIdx": 121
+  "isBest": true,
+  "loopIdx": 2
 }

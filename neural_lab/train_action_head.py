@@ -384,6 +384,112 @@ def load_real_transitions_dataset(
     )
 
 
+def load_real_motor_chunks_dataset(
+    max_samples: int = 2000,
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+    chunks_path: Optional[Path] = None,
+) -> Optional[Tuple[
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor,
+    torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor
+]]:
+    """Loads real System 2 latent_h + 24-dim proprio + 20Hz 8-tick motor chunks."""
+    target_path = chunks_path or (ROOT_DIR / "minebench" / "results" / "real_motor_chunks.jsonl")
+    if not target_path.exists():
+        return None
+
+    records = []
+    try:
+        for line in read_jsonl_tail(target_path, max_lines=max_samples):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                if (
+                    isinstance(rec.get("latent_h"), list) and len(rec["latent_h"]) == LATENT_DIM
+                    and isinstance(rec.get("proprio24"), list) and len(rec["proprio24"]) == PROPRIOCEPTION_DIM
+                    and isinstance(rec.get("voxels"), list) and len(rec["voxels"]) == 3375
+                    and isinstance(rec.get("aimTargets"), list) and len(rec["aimTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("moveTargets"), list) and len(rec["moveTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("discreteTargets"), list) and len(rec["discreteTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("extendedTargets"), list) and len(rec["extendedTargets"]) == CHUNK_SIZE
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["aimTargets"])
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["moveTargets"])
+                    and all(isinstance(row, list) and len(row) >= 6 for row in rec["discreteTargets"])
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["extendedTargets"])
+                ):
+                    records.append(rec)
+            except Exception:
+                pass
+    except Exception:
+        return None
+
+    if not records:
+        return None
+
+    n = len(records)
+    latents = torch.zeros(n, LATENT_DIM, dtype=torch.float32, device=device)
+    proprios = torch.zeros(n, PROPRIOCEPTION_DIM, dtype=torch.float32, device=device)
+    voxels = torch.zeros(n, 15, 15, 15, dtype=torch.long, device=device)
+    entities = torch.zeros(n, NUM_ENTITIES, ENTITY_FEAT_DIM, dtype=torch.float32, device=device)
+
+    tgt_aim = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_move = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_disc = torch.zeros(n, CHUNK_SIZE, 6, dtype=torch.float32, device=device)
+    tgt_ext = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_tools = torch.zeros(n, dtype=torch.long, device=device)
+    tgt_gate = torch.zeros(n, dtype=torch.float32, device=device)
+    tgt_val = torch.zeros(n, dtype=torch.float32, device=device)
+    actor_weights = torch.ones(n, dtype=torch.float32, device=device)
+
+    for i, r in enumerate(records):
+        latents[i] = torch.tensor(r["latent_h"], dtype=torch.float32, device=device).clamp(-20.0, 20.0)
+        proprios[i] = torch.tensor(r["proprio24"], dtype=torch.float32, device=device)
+        voxels[i] = torch.tensor(r["voxels"], dtype=torch.long, device=device).view(15, 15, 15).clamp(0, 31)
+
+        ents = r.get("entities", [])
+        for ei in range(min(NUM_ENTITIES, len(ents))):
+            if isinstance(ents[ei], list) and len(ents[ei]) == ENTITY_FEAT_DIM:
+                entities[i, ei] = torch.tensor(ents[ei], dtype=torch.float32, device=device)
+
+        aim_t = torch.tensor([row[:2] for row in r["aimTargets"]], dtype=torch.float32, device=device)
+        aim_t[:, 0] = aim_t[:, 0].clamp(-180.0, 180.0)
+        aim_t[:, 1] = aim_t[:, 1].clamp(-90.0, 90.0)
+        tgt_aim[i] = aim_t
+
+        tgt_move[i] = torch.tensor([row[:2] for row in r["moveTargets"]], dtype=torch.float32, device=device).clamp(-1.0, 1.0)
+        tgt_disc[i] = torch.tensor([row[:6] for row in r["discreteTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
+        tgt_ext[i] = torch.tensor([row[:2] for row in r["extendedTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
+
+        t_name = str(r.get("toolName") or "none")
+        if t_name in TOOL_TO_IDX and t_name != "none":
+            tgt_tools[i] = TOOL_TO_IDX[t_name]
+            tgt_gate[i] = 1.0
+        else:
+            tgt_tools[i] = TOOL_TO_IDX["none"]
+            tgt_gate[i] = 0.0
+
+        st_rew = float(r.get("reward", 0.0))
+        ep_rew = float(r.get("episodeReward", 0.0))
+        tgt_val[i] = max(-1.0, min(1.0, (0.5 * st_rew + 0.5 * ep_rew) / 100.0))
+
+        ep_passed = bool(r.get("episodePassed", False))
+        st_ok = bool(r.get("stepSuccess", False))
+        if ep_passed and st_ok:
+            actor_weights[i] = 1.5
+        elif st_ok:
+            actor_weights[i] = 1.0
+        else:
+            actor_weights[i] = 0.25
+
+    return (
+        latents, proprios, voxels, entities,
+        tgt_aim, tgt_move, tgt_disc, tgt_ext,
+        tgt_tools, tgt_gate, tgt_val, actor_weights
+    )
+
+
 def train_action_transformer(
     epochs: int = 4,
     batch_size: int = 64,
@@ -422,13 +528,22 @@ def train_action_transformer(
 
     real_ds = load_real_transitions_dataset(max_samples=3000, device=str(device))
     num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
-    num_synth = max(1000, 4000 - num_real)
-    print(f"[Action Head] Generating {num_synth:,} annealed synthetic + {num_real:,} real Mojang server transitions...")
+    motor_chunks_ds = load_real_motor_chunks_dataset(max_samples=2000, device=str(device))
+    num_motor_chunks = int(motor_chunks_ds[0].shape[0]) if motor_chunks_ds is not None else 0
+    num_synth = max(800, 4000 - num_real - num_motor_chunks)
+    print(
+        f"[Action Head] Generating {num_synth:,} annealed synthetic + {num_real:,} real Mojang transitions "
+        f"+ {num_motor_chunks:,} real 20Hz SLM-latent motor chunks..."
+    )
     ds = list(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)))
     if real_ds is not None:
         print(f"[Action Head] Appended {num_real} reward-weighted real server transition trajectories!")
         for idx in range(len(ds)):
             ds[idx] = torch.cat([ds[idx], real_ds[idx]], dim=0)
+    if motor_chunks_ds is not None:
+        print(f"[Action Head] Appended {num_motor_chunks} real-latent 20Hz motor chunks (real_motor_chunks.jsonl)!")
+        for idx in range(len(ds)):
+            ds[idx] = torch.cat([ds[idx], motor_chunks_ds[idx]], dim=0)
 
     dataset = TensorDataset(*ds)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -539,6 +654,8 @@ def train_action_transformer(
         "discrete_accuracy_pct": round(avg_acc, 2),
         "tool_dispatch_accuracy_pct": round(avg_tool_acc, 2),
         "aim_error_deg": round(avg_aim_deg, 2),
+        "realTransitionsLoaded": num_real,
+        "realMotorChunksLoaded": num_motor_chunks,
         "peak_vram_mb": round(peak_vram, 1),
         "training_time_s": round(total_time, 2),
         "checkpoint_path": str(ckpt_path),

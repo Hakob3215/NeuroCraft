@@ -37,6 +37,7 @@ logs/
 
 # Training Replay Buffers & Archives
 archive_*/
+v1_archive/
 legacy_baseline/
 scratch/
 *.jsonl

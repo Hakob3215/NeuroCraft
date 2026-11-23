@@ -109,7 +109,13 @@ export function computeGroundedAffordances(state: SanitizedWorldState): Grounded
 
   // Immediate craftability based strictly on current inventory items + table access
   const craftableNow: string[] = [];
-  if (logs >= 1) craftableNow.push('oak_planks');
+  const plankTypes = new Set<string>();
+  for (const it of inv) {
+    const n = (it.name || '').toLowerCase();
+    if (n.endsWith('_log')) plankTypes.add(n.replace(/_log$/, '_planks'));
+    else if (n.endsWith('_stem')) plankTypes.add(n.replace(/_stem$/, '_planks'));
+  }
+  for (const pt of plankTypes) craftableNow.push(pt);
   if (planks >= 2) craftableNow.push('stick');
   if (planks >= 4) craftableNow.push('crafting_table');
   if ((coal >= 1) && sticks >= 1) craftableNow.push('torch');

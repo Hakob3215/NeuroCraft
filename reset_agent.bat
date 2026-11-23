@@ -34,8 +34,12 @@ if exist "logs\*.log" (
 echo [Reset] Clearing legacy replay buffers and metrics in minebench\results\...
 if exist "minebench\results\rl_replay_buffer.jsonl" del /q "minebench\results\rl_replay_buffer.jsonl"
 if exist "minebench\results\real_rl_transitions.jsonl" del /q "minebench\results\real_rl_transitions.jsonl"
+if exist "minebench\results\real_motor_chunks.jsonl" del /q "minebench\results\real_motor_chunks.jsonl"
+if exist "minebench\results\dpo_pairs.jsonl" del /q "minebench\results\dpo_pairs.jsonl"
+if exist "minebench\results\dragon_survival_telemetry.json" del /q "minebench\results\dragon_survival_telemetry.json"
 if exist "minebench\results\slm_training_metrics.json" del /q "minebench\results\slm_training_metrics.json"
 if exist "minebench\results\rl_training_metrics.json" del /q "minebench\results\rl_training_metrics.json"
+if exist "neural_lab\results\action_head_metrics.json" del /q "neural_lab\results\action_head_metrics.json"
 
 echo [Reset] Clearing legacy RL, ACT, and SLM LoRA checkpoints in neural_lab\checkpoints\...
 if exist "neural_lab\checkpoints\voxel_reflex_policy_loop*.pt" del /q "neural_lab\checkpoints\voxel_reflex_policy_loop*.pt"

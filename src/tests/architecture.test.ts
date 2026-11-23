@@ -2572,6 +2572,341 @@ test('49. Zero-loss inference VRAM optimization, step-history inventory dedup, a
   assert.ok(reloadFallback.includes('/shutdown') && reloadFallback.includes('neural_daemon.py'), 'train_loop.ts must respawn neural_daemon.py on reload failure');
 });
 
+test('50. Building shelter IoU supports oy+3 and oy+4 roofs, held-out split holds ~20% omni tasks, and rl_trainer excludes held-out records', () => {
+  const { execFileSync } = require('child_process');
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+  const { isHeldOutEvalTask } = require('../../minebench/dist/minebench/train_loop');
+
+  const shelterTask = MINEBENCH_TASKS.find((t: any) => t.id === 'build_enclosed_shelter');
+  assert.ok(shelterTask, 'build_enclosed_shelter spec must exist');
+  const ox = shelterTask.origin.x + 2;
+  const oy = shelterTask.origin.y;
+  const oz = shelterTask.origin.z + 2;
+
+  const makeCabinSnap = (roofH: number): any => ({
+    botPosition: { x: ox + 2, y: oy, z: oz + 2 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    entities: [],
+    stats: { blocksPlaced: 40, blocksMined: 0, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0, endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0, ironPickaxeDurabilityUsedOnStone: 0 },
+    blockAt: (bx: number, by: number, bz: number) => {
+      const rx = bx - ox;
+      const ry = by - oy;
+      const rz = bz - oz;
+      if (rx >= 0 && rx < 5 && rz >= 0 && rz < 5) {
+        if (ry === -1) return { name: 'grass_block' };
+        if (ry === roofH) return { name: 'oak_planks' };
+        if (ry >= 0 && ry < roofH) {
+          const isPerim = rx === 0 || rx === 4 || rz === 0 || rz === 4;
+          if (isPerim) {
+            if (rx === 1 && rz === 0 && ry === 2) return { name: 'torch' };
+            return { name: 'oak_planks' };
+          }
+        }
+      }
+      return { name: 'air' };
+    },
+  });
+
+  const resH4 = evaluateMinebenchEpisode({ ...shelterTask, taskId: 'build_enclosed_shelter' } as any, makeCabinSnap(4));
+  const resH3 = evaluateMinebenchEpisode({ ...shelterTask, taskId: 'build_enclosed_shelter' } as any, makeCabinSnap(3));
+  assert.equal(resH4.passed, true, `oy+4 roof cabin must pass (score=${resH4.score})`);
+  assert.equal(resH3.passed, true, `oy+3 roof cabin must pass (score=${resH3.score})`);
+
+  // Deterministic ~20% held-out split across omni_* tasks, false on non-omni tasks
+  assert.equal(isHeldOutEvalTask('prog_tier1_stone_age'), false);
+  assert.equal(isHeldOutEvalTask('combat_zombie_skirmish'), false);
+  assert.equal(isHeldOutEvalTask('coop_give_tool'), false);
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasksRaw: any[] = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8')
+  );
+  const omniIds = tasksRaw.filter((t) => t.taskId?.startsWith('omni_')).map((t) => t.taskId);
+  assert.ok(omniIds.length >= 20, 'omniscience_tasks.json must contain omni_ tasks');
+  const heldOutCount = omniIds.filter((id) => isHeldOutEvalTask(id)).length;
+  const ratio = heldOutCount / omniIds.length;
+  assert.ok(ratio >= 0.1 && ratio <= 0.32, `held-out ratio expected ~0.20, got ${ratio.toFixed(3)}`);
+  // Check determinism across repeated calls
+  assert.equal(isHeldOutEvalTask(omniIds[0]), isHeldOutEvalTask(omniIds[0]));
+
+  // Verify rl_trainer.py excludes isHeldOut: true records from both GRPO and DPO
+  const rlTrainerSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'rl_trainer.py'), 'utf8');
+  assert.ok(rlTrainerSrc.includes('if bool(r.get("isHeldOut", False)):'), 'rl_trainer.py must skip isHeldOut records');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import sys
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+import minebench.rl_trainer as rt
+src_lines = open(rt.__file__, 'r', encoding='utf-8').read()
+assert src_lines.count('isHeldOut') >= 2, 'isHeldOut guard must cover GRPO and DPO loops'
+print('OK')
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim(), 'OK');
+});
+
+test('51. Multi-species plank affordances, random wood arena transform, required-arg validation, and real thought preservation', () => {
+  const { execFileSync } = require('child_process');
+  const { computeGroundedAffordances } = require('../system2/goalPlanner');
+  const { applyRandomWoodSpecies } = require('../../minebench/dist/minebench/train_loop');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const birchAff = computeGroundedAffordances({
+    inventory: [{ name: 'birch_log', count: 3, slot: 0 }],
+    nearbyResources: [],
+    nearbyEntities: [],
+    nearbyBlocks: [],
+    health: 20,
+    food: 20,
+  } as any);
+  assert.ok(birchAff.craftableNow.includes('birch_planks'), 'birch_log must yield birch_planks');
+  assert.ok(!birchAff.craftableNow.includes('oak_planks'), 'birch_log must not yield fake oak_planks');
+
+  const crimsonAff = computeGroundedAffordances({
+    inventory: [{ name: 'crimson_stem', count: 2, slot: 0 }],
+    nearbyResources: [],
+    nearbyEntities: [],
+    nearbyBlocks: [],
+    health: 20,
+    food: 20,
+  } as any);
+  assert.ok(crimsonAff.craftableNow.includes('crimson_planks'), 'crimson_stem must yield crimson_planks');
+
+  const tier1 = MINEBENCH_TASKS.find((t: any) => t.id === 'prog_tier1_stone_age');
+  assert.ok(tier1);
+  const transformed = applyRandomWoodSpecies(tier1, 'birch');
+  assert.ok(transformed.buildArenaCommands, 'buildArenaCommands must remain callable');
+  const cmds = transformed.buildArenaCommands({ x: 0, y: 64, z: 0 });
+  assert.ok(cmds.some((c: string) => c.includes('birch_log')), 'Transformed arena commands must spawn birch_log');
+  assert.ok(!cmds.some((c: string) => c.includes('oak_log')), 'Transformed arena commands must not spawn oak_log');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+import minebench.rl_trainer as rt
+
+assert rt.has_required_args("craft_item", {}) is False
+assert rt.has_required_args("craft_item", {"itemName": ""}) is False
+assert rt.has_required_args("craft_item", {"itemName": "stone_pickaxe"}) is True
+assert rt.has_required_args("gather_resource", {}) is False
+assert rt.has_required_args("gather_resource", {"blockType": "birch_log"}) is True
+assert rt.has_required_args("smelt_item", {}) is False
+assert rt.has_required_args("smelt_item", {"inputItem": "raw_iron"}) is True
+assert rt.has_required_args("equip_armor_or_item", {}) is False
+assert rt.has_required_args("equip_armor_or_item", {"itemName": "iron_sword"}) is True
+assert rt.has_required_args("equip_best_gear", {}) is True
+
+# Verify train_rl_from_replay rejects empty-arg calls from GRPO, mines them as DPO negatives, and preserves real thought
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    rows = [
+        {
+            "taskId": "omni_craft_stone_pickaxe",
+            "domain": "craft",
+            "prompt": "Craft a stone pickaxe",
+            "passed": True,
+            "score": 100,
+            "rawReward": 95.0,
+            "executedTools": [
+                {"name": "craft_item", "args": {"itemName": "stone_pickaxe"}, "success": True, "thought": "Synthesizing stone pickaxe at table."}
+            ],
+        },
+        {
+            "taskId": "omni_craft_stone_pickaxe",
+            "domain": "craft",
+            "prompt": "Craft a stone pickaxe",
+            "passed": False,
+            "score": 0,
+            "rawReward": 5.0,
+            "executedTools": [
+                {"name": "craft_item", "args": {}, "success": False, "thought": "Trying empty craft args."}
+            ],
+        },
+        {
+            "taskId": "omni_heldout_ignored",
+            "domain": "craft",
+            "isHeldOut": True,
+            "prompt": "Held out",
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [
+                {"name": "craft_item", "args": {"itemName": "iron_pickaxe"}, "success": True, "thought": "Should never leak."}
+            ],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(r) for r in rows) + "\\n", encoding="utf-8")
+    trans_row = {"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}
+    trans_p.write_text(json.dumps(trans_row) + "\\n", encoding="utf-8")
+    orig_paths = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH = replay_p
+        rt.REAL_TRANSITIONS_PATH = trans_p
+        rt.GRPO_DATASET_PATH = grpo_p
+        rt.DPO_PAIRS_PATH = dpo_p
+        rt.RL_METRICS_PATH = metrics_p
+        rt.CHECKPOINT_DIR = tp / "ckpt"
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.RESULTS_DIR = tp / "res"
+        rt.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert all(g.get("taskId") != "omni_heldout_ignored" for g in grpo_items), "Held-out task leaked to GRPO"
+        real_winners = [g for g in grpo_items if g.get("taskId") == "omni_craft_stone_pickaxe"]
+        assert len(real_winners) >= 1
+        win_msg = json.loads(real_winners[0]["messages"][2]["content"])
+        assert win_msg["thought"] == "Synthesizing stone pickaxe at table.", win_msg
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 1, f"Expected 1 DPO pair, got {len(dpo_items)}"
+        rej_msg = json.loads(dpo_items[0]["rejected"])
+        assert rej_msg["toolCall"]["arguments"] == {}
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig_paths
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('52. SLM stratified domain sampling and Hybrid DPO+NLL with r=16 Full-MLP LoRA disable_adapter on CPU', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import sys, torch
+import torch.nn.functional as F
+from transformers import Qwen2Config, Qwen2ForCausalLM
+from peft import LoraConfig, get_peft_model
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from minebench.slm_trainer import stratified_sample_by_domain, compute_masked_logp_and_nll
+
+items = [{"domain": "combat", "i": i} for i in range(90)] + [{"domain": "puzzle", "i": i} for i in range(10)]
+sampled = stratified_sample_by_domain(items, 20)
+assert len(sampled) == 20
+puz = sum(1 for x in sampled if x["domain"] == "puzzle")
+cmb = sum(1 for x in sampled if x["domain"] == "combat")
+assert puz == 10 and cmb == 10, (puz, cmb)
+
+torch.manual_seed(42)
+cfg = Qwen2Config(
+    vocab_size=128,
+    hidden_size=32,
+    intermediate_size=64,
+    num_hidden_layers=1,
+    num_attention_heads=2,
+    num_key_value_heads=2,
+)
+base = Qwen2ForCausalLM(cfg)
+lora_cfg = LoraConfig(
+    r=16,
+    lora_alpha=32,
+    target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+    lora_dropout=0.05,
+    bias="none",
+    task_type="CAUSAL_LM",
+)
+model = get_peft_model(base, lora_cfg)
+model.train()
+
+ch_ids = torch.randint(0, 128, (1, 16))
+rej_ids = torch.randint(0, 128, (1, 16))
+mask = torch.ones((1, 16), dtype=torch.long)
+lbl_w = ch_ids.clone(); lbl_w[:, :8] = -100
+lbl_l = rej_ids.clone(); lbl_l[:, :8] = -100
+
+with torch.no_grad():
+    with model.disable_adapter():
+        ref_w, _ = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.0)
+        ref_l, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+assert ref_w is not None and ref_l is not None and torch.isfinite(ref_w) and torch.isfinite(ref_l)
+
+pi_w, chosen_nll = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
+pi_l, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+assert pi_w is not None and chosen_nll is not None and pi_l is not None
+
+loss = -F.logsigmoid(0.1 * ((pi_w - ref_w) - (pi_l - ref_l))) + 0.3 * chosen_nll
+assert torch.isfinite(loss), loss.item()
+loss.backward()
+grads = [p.grad for n, p in model.named_parameters() if "lora_" in n and p.requires_grad and p.grad is not None]
+assert len(grads) > 0, "Expected gradients on r=16 Full-MLP LoRA weights"
+assert all(torch.isfinite(g).all() for g in grads)
+
+# Unpaired NLL fallback check
+model.zero_grad(set_to_none=True)
+_, unpaired_nll = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
+assert unpaired_nll is not None and torch.isfinite(unpaired_nll)
+unpaired_nll.backward()
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('53. ActionHead load_real_motor_chunks_dataset loads 1536-dim latent_h, 24-dim proprio, and 8-tick 20Hz trajectories', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile, torch
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from neural_lab.train_action_head import load_real_motor_chunks_dataset, TOOL_TO_IDX
+
+with tempfile.TemporaryDirectory() as tmp:
+    p = Path(tmp) / "real_motor_chunks.jsonl"
+    latent = [round(0.25 if i == 5 else -0.1, 3) for i in range(1536)]
+    proprio = [0.5] * 24
+    voxels = [17 if i == 100 else 0 for i in range(3375)]
+    entities = [[0.1, 0.2, 0.3, 0.4, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0]]
+    valid_rec = {
+        "taskId": "combat_zombie_skirmish",
+        "toolName": "engage_combat",
+        "latent_h": latent,
+        "proprio24": proprio,
+        "voxels": voxels,
+        "entities": entities,
+        "aimTargets": [[15.0, -5.0]] * 8,
+        "moveTargets": [[0.0, 1.0]] * 8,
+        "discreteTargets": [[0, 1, 0, 1, 0, 0]] * 8,
+        "extendedTargets": [[0, 0]] * 8,
+        "stepSuccess": True,
+        "reward": 80.0,
+        "episodePassed": True,
+        "episodeReward": 90.0,
+    }
+    bad_rec = {"taskId": "broken", "latent_h": [1.0, 2.0], "voxels": []}
+    p.write_text(json.dumps(valid_rec) + "\\n" + json.dumps(bad_rec) + "\\n", encoding="utf-8")
+
+    ds = load_real_motor_chunks_dataset(max_samples=16, device="cpu", chunks_path=p)
+    assert ds is not None and len(ds) == 12
+    lat_t, prop_t, vox_t, ent_t, aim_t, mov_t, disc_t, ext_t, tool_t, gate_t, val_t, w_t = ds
+    assert tuple(lat_t.shape) == (1, 1536)
+    assert tuple(prop_t.shape) == (1, 24)
+    assert tuple(vox_t.shape) == (1, 15, 15, 15) and vox_t.dtype == torch.long
+    assert tuple(ent_t.shape) == (1, 16, 12)
+    assert tuple(aim_t.shape) == (1, 8, 2)
+    assert tuple(mov_t.shape) == (1, 8, 2)
+    assert tuple(disc_t.shape) == (1, 8, 6)
+    assert tuple(ext_t.shape) == (1, 8, 2)
+    assert tuple(tool_t.shape) == (1,) and int(tool_t[0].item()) == TOOL_TO_IDX["engage_combat"]
+    assert float(gate_t[0].item()) == 1.0
+    assert abs(float(lat_t[0, 5].item()) - 0.25) < 1e-4
+    assert abs(float(w_t[0].item()) - 1.5) < 1e-4
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 
