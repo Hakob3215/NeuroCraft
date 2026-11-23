@@ -257,7 +257,12 @@ export function evaluateOmniscienceMilestones(
       const totalKills = Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0);
       const tamed = (snap.stats.wolvesTamed || 0) > 0;
       const sheared = invNames.some((n) => n.includes('wool'));
-      const peacefulMobs = ['cow', 'sheep', 'wolf', 'piglin', 'villager', 'cat', 'horse', 'ocelot', 'fox', 'dolphin', 'squid', 'glow_squid'];
+      const peacefulMobs = [
+        'cow', 'sheep', 'wolf', 'piglin', 'villager', 'cat', 'horse', 'ocelot', 'fox', 'dolphin', 'squid', 'glow_squid',
+        'pig', 'chicken', 'rabbit', 'donkey', 'mule', 'llama', 'trader_llama', 'mooshroom', 'panda', 'turtle', 'bee',
+        'goat', 'axolotl', 'frog', 'camel', 'sniffer', 'allay', 'strider', 'parrot', 'bat', 'iron_golem', 'snow_golem',
+        'polar_bear', 'wandering_trader', 'cod', 'salmon', 'pufferfish', 'tropical_fish', 'tadpole',
+      ];
       const isPeacefulTarget = peacefulMobs.includes((task.targetObject || '').toLowerCase());
       const hasInteracted =
         tamed ||
@@ -345,9 +350,14 @@ function evaluateAgilityTask(
     snap.botPosition.y - goalY,
     snap.botPosition.z - goalZ
   );
+  const horizGoalDist = Math.hypot(
+    snap.botPosition.x - goalX,
+    snap.botPosition.z - goalZ
+  );
+  const minGoalY = task.id === 'agility_sky_parkour' ? goalY + 0.5 : goalY - 0.5;
 
   const fellInVoidOrLava = snap.botPosition.y < task.origin.y - 2.5 || snap.deaths > 0;
-  const reachedGoal = distToGoal <= 2.5 && !fellInVoidOrLava;
+  const reachedGoal = horizGoalDist <= 2.5 && snap.botPosition.y >= minGoalY && !fellInVoidOrLava;
 
   // MINEbench 2.0 Granular Continuous Scoring:
   // Awards dense credit for blocks placed and forward progression, with a softened void penalty
@@ -782,7 +792,22 @@ function evaluatePuzzleTask(
   snap: MinebenchEvaluationSnapshot
 ): MinebenchGradingResult {
   if (task.id === 'puzzle_redstone_lever') {
-    const flipped = snap.stats.leversFlipped > 0;
+    const leverBlock: any = snap.blockAt(task.origin.x + 3, task.origin.y + 1, task.origin.z - 1);
+    const leverProps =
+      typeof leverBlock?.getProperties === 'function'
+        ? leverBlock.getProperties()
+        : (leverBlock?._properties ?? leverBlock?.properties ?? {});
+    const isLivePowered =
+      leverBlock?.name === 'lever' &&
+      leverProps &&
+      'powered' in leverProps &&
+      (leverProps.powered === true || leverProps.powered === 'true');
+    const flipped =
+      leverBlock?.name === 'lever' && leverProps && 'powered' in leverProps
+        ? isLivePowered
+        : leverBlock && leverBlock.name !== 'lever'
+          ? false
+          : snap.stats.leversFlipped > 0;
     const goalDist = Math.hypot(
       snap.botPosition.x - (task.origin.x + 6),
       snap.botPosition.z - task.origin.z
@@ -794,7 +819,7 @@ function evaluatePuzzleTask(
       score,
       rawReward: score,
       maxScore: 100,
-      metrics: { leverFlipped: flipped, onGoldBlock: onGold, goalDist: Number(goalDist.toFixed(2)) },
+      metrics: { leverFlipped: flipped, liveLeverPowered: isLivePowered, onGoldBlock: onGold, goalDist: Number(goalDist.toFixed(2)) },
       breakdown: `LeverFlipped=${flipped}, ReachedGoldPad=${onGold} (dist=${goalDist.toFixed(1)}m).`,
     };
   }

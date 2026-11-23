@@ -32,6 +32,7 @@ from torch.utils.data import DataLoader
 from peft import LoraConfig, PeftModel, get_peft_model
 from transformers import AutoModelForCausalLM, AutoTokenizer
 from neural_lab.mc_tokens import register_minecraft_tokens
+from minebench.rl_trainer import VALID_MCP_TOOLS
 
 CHECKPOINT_DIR = ROOT_DIR / "neural_lab" / "checkpoints"
 RESULTS_DIR = ROOT_DIR / "minebench" / "results"
@@ -78,6 +79,40 @@ def stratified_sample_by_domain(items: List[Dict], max_items: int) -> List[Dict]
     return selected
 
 
+def filter_valid_tool_trajectory(traj: Dict) -> Optional[Dict]:
+    """Ensures every SFT trajectory has valid JSON and a registered MCP toolCall name in VALID_MCP_TOOLS."""
+    if not isinstance(traj, dict):
+        return None
+    msgs = traj.get("messages", [])
+    if not isinstance(msgs, list) or len(msgs) < 3 or msgs[-1].get("role") != "assistant":
+        return None
+    raw_content = msgs[-1].get("content")
+    if not isinstance(raw_content, str):
+        return None
+    try:
+        parsed = json.loads(raw_content)
+    except Exception:
+        return None
+    if not isinstance(parsed, dict):
+        return None
+    if "toolCall" not in parsed and isinstance(parsed.get("executedTools"), list) and parsed["executedTools"]:
+        first_t = parsed["executedTools"][0]
+        if isinstance(first_t, dict):
+            parsed["toolCall"] = {
+                "name": first_t.get("name", "idle"),
+                "arguments": first_t.get("args") or first_t.get("arguments") or {},
+            }
+            msgs[-1]["content"] = json.dumps(parsed)
+    tc = parsed.get("toolCall")
+    if not isinstance(tc, dict):
+        return None
+    tname = str(tc.get("name") or "").strip()
+    targs = tc.get("arguments")
+    if not tname or tname not in VALID_MCP_TOOLS or not isinstance(targs, dict):
+        return None
+    return traj
+
+
 def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
     """Loads domain-stratified high-advantage trajectories from Omniscience, VLA, and GRPO datasets."""
     grpo_trajectories: List[Dict] = []
@@ -87,10 +122,12 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
                 line = line.strip()
                 if line:
                     try:
-                        grpo_trajectories.append(json.loads(line))
+                        parsed_traj = filter_valid_tool_trajectory(json.loads(line))
+                        if parsed_traj is not None:
+                            grpo_trajectories.append(parsed_traj)
                     except Exception:
                         pass
-        print(f"[SLM Trainer] Loaded {len(grpo_trajectories)} real-world trajectories from GRPO Dataset.")
+        print(f"[SLM Trainer] Loaded {len(grpo_trajectories)} valid tool trajectories from GRPO Dataset.")
 
     gold_trajectories: List[Dict] = []
     omni_path = RESULTS_DIR / "omniscience_gold_dataset.jsonl"
@@ -100,7 +137,9 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
                 line = line.strip()
                 if line:
                     try:
-                        gold_trajectories.append(json.loads(line))
+                        parsed_traj = filter_valid_tool_trajectory(json.loads(line))
+                        if parsed_traj is not None:
+                            gold_trajectories.append(parsed_traj)
                     except Exception:
                         pass
 
@@ -111,7 +150,9 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
                 line = line.strip()
                 if line:
                     try:
-                        gold_trajectories.append(json.loads(line))
+                        parsed_traj = filter_valid_tool_trajectory(json.loads(line))
+                        if parsed_traj is not None:
+                            gold_trajectories.append(parsed_traj)
                     except Exception:
                         pass
 
@@ -122,22 +163,6 @@ def load_training_trajectories(max_trajectories: int = 512) -> List[Dict]:
     selected_gold = stratified_sample_by_domain(gold_trajectories, remaining_quota)
     trajectories = selected_grpo + selected_gold
     random.shuffle(trajectories)
-
-    # Ensure all trajectories have canonical toolCall in assistant message
-    for traj in trajectories:
-        msgs = traj.get("messages", [])
-        if len(msgs) >= 3 and msgs[2].get("role") == "assistant":
-            try:
-                content = json.loads(msgs[2]["content"])
-                if "toolCall" not in content and "executedTools" in content and content["executedTools"]:
-                    first_t = content["executedTools"][0]
-                    content["toolCall"] = {
-                        "name": first_t.get("name", "idle"),
-                        "arguments": first_t.get("args") or first_t.get("arguments") or {},
-                    }
-                    msgs[2]["content"] = json.dumps(content)
-            except Exception:
-                pass
 
     print(f"[SLM Trainer] Active balanced training dataset: {len(trajectories)} samples ({len(selected_grpo)} real experience, {len(trajectories) - len(selected_grpo)} gold demonstrations).")
     return trajectories

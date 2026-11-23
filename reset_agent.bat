@@ -41,6 +41,9 @@ if exist "minebench\results\slm_training_metrics.json" del /q "minebench\results
 if exist "minebench\results\rl_training_metrics.json" del /q "minebench\results\rl_training_metrics.json"
 if exist "neural_lab\results\action_head_metrics.json" del /q "neural_lab\results\action_head_metrics.json"
 
+echo [Reset] Clearing stale Open-World Survival chunks in minebench\server\world\...
+if exist "minebench\server\world" rmdir /s /q "minebench\server\world"
+
 echo [Reset] Clearing legacy RL, ACT, and SLM LoRA checkpoints in neural_lab\checkpoints\...
 if exist "neural_lab\checkpoints\voxel_reflex_policy_loop*.pt" del /q "neural_lab\checkpoints\voxel_reflex_policy_loop*.pt"
 if exist "neural_lab\checkpoints\voxel_reflex_policy_latest.pt" del /q "neural_lab\checkpoints\voxel_reflex_policy_latest.pt"

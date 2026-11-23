@@ -37,8 +37,8 @@
     ],
     "expectedTool": "navigate_parkour_or_bridge",
     "expectedToolArgs": {
-      "mode": "parkour",
-      "targetBlock": "gold_block"
+      "goalBlock": "gold_block",
+      "allowBridge": false
     },
     "evaluatorMilestones": [
       {
@@ -90,8 +90,8 @@
     ],
     "expectedTool": "navigate_parkour_or_bridge",
     "expectedToolArgs": {
-      "mode": "bridge",
-      "targetBlock": "gold_block"
+      "goalBlock": "gold_block",
+      "allowBridge": true
     },
     "evaluatorMilestones": [
       {
@@ -159,7 +159,11 @@
     ],
     "expectedTool": "build_simple_house",
     "expectedToolArgs": {
-      "material": "oak_planks"
+      "width": 5,
+      "length": 5,
+      "height": 3,
+      "wallBlock": "oak_planks",
+      "roofBlock": "oak_planks"
     },
     "evaluatorMilestones": [
       {
@@ -215,7 +219,11 @@
     ],
     "expectedTool": "build_simple_house",
     "expectedToolArgs": {
-      "material": "stone_bricks"
+      "width": 5,
+      "length": 5,
+      "height": 4,
+      "wallBlock": "stone_bricks",
+      "roofBlock": "stone_bricks"
     },
     "evaluatorMilestones": [
       {
@@ -260,7 +268,7 @@
     "expectedTool": "pillar_up",
     "expectedToolArgs": {
       "height": 5,
-      "blockType": "cobblestone"
+      "blockName": "cobblestone"
     },
     "evaluatorMilestones": [
       {
@@ -569,9 +577,9 @@
       "<|item:wheat_seeds|>",
       "<|act:harvest_crops|>"
     ],
-    "expectedTool": "farm_crops",
+    "expectedTool": "till_and_farm",
     "expectedToolArgs": {
-      "cropType": "wheat"
+      "plots": 4
     },
     "evaluatorMilestones": [
       {
@@ -622,8 +630,8 @@
     ],
     "expectedTool": "tame_animal",
     "expectedToolArgs": {
-      "mobType": "wolf",
-      "itemUsed": "bone"
+      "animalType": "wolf",
+      "itemName": "bone"
     },
     "evaluatorMilestones": [
       {
@@ -662,7 +670,7 @@
       "<|act:interact_block|>",
       "<|item:lever|>"
     ],
-    "expectedTool": "interact_block",
+    "expectedTool": "interact_block_or_puzzle",
     "expectedToolArgs": {
       "blockType": "lever"
     },
@@ -835,7 +843,8 @@
     ],
     "expectedTool": "craft_recipe",
     "expectedToolArgs": {
-      "itemName": "all_armor"
+      "itemName": "iron_chestplate",
+      "count": 1
     },
     "evaluatorMilestones": [
       {
@@ -1027,9 +1036,10 @@
     "expectedActionTokens": [
       "<|act:interact_block|> <|item:oak_log|>"
     ],
-    "expectedTool": "strip_log",
+    "expectedTool": "use_tool_on_block",
     "expectedToolArgs": {
-      "blockName": "oak_log"
+      "tool": "iron_axe",
+      "targetBlock": "oak_log"
     },
     "evaluatorMilestones": [
       {
@@ -1505,9 +1515,9 @@
     "expectedActionTokens": [
       "<|act:till_and_plant|>"
     ],
-    "expectedTool": "till_and_plant",
+    "expectedTool": "till_and_farm",
     "expectedToolArgs": {
-      "cropType": "wheat_seeds"
+      "plots": 1
     },
     "evaluatorMilestones": [
       {
@@ -2306,9 +2316,9 @@
     "expectedActionTokens": [
       "<|act:consume|> <|item:milk_bucket|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "milk_bucket"
+      "foodName": "milk_bucket"
     },
     "evaluatorMilestones": [
       {
@@ -2434,9 +2444,10 @@
     "expectedActionTokens": [
       "<|act:shield_block|> <|target:skeleton|>"
     ],
-    "expectedTool": "shield_block",
+    "expectedTool": "engage_combat",
     "expectedToolArgs": {
-      "direction": "forward"
+      "targetType": "skeleton",
+      "useShield": true
     },
     "evaluatorMilestones": [
       {
@@ -2558,10 +2569,10 @@
     "expectedActionTokens": [
       "<|act:use_item|> <|target:pig|>"
     ],
-    "expectedTool": "use_tool_on_entity",
+    "expectedTool": "use_tool_on_block",
     "expectedToolArgs": {
       "tool": "fishing_rod",
-      "targetEntity": "pig"
+      "targetBlock": "pig"
     },
     "evaluatorMilestones": [
       {
@@ -2853,16 +2864,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:apple|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "apple"
+      "foodName": "apple"
     },
     "evaluatorMilestones": [
       {
@@ -2895,16 +2906,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:mushroom_stew|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "mushroom_stew"
+      "foodName": "mushroom_stew"
     },
     "evaluatorMilestones": [
       {
@@ -2937,16 +2948,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:bread|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "bread"
+      "foodName": "bread"
     },
     "evaluatorMilestones": [
       {
@@ -2979,16 +2990,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:porkchop|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "porkchop"
+      "foodName": "porkchop"
     },
     "evaluatorMilestones": [
       {
@@ -3021,16 +3032,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_porkchop|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_porkchop"
+      "foodName": "cooked_porkchop"
     },
     "evaluatorMilestones": [
       {
@@ -3063,16 +3074,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:golden_apple|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "golden_apple"
+      "foodName": "golden_apple"
     },
     "evaluatorMilestones": [
       {
@@ -3105,16 +3116,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:enchanted_golden_apple|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "enchanted_golden_apple"
+      "foodName": "enchanted_golden_apple"
     },
     "evaluatorMilestones": [
       {
@@ -3147,16 +3158,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cod|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cod"
+      "foodName": "cod"
     },
     "evaluatorMilestones": [
       {
@@ -3189,16 +3200,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:salmon|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "salmon"
+      "foodName": "salmon"
     },
     "evaluatorMilestones": [
       {
@@ -3231,16 +3242,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:tropical_fish|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "tropical_fish"
+      "foodName": "tropical_fish"
     },
     "evaluatorMilestones": [
       {
@@ -3273,16 +3284,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:pufferfish|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "pufferfish"
+      "foodName": "pufferfish"
     },
     "evaluatorMilestones": [
       {
@@ -3315,16 +3326,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_cod|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_cod"
+      "foodName": "cooked_cod"
     },
     "evaluatorMilestones": [
       {
@@ -3357,16 +3368,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_salmon|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_salmon"
+      "foodName": "cooked_salmon"
     },
     "evaluatorMilestones": [
       {
@@ -3399,16 +3410,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cookie|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cookie"
+      "foodName": "cookie"
     },
     "evaluatorMilestones": [
       {
@@ -3441,16 +3452,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:melon_slice|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "melon_slice"
+      "foodName": "melon_slice"
     },
     "evaluatorMilestones": [
       {
@@ -3483,16 +3494,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:dried_kelp|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "dried_kelp"
+      "foodName": "dried_kelp"
     },
     "evaluatorMilestones": [
       {
@@ -3525,16 +3536,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:beef|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "beef"
+      "foodName": "beef"
     },
     "evaluatorMilestones": [
       {
@@ -3567,16 +3578,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_beef|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_beef"
+      "foodName": "cooked_beef"
     },
     "evaluatorMilestones": [
       {
@@ -3609,16 +3620,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:chicken|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "chicken"
+      "foodName": "chicken"
     },
     "evaluatorMilestones": [
       {
@@ -3651,16 +3662,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_chicken|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_chicken"
+      "foodName": "cooked_chicken"
     },
     "evaluatorMilestones": [
       {
@@ -3693,16 +3704,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:rotten_flesh|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "rotten_flesh"
+      "foodName": "rotten_flesh"
     },
     "evaluatorMilestones": [
       {
@@ -3735,16 +3746,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:spider_eye|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "spider_eye"
+      "foodName": "spider_eye"
     },
     "evaluatorMilestones": [
       {
@@ -3777,16 +3788,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:carrot|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "carrot"
+      "foodName": "carrot"
     },
     "evaluatorMilestones": [
       {
@@ -3819,16 +3830,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:potato|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "potato"
+      "foodName": "potato"
     },
     "evaluatorMilestones": [
       {
@@ -3861,16 +3872,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:baked_potato|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "baked_potato"
+      "foodName": "baked_potato"
     },
     "evaluatorMilestones": [
       {
@@ -3903,16 +3914,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:poisonous_potato|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "poisonous_potato"
+      "foodName": "poisonous_potato"
     },
     "evaluatorMilestones": [
       {
@@ -3945,16 +3956,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:golden_carrot|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "golden_carrot"
+      "foodName": "golden_carrot"
     },
     "evaluatorMilestones": [
       {
@@ -3987,16 +3998,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:pumpkin_pie|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "pumpkin_pie"
+      "foodName": "pumpkin_pie"
     },
     "evaluatorMilestones": [
       {
@@ -4029,16 +4040,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:rabbit|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "rabbit"
+      "foodName": "rabbit"
     },
     "evaluatorMilestones": [
       {
@@ -4071,16 +4082,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_rabbit|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_rabbit"
+      "foodName": "cooked_rabbit"
     },
     "evaluatorMilestones": [
       {
@@ -4113,16 +4124,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:rabbit_stew|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "rabbit_stew"
+      "foodName": "rabbit_stew"
     },
     "evaluatorMilestones": [
       {
@@ -4155,16 +4166,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:mutton|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "mutton"
+      "foodName": "mutton"
     },
     "evaluatorMilestones": [
       {
@@ -4197,16 +4208,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:cooked_mutton|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "cooked_mutton"
+      "foodName": "cooked_mutton"
     },
     "evaluatorMilestones": [
       {
@@ -4239,16 +4250,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:chorus_fruit|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "chorus_fruit"
+      "foodName": "chorus_fruit"
     },
     "evaluatorMilestones": [
       {
@@ -4281,16 +4292,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:beetroot|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "beetroot"
+      "foodName": "beetroot"
     },
     "evaluatorMilestones": [
       {
@@ -4323,16 +4334,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:beetroot_soup|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "beetroot_soup"
+      "foodName": "beetroot_soup"
     },
     "evaluatorMilestones": [
       {
@@ -4365,16 +4376,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:suspicious_stew|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "suspicious_stew"
+      "foodName": "suspicious_stew"
     },
     "evaluatorMilestones": [
       {
@@ -4407,16 +4418,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:sweet_berries|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "sweet_berries"
+      "foodName": "sweet_berries"
     },
     "evaluatorMilestones": [
       {
@@ -4449,16 +4460,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:glow_berries|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "glow_berries"
+      "foodName": "glow_berries"
     },
     "evaluatorMilestones": [
       {
@@ -4491,16 +4502,16 @@
       }
     ],
     "setupCommands": [
-      "effect give @p hunger 5 1",
+      "effect give @p hunger 5 255 true",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
       "<|act:consume|>",
       "<|item:honey_bottle|>"
     ],
-    "expectedTool": "consume_item",
+    "expectedTool": "eat_food",
     "expectedToolArgs": {
-      "item": "honey_bottle"
+      "foodName": "honey_bottle"
     },
     "evaluatorMilestones": [
       {
@@ -4540,10 +4551,9 @@
       "<|item:elytra|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "elytra",
-      "slot": "chest"
+      "itemName": "elytra"
     },
     "evaluatorMilestones": [
       {
@@ -4578,10 +4588,9 @@
       "<|item:turtle_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "turtle_helmet",
-      "slot": "head"
+      "itemName": "turtle_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -4616,10 +4625,9 @@
       "<|item:leather_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "leather_helmet",
-      "slot": "head"
+      "itemName": "leather_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -4654,10 +4662,9 @@
       "<|item:leather_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "leather_chestplate",
-      "slot": "chest"
+      "itemName": "leather_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -4692,10 +4699,9 @@
       "<|item:leather_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "leather_leggings",
-      "slot": "legs"
+      "itemName": "leather_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -4730,10 +4736,9 @@
       "<|item:leather_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "leather_boots",
-      "slot": "feet"
+      "itemName": "leather_boots"
     },
     "evaluatorMilestones": [
       {
@@ -4768,10 +4773,9 @@
       "<|item:chainmail_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "chainmail_helmet",
-      "slot": "head"
+      "itemName": "chainmail_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -4806,10 +4810,9 @@
       "<|item:chainmail_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "chainmail_chestplate",
-      "slot": "chest"
+      "itemName": "chainmail_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -4844,10 +4847,9 @@
       "<|item:chainmail_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "chainmail_leggings",
-      "slot": "legs"
+      "itemName": "chainmail_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -4882,10 +4884,9 @@
       "<|item:chainmail_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "chainmail_boots",
-      "slot": "feet"
+      "itemName": "chainmail_boots"
     },
     "evaluatorMilestones": [
       {
@@ -4920,10 +4921,9 @@
       "<|item:iron_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "iron_helmet",
-      "slot": "head"
+      "itemName": "iron_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -4958,10 +4958,9 @@
       "<|item:iron_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "iron_chestplate",
-      "slot": "chest"
+      "itemName": "iron_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -4996,10 +4995,9 @@
       "<|item:iron_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "iron_leggings",
-      "slot": "legs"
+      "itemName": "iron_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -5034,10 +5032,9 @@
       "<|item:iron_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "iron_boots",
-      "slot": "feet"
+      "itemName": "iron_boots"
     },
     "evaluatorMilestones": [
       {
@@ -5072,10 +5069,9 @@
       "<|item:diamond_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "diamond_helmet",
-      "slot": "head"
+      "itemName": "diamond_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -5110,10 +5106,9 @@
       "<|item:diamond_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "diamond_chestplate",
-      "slot": "chest"
+      "itemName": "diamond_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -5148,10 +5143,9 @@
       "<|item:diamond_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "diamond_leggings",
-      "slot": "legs"
+      "itemName": "diamond_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -5186,10 +5180,9 @@
       "<|item:diamond_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "diamond_boots",
-      "slot": "feet"
+      "itemName": "diamond_boots"
     },
     "evaluatorMilestones": [
       {
@@ -5224,10 +5217,9 @@
       "<|item:golden_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "golden_helmet",
-      "slot": "head"
+      "itemName": "golden_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -5262,10 +5254,9 @@
       "<|item:golden_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "golden_chestplate",
-      "slot": "chest"
+      "itemName": "golden_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -5300,10 +5291,9 @@
       "<|item:golden_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "golden_leggings",
-      "slot": "legs"
+      "itemName": "golden_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -5338,10 +5328,9 @@
       "<|item:golden_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "golden_boots",
-      "slot": "feet"
+      "itemName": "golden_boots"
     },
     "evaluatorMilestones": [
       {
@@ -5376,10 +5365,9 @@
       "<|item:netherite_helmet|>",
       "<|slot:head|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "netherite_helmet",
-      "slot": "head"
+      "itemName": "netherite_helmet"
     },
     "evaluatorMilestones": [
       {
@@ -5414,10 +5402,9 @@
       "<|item:netherite_chestplate|>",
       "<|slot:chest|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "netherite_chestplate",
-      "slot": "chest"
+      "itemName": "netherite_chestplate"
     },
     "evaluatorMilestones": [
       {
@@ -5452,10 +5439,9 @@
       "<|item:netherite_leggings|>",
       "<|slot:legs|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "netherite_leggings",
-      "slot": "legs"
+      "itemName": "netherite_leggings"
     },
     "evaluatorMilestones": [
       {
@@ -5490,10 +5476,9 @@
       "<|item:netherite_boots|>",
       "<|slot:feet|>"
     ],
-    "expectedTool": "equip_item",
+    "expectedTool": "equip_armor_or_item",
     "expectedToolArgs": {
-      "item": "netherite_boots",
-      "slot": "feet"
+      "itemName": "netherite_boots"
     },
     "evaluatorMilestones": [
       {
@@ -13132,8 +13117,8 @@
     ],
     "expectedTool": "give_item_to_player",
     "expectedToolArgs": {
-      "item": "gold_ingot",
-      "quantity": 1
+      "playerName": "piglin",
+      "itemName": "gold_ingot"
     },
     "evaluatorMilestones": [
       {
@@ -14392,10 +14377,10 @@
       "<|act:interact_block|>",
       "<|target:villager|>"
     ],
-    "expectedTool": "trade_with_villager",
+    "expectedTool": "use_tool_on_block",
     "expectedToolArgs": {
-      "profession": "weaponsmith",
-      "buyItem": "iron_sword"
+      "tool": "emerald",
+      "targetBlock": "villager"
     },
     "evaluatorMilestones": [
       {
@@ -14525,6 +14510,14 @@
     ],
     "initialLoadout": [
       {
+        "name": "bow",
+        "count": 1
+      },
+      {
+        "name": "arrow",
+        "count": 32
+      },
+      {
         "name": "diamond_sword",
         "count": 1
       },
@@ -14532,14 +14525,10 @@
         "name": "shield",
         "count": 1,
         "slot": 45
-      },
-      {
-        "name": "cooked_beef",
-        "count": 16
       }
     ],
     "setupCommands": [
-      "summon warden ~ ~ ~4",
+      "summon warden ~ ~ ~8",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -14547,9 +14536,10 @@
       "<|target:warden|>",
       "<|act:shoot_bow|>"
     ],
-    "expectedTool": "sneak_and_distract",
+    "expectedTool": "shoot_bow",
     "expectedToolArgs": {
-      "projectile": "arrow"
+      "targetType": "warden",
+      "shots": 1
     },
     "evaluatorMilestones": [
       {

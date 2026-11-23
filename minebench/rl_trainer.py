@@ -103,12 +103,13 @@ VALID_MCP_TOOLS = {
     "follow_player", "come_here", "navigate_to_coordinates", "gather_resource",
     "explore_or_dig_for_ores", "craft_item", "craft_recipe", "smelt_item",
     "smelt_ores", "equip_armor_or_item", "engage_combat", "give_item_to_player",
-    "store_items_in_chest", "retrieve_items_from_chest", "scan_area_topology",
-    "build_simple_house", "neural_chunk_scan", "collect_dropped_items",
-    "tame_animal", "pillar_up", "eat_food", "shoot_bow", "till_and_farm",
-    "interact_block_or_puzzle", "navigate_parkour_or_bridge", "construct_modular_structure",
-    "triangulate_stronghold_coordinates", "loot_chest", "shear_sheep",
-    "breed_animals", "use_tool_on_block", "light_block_fire",
+    "store_items_in_chest", "manage_chest", "inspect_surroundings", "clear_flat_area",
+    "stop_current_action", "scan_area", "build_simple_house", "neural_chunk_scan",
+    "collect_dropped_items", "tame_animal", "pillar_up", "eat_food", "shoot_bow",
+    "till_and_farm", "interact_block_or_puzzle", "navigate_parkour_or_bridge",
+    "construct_modular_structure", "triangulate_stronghold_coordinates",
+    "loot_chest", "shear_sheep", "breed_animals", "use_tool_on_block",
+    "light_block_fire",
 }
 
 
@@ -474,8 +475,15 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             step_ok = bool(tool_entry.get("success", True))
             step_summary = compact_step_summary(str(tool_entry.get("summary") or f"Executed {tool_name}"))
 
-            # STRICT PURITY: Only teach successful, task-valid, non-empty-arg tool invocations
-            if not step_ok or not is_valid_tool_for_task(tid, prompt, tool_name) or not has_required_args(tool_name, tool_args):
+            step_reward_val = float(tool_entry.get("stepReward", 0.0) or 0.0)
+
+            # STRICT PURITY: Only teach successful, task-valid, non-empty-arg tool invocations (and >0 stepReward in failed episodes)
+            if (
+                not step_ok
+                or (not is_passed and step_reward_val <= 0.0)
+                or not is_valid_tool_for_task(tid, prompt, tool_name)
+                or not has_required_args(tool_name, tool_args)
+            ):
                 prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
                 continue
 
@@ -525,13 +533,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 assistant_obj["planSteps"] = plan_steps
 
             has_explicit_rew = "stepReward" in tool_entry and tool_entry.get("stepReward") is not None
-            step_reward_val = float(tool_entry.get("stepReward", 0.0) or 0.0)
 
             sample = {
                 "provider": provider_name,
                 "taskId": tid,
                 "domain": r.get("domain"),
                 "workerId": r.get("workerId"),
+                "basePrompt": str(prompt or "").strip(),
                 "passed": is_passed,
                 "advantage": round(adv, 4),
                 "rawReward": raw_r,
@@ -584,7 +592,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             gf.write(json.dumps(s) + "\n")
 
     # 4. Mine contrastive DPO pairs (strictly verified PASSED winner vs actual FAILED loser on matching prefix/shard)
-    coord_sensitive_tools = {"navigate_to_coordinates", "till_and_farm"}
+    coord_or_worker_sensitive_tools = {
+        "navigate_to_coordinates",
+        "till_and_farm",
+        "engage_combat",
+        "give_item_to_player",
+        "follow_player",
+    }
     dpo_candidates: Dict[Tuple[str, int], Dict[Tuple[str, str], Dict]] = {}
     for r in records:
         if bool(r.get("isHeldOut", False)):
@@ -592,6 +606,8 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         tid = r.get("taskId")
         if not tid:
             continue
+        tid_lower = str(tid).lower()
+        rej_base_prompt = str(r.get("prompt") or "").strip()
         is_passed = bool(r.get("passed", False))
         raw_r = float(r.get("rawReward", 0.0))
         exec_tools = r.get("executedTools", [])
@@ -627,12 +643,33 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             except Exception:
                 continue
 
-            if (tool_name in coord_sensitive_tools or w_tool in coord_sensitive_tools) and (
-                winner.get("workerId") is not None
-                and r.get("workerId") is not None
-                and winner.get("workerId") != r.get("workerId")
-            ):
+            winner_domain_lower = str(winner.get("domain") or r.get("domain") or "").lower()
+            is_combat_or_mob_task = (
+                "combat" in tid_lower
+                or tid_lower.startswith("omni_mob_")
+                or "combat" in winner_domain_lower
+                or "mob" in winner_domain_lower
+            )
+            if w_tool == "navigate_to_coordinates" and is_combat_or_mob_task:
                 continue
+
+            if tool_name in coord_or_worker_sensitive_tools or w_tool in coord_or_worker_sensitive_tools:
+                if (
+                    winner.get("workerId") is not None
+                    and r.get("workerId") is not None
+                    and winner.get("workerId") != r.get("workerId")
+                ):
+                    continue
+                winner_base_prompt = str(winner.get("basePrompt") or "").strip()
+                if winner_base_prompt and rej_base_prompt and winner_base_prompt != rej_base_prompt:
+                    continue
+                if step_idx == 0 and len(winner.get("messages", [])) > 1:
+                    expected_rej_user = (
+                        f'Player "Trainer" says: "{rej_base_prompt}"\n'
+                        'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
+                    )
+                    if expected_rej_user != str(winner["messages"][1].get("content", "")):
+                        continue
 
             rej_args_json = json.dumps(tool_args if isinstance(tool_args, dict) else {}, sort_keys=True)
             if tool_name == w_tool and rej_args_json == w_args_json:

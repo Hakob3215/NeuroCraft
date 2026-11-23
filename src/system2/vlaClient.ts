@@ -643,7 +643,7 @@ export class VLACompanionClient {
 
         if (allowItemDrop && step.drop_item && bot.heldItem && typeof bot.toss === 'function') {
           try {
-            (bot as any)._lastDropAt = Date.now();
+            (bot as any)._lastDropItemAt = Date.now();
             void bot.toss(bot.heldItem.type, null, 1).catch(() => {});
           } catch {}
         }

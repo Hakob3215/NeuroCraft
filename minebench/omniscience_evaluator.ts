@@ -80,7 +80,7 @@ export async function runOmniscienceInGameEvaluation(): Promise<void> {
   console.log(`\n======================================================================`);
   console.log(`  NEUROCRAFT OMNISCIENCE IN-GAME BENCHMARK EVALUATOR`);
   console.log(`  - Running on REAL official Mojang 1.20.4 server.jar (Real Physics)`);
-  console.log(`  - Policy: Scaled-Up 80.8M Temporal Action Chunking Transformer`);
+  console.log(`  - Policy: Scaled-Up 211.4M Temporal Action Chunking Transformer`);
   console.log(`  - Cognitive SLM: Qwen2.5-Coder-1.5B ('Minecraft Savant' LoRA)`);
   console.log(`  - Evaluating ${evalTasks.length} synthesized tasks`);
   console.log(`======================================================================\n`);

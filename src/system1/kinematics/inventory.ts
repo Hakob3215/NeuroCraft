@@ -78,6 +78,7 @@ export class HumanizedInventoryController {
     await new Promise((r) => setTimeout(r, delayMs));
 
     try {
+      (this.bot as any)._lastSwapSlotAt = Date.now();
       await this.bot.equip(targetItem, destination);
       return true;
     } catch {

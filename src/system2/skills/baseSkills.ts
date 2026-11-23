@@ -1774,8 +1774,20 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['gather', 'mine', 'chop', 'harvest', 'wood', 'log', 'stone', 'cobblestone', 'ore', 'iron_ore', 'coal_ore', 'dig'],
     },
     async (args, ctx) => {
-      const rawType = String(args.blockType || 'log').toLowerCase().trim();
-      const requestedType = rawType.replace(/(_block|_portal_frame|_frame|_item|_ore_block|_bale)$/, '');
+      const rawArg =
+        typeof args.blockType === 'string'
+          ? args.blockType
+          : args.blockType && typeof args.blockType === 'object'
+            ? String((args.blockType as any).name || (args.blockType as any).block || '')
+            : '';
+      const rawType = rawArg.toLowerCase().trim();
+      if (!rawType) {
+        return { success: false, summary: 'No blockType specified for gather_resource.' };
+      }
+      const requestedType =
+        rawType === 'hay_bale'
+          ? 'hay_block'
+          : rawType.replace(/(_portal_frame|_frame|_item|_ore_block)$/, '');
       const targetCount = Math.min(64, Math.max(1, Number(args.count) || 4));
       const initialDropCount = countHarvestedDropsInInventory(ctx.bot, requestedType);
       const failedKeys = new Set<string>();
@@ -1785,6 +1797,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
 
       const isOreVeinRequest =
         !isWoodRequest &&
+        !requestedType.endsWith('_block') &&
         requestedType !== 'stone' &&
         requestedType !== 'cobblestone' &&
         requestedType !== 'dirt' &&
@@ -1799,6 +1812,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         const n = b.name.toLowerCase();
         if (isWoodRequest) {
           return n.endsWith('_log') || n.endsWith('_stem');
+        }
+        if (requestedType.endsWith('_block')) {
+          return n === requestedType || n === rawType;
         }
         if (requestedType === 'stone' || requestedType === 'cobblestone') {
           return n === 'stone' || n === 'cobblestone' || n === 'deepslate' || n === 'cobbled_deepslate';
@@ -2783,13 +2799,39 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         'snowball',
         'egg',
         'potion',
+        'experience_bottle',
+        'ender_pearl',
+        'shulker_bullet',
+        'small_fireball',
+        'fireball',
+        'dragon_fireball',
+        'wither_skull',
+        'llama_spit',
+        'wind_charge',
+        'evoker_fangs',
+        'eye_of_ender',
+        'firework_rocket',
+        'fishing_bobber',
+        'lightning_bolt',
         'boat',
         'chest_boat',
         'minecart',
+        'chest_minecart',
+        'furnace_minecart',
+        'tnt_minecart',
+        'hopper_minecart',
+        'spawner_minecart',
+        'command_block_minecart',
         'armor_stand',
         'painting',
         'item_frame',
         'glow_item_frame',
+        'leash_knot',
+        'item_display',
+        'block_display',
+        'text_display',
+        'interaction',
+        'marker',
         'falling_block',
         'area_effect_cloud',
         'tnt',
@@ -3030,7 +3072,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
               continue;
             }
 
-            // 80.8M Action Chunking Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
+            // 211.4M Multi-Modal Action Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
             if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function' && dist <= 12.0) {
               await ctx.kinematics.executeNeuralMotorChunk(
                 `Engage and attack ${targetEntity.name || 'hostile mob'} in combat`,
@@ -3170,6 +3212,28 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           ) as any)?.entity;
       }
 
+      if (!targetEntity && !isGenericRef) {
+        const lowerName = playerName.toLowerCase();
+        targetEntity =
+          ctx.bot.nearestEntity?.(
+            (e: any) =>
+              e &&
+              e !== ctx.bot.entity &&
+              e.isValid !== false &&
+              e.position &&
+              String(e.name || e.displayName || e.username || '').toLowerCase() === lowerName
+          ) ||
+          ctx.bot.nearestEntity?.(
+            (e: any) =>
+              e &&
+              e !== ctx.bot.entity &&
+              e.isValid !== false &&
+              e.position &&
+              String(e.name || e.displayName || e.username || '').toLowerCase().includes(lowerName)
+          ) ||
+          null;
+      }
+
       if (!targetEntity) {
         targetEntity = ctx.bot.nearestEntity(
           (e: any) => (e.type === 'player' || e.name === 'player') && e.username !== ctx.bot.username
@@ -3191,9 +3255,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       }
       await ctx.kinematics.lookAtSmooth(targetEntity.position.offset(0, 1.5, 0), 220);
 
-      const resolvedRecipient = targetEntity?.username || playerName || 'nearby player';
+      const resolvedRecipient = targetEntity?.username || targetEntity?.name || playerName || 'nearby player';
       await new Promise((r) => setTimeout(r, 180));
       try {
+        (ctx.bot as any)._lastDropItemAt = Date.now();
         await ctx.bot.tossStack(matchedItem);
         // Step back and poll until the tossed stack is picked up (up to 1800ms)
         try {
@@ -4804,9 +4869,16 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
 
       if (targetName.includes('pressure_plate') || targetName.includes('gold_block') || targetName.includes('emerald_block')) {
         await ctx.kinematics.pathfindTo(foundPos.offset(0.5, 1.0, 0.5), 0.6);
+        const curPos = ctx.bot.entity?.position;
+        const goalTop = foundPos.offset(0.5, 1.0, 0.5);
+        const hDist = curPos ? Math.hypot(curPos.x - goalTop.x, curPos.z - goalTop.z) : 999;
+        const vDist = curPos ? Math.abs(curPos.y - goalTop.y) : 999;
+        const reached = hDist <= 1.8 && vDist <= 1.8;
         return {
-          success: true,
-          summary: `Stepped directly onto ${targetName} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}).`,
+          success: reached,
+          summary: reached
+            ? `Stepped directly onto ${targetName} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}).`
+            : `Attempted to step onto ${targetName} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}), but ended ${hDist.toFixed(1)}m horizontally and ${vDist.toFixed(1)}m vertically away.`,
         };
       }
 
@@ -4814,6 +4886,25 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const block = ctx.bot.blockAt(foundPos);
       if (!block) {
         return { success: false, summary: `Block at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}) disappeared.` };
+      }
+
+      const INTERACTIVE_BLOCK_PATTERNS = [
+        'lever', 'button', 'bed', 'door', 'trapdoor', 'fence_gate',
+        'chest', 'barrel', 'shulker_box', 'bell', 'furnace', 'smoker',
+        'crafting_table', 'anvil', 'enchanting_table', 'brewing_stand',
+        'loom', 'cartography_table', 'grindstone', 'stonecutter', 'smithing_table',
+        'note_block', 'jukebox', 'repeater', 'comparator', 'daylight_detector',
+        'hopper', 'dropper', 'dispenser', 'lectern', 'composter',
+        'beehive', 'bee_nest', 'respawn_anchor', 'campfire', 'cake',
+        'flower_pot', 'sign', 'beacon', 'end_portal_frame', 'cauldron',
+        'sweet_berry_bush',
+      ];
+      const bnLower = String(block.name || '').toLowerCase();
+      if (!INTERACTIVE_BLOCK_PATTERNS.some((pat) => bnLower.includes(pat))) {
+        return {
+          success: false,
+          summary: `Block ${block.name} at (${foundPos.x}, ${foundPos.y}, ${foundPos.z}) is not an interactive block.`,
+        };
       }
 
       await ctx.kinematics.lookAtSmooth(foundPos.offset(0.5, 0.5, 0.5), 140);
@@ -4906,7 +4997,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return { success: false, summary: `No ${goalBlockName} goal marker found within 48m.` };
       }
 
-      // 1. Engage 80.8M Action Chunking Transformer for target-oriented neural parkour motor chunks
+      // 1. Engage 211.4M Multi-Modal Action Transformer for target-oriented neural parkour motor chunks
       if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function') {
         for (let chunkIdx = 0; chunkIdx < 3; chunkIdx++) {
           if (ctx.bot.entity.position.distanceTo(goalPos) <= 2.2) break;
@@ -4929,7 +5020,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (isAtGoalPlatform(2.5)) {
           return {
             success: true,
-            summary: `Successfully navigated parkour course via 80.8M Action Head to ${goalBlockName}!`,
+            summary: `Successfully navigated parkour course via 211.4M Multi-Modal Action Transformer to ${goalBlockName}!`,
           };
         }
       }
@@ -4939,8 +5030,39 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return p.y >= goalPos.y - 0.5 && Math.hypot(p.x - goalPos.x, p.z - goalPos.z) <= horizTol;
       };
 
+      // Pre-check ahead for a multi-block ravine/chasm when bridging is allowed so we don't burn 25s blind-pathfinding
+      const bridgeMaterials = ['cobblestone', 'stone', 'oak_planks', 'dirt', 'sandstone', 'netherrack'];
+      const hasBridgeMaterial = bridgeMaterials.some((m) =>
+        (ctx.bot.inventory?.items() || []).some((it: any) => it.name === m && it.count > 0)
+      );
+      let gapDetected = false;
+      if (allowBridge && hasBridgeMaterial && typeof ctx.bot.blockAt === 'function') {
+        const startPos = ctx.bot.entity.position;
+        const rayDist = Math.min(20, Math.hypot(goalPos.x - startPos.x, goalPos.z - startPos.z));
+        const ux = rayDist > 0.1 ? (goalPos.x - startPos.x) / rayDist : 0;
+        const uz = rayDist > 0.1 ? (goalPos.z - startPos.z) / rayDist : 0;
+        const scanFloorY = Math.floor(goalPos.y);
+        let consecutiveEmpty = 0;
+        for (let step = 1; step <= Math.floor(rayDist); step++) {
+          const sx = Math.floor(startPos.x + ux * step);
+          const sz = Math.floor(startPos.z + uz * step);
+          const floorBlk = ctx.bot.blockAt(new Vec3(sx, scanFloorY, sz));
+          const belowBlk = ctx.bot.blockAt(new Vec3(sx, scanFloorY - 1, sz));
+          const isOpen = (b: any) => !b || b.name === 'air' || b.name === 'lava' || b.name === 'water';
+          if (isOpen(floorBlk) && isOpen(belowBlk)) {
+            consecutiveEmpty++;
+            if (consecutiveEmpty >= 2) {
+              gapDetected = true;
+              break;
+            }
+          } else {
+            consecutiveEmpty = 0;
+          }
+        }
+      }
+
       // Pure sensorimotor parkour navigation via System 1 20Hz continuous steering & sprint-jumping
-      if (ctx.kinematics?.pathfindTo) {
+      if (!gapDetected && ctx.kinematics?.pathfindTo) {
         await ctx.kinematics.pathfindTo(goalPos.offset(0, 1, 0), 1.4, 25000);
       }
       if (isAtGoalPlatform(2.5)) {
@@ -5506,8 +5628,30 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       },
     },
     async (args, ctx) => {
-      const rawTarget = String(args.targetBlock || args.blockType || args.targetEntity || args.target || 'grass_block').toLowerCase().trim();
-      const target = rawTarget.replace(/(_block|_portal_frame|_frame|_item)$/, '');
+      const pickStr = (v: any): string => {
+        if (typeof v === 'string') return v;
+        if (v && typeof v === 'object') {
+          return String(v.name || v.block || v.blockName || v.type || v.target || '');
+        }
+        return '';
+      };
+      const rawTarget = (
+        pickStr(args.targetBlock) ||
+        pickStr(args.blockType) ||
+        pickStr(args.targetEntity) ||
+        pickStr(args.target)
+      ).toLowerCase().trim();
+      const rawToolArg = pickStr(args.tool).toLowerCase().trim();
+      if (!rawTarget && !rawToolArg) {
+        return { success: false, summary: 'No targetBlock or tool specified for use_tool_on_block.' };
+      }
+      const effectiveRawTarget = rawTarget || 'grass_block';
+      let target = effectiveRawTarget.replace(/(_portal_frame|_frame|_item)$/, '');
+      if (target === 'portal' || target === 'nether_portal' || effectiveRawTarget.includes('portal')) {
+        target = 'obsidian';
+      } else if (!['grass_block', 'hay_block', 'bone_block', 'honey_block', 'slime_block', 'diamond_block', 'iron_block', 'gold_block', 'emerald_block', 'coal_block', 'redstone_block', 'lapis_block'].includes(target)) {
+        target = target.replace(/_block$/, '');
+      }
       const invItems: any[] = ctx.bot.inventory?.items() || [];
 
       const findBestToolByClass = (suffix: string): string | null => {
@@ -5535,7 +5679,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return 'iron_shovel';
       };
 
-      const requestedTool = String(args.tool || '').toLowerCase().trim() || inferToolForTarget(target);
+      const requestedTool = rawToolArg || inferToolForTarget(target);
       let resolvedTool = requestedTool;
       if (resolvedTool === 'bonemeal') resolvedTool = 'bone_meal';
       const exactMatch = invItems.find((it: any) => String(it.name || '').toLowerCase() === resolvedTool);
@@ -5601,8 +5745,8 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       await ctx.kinematics.equipItemHumanized(resolvedTool, 'hand');
       await new Promise((r) => setTimeout(r, 100));
 
-      const entityTargets = ['sheep', 'cow', 'pig', 'wolf', 'chicken', 'animal', 'horse', 'goat', 'cat'];
-      const isEntityTarget = entityTargets.some((k) => target.includes(k) || rawTarget.includes(k));
+      const entityTargets = ['sheep', 'cow', 'pig', 'wolf', 'chicken', 'animal', 'horse', 'goat', 'cat', 'villager'];
+      const isEntityTarget = entityTargets.some((k) => target.includes(k) || effectiveRawTarget.includes(k));
 
       // Specialized Handler 2: Fishing rod cast into water pool
       if (resolvedTool === 'fishing_rod' && !isEntityTarget) {
@@ -5635,7 +5779,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         let targetSurface = isClutchTarget && botPos
           ? ctx.bot.blockAt(botPos.floored().offset(0, -1, 0))
           : ctx.bot.findBlock({
-              matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || blk.name.includes(rawTarget)),
+              matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || blk.name.includes(effectiveRawTarget)),
               maxDistance: 16,
             });
         if (targetSurface && targetSurface.name === 'fire') {
@@ -5672,10 +5816,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           .filter((e: any) => {
             if (!e || e === ctx.bot.entity || !e.position || e.isValid === false) return false;
             const en = String(e.name || e.displayName || '').toLowerCase();
-            if (target === 'animal' || rawTarget === 'animal') {
+            if (target === 'animal' || effectiveRawTarget === 'animal') {
               return entityTargets.some((k) => k !== 'animal' && en.includes(k));
             }
-            return en === target || en.includes(target) || en === rawTarget;
+            return en === target || en.includes(target) || en === effectiveRawTarget;
           })
           .sort(
             (a: any, b: any) =>
@@ -5704,10 +5848,28 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       }
 
-      const b = ctx.bot.findBlock({
-        matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || target.includes(blk.name) || blk.name.includes(rawTarget)),
-        maxDistance: 16,
-      });
+      let b: any = null;
+      if (target === 'obsidian' && typeof ctx.bot.findBlocks === 'function') {
+        const obsList = ctx.bot.findBlocks({
+          matching: (blk: any) => blk && blk.name === 'obsidian',
+          maxDistance: 16,
+          count: 32,
+        }) || [];
+        for (const pos of obsList) {
+          const above = ctx.bot.blockAt?.(pos.offset(0, 1, 0));
+          const above2 = ctx.bot.blockAt?.(pos.offset(0, 2, 0));
+          if (above && above.name === 'air' && (!above2 || above2.name === 'air')) {
+            b = ctx.bot.blockAt?.(pos) || null;
+            break;
+          }
+        }
+      }
+      if (!b) {
+        b = ctx.bot.findBlock({
+          matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || target.includes(blk.name) || blk.name.includes(effectiveRawTarget)),
+          maxDistance: 16,
+        });
+      }
       if (!b) {
         try {
           const entRes = await tryEntityActivate();
@@ -5718,9 +5880,13 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return { success: false, summary: `Target block or entity ${target} not found within 16m.` };
       }
       await ctx.kinematics.pathfindTo(b.position, 2.5);
-      await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, 0.5, 0.5), 120);
+      await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), 120);
       try {
-        await ctx.bot.activateBlock(b);
+        if (target === 'obsidian' || b.name === 'obsidian') {
+          await ctx.bot.activateBlock(b, new Vec3(0, 1, 0));
+        } else {
+          await ctx.bot.activateBlock(b);
+        }
         return { success: true, summary: `Used ${resolvedTool} on ${target}!` };
       } catch (e: any) {
         return { success: false, summary: `Could not use tool on block: ${e.message}` };
@@ -5742,16 +5908,54 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
     },
     async (args, ctx) => {
       await ctx.kinematics.equipItemHumanized('flint_and_steel', 'hand');
-      const rawTarget = String(args.targetBlock || args.blockType || args.target || 'campfire').toLowerCase().trim();
-      const target = rawTarget.replace(/(_block|_portal_frame|_frame|_item)$/, '');
-      const b = ctx.bot.findBlock({
-        matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || target.includes(blk.name) || blk.name.includes(rawTarget)),
-        maxDistance: 16,
-      });
+      const pickFireStr = (v: any): string => {
+        if (typeof v === 'string') return v;
+        if (v && typeof v === 'object') {
+          return String(v.name || v.block || v.blockName || v.type || v.target || '');
+        }
+        return '';
+      };
+      const rawTarget = (
+        pickFireStr(args.targetBlock) ||
+        pickFireStr(args.blockType) ||
+        pickFireStr(args.target) ||
+        'campfire'
+      ).toLowerCase().trim();
+      let target = rawTarget.replace(/(_block|_portal_frame|_frame|_item)$/, '');
+      if (target === 'portal' || target === 'nether_portal' || rawTarget.includes('portal')) {
+        target = 'obsidian';
+      }
+      let b: any = null;
+      if (target === 'obsidian' && typeof ctx.bot.findBlocks === 'function') {
+        const obsList = ctx.bot.findBlocks({
+          matching: (blk: any) => blk && blk.name === 'obsidian',
+          maxDistance: 16,
+          count: 32,
+        }) || [];
+        for (const pos of obsList) {
+          const above = ctx.bot.blockAt?.(pos.offset(0, 1, 0));
+          const above2 = ctx.bot.blockAt?.(pos.offset(0, 2, 0));
+          if (above && above.name === 'air' && (!above2 || above2.name === 'air')) {
+            b = ctx.bot.blockAt?.(pos) || null;
+            break;
+          }
+        }
+      }
+      if (!b) {
+        b = ctx.bot.findBlock({
+          matching: (blk: any) => blk && (blk.name === target || blk.name.includes(target) || target.includes(blk.name) || blk.name.includes(rawTarget)),
+          maxDistance: 16,
+        });
+      }
       if (!b) return { success: false, summary: `Target block ${target} not found within 16m.` };
       await ctx.kinematics.pathfindTo(b.position, 2.5);
+      await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), 120);
       try {
-        await ctx.bot.activateBlock(b);
+        if (target === 'obsidian' || b.name === 'obsidian') {
+          await ctx.bot.activateBlock(b, new Vec3(0, 1, 0));
+        } else {
+          await ctx.bot.activateBlock(b);
+        }
         return { success: true, summary: `Ignited ${target} using flint and steel!` };
       } catch (e: any) {
         return { success: false, summary: `Could not ignite block: ${e.message}` };

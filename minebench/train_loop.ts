@@ -1446,6 +1446,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               // Anchor trajectory into replay buffer whenever a new Advancement is unlocked
               if (newAdvs.length > 0 && sExecutedTools.some((t) => t.success)) {
+                const campaignGoalPassed = finalEval.score >= 80;
+                const advSlug = String(newAdvs[0] || 'advancement').replace(/[^a-z0-9_]/gi, '_');
                 await stateWriteMutex.runExclusive(async () => {
                   fs.appendFileSync(
                     replayPath,
@@ -1453,15 +1455,15 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                       timestamp: new Date().toISOString(),
                       iteration: iter,
                       provider: 'open_world_survival',
-                      taskId: `campaign_${campaignGoal.id}`,
+                      taskId: campaignGoalPassed ? `campaign_${campaignGoal.id}` : `survival_adv_${advSlug}`,
                       workerId: 99,
                       botUsername: survivalWorker!.botUsername,
                       domain: 'PROGRESSION_DRAGON',
                       tier: 4,
-                      prompt: campaignGoal.prompt,
-                      passed: true,
-                      score: Math.max(75, finalEval.score),
-                      rawReward: Math.max(75, finalEval.score),
+                      prompt: campaignGoalPassed ? campaignGoal.prompt : `Open-world survival advancement: ${newAdvs.join(', ')}`,
+                      passed: campaignGoalPassed,
+                      score: campaignGoalPassed ? Math.max(80, finalEval.score) : finalEval.score,
+                      rawReward: finalEval.score,
                       health: sBot.health ?? 20,
                       food: sBot.food ?? 20,
                       deaths: sDeaths,
@@ -1471,7 +1473,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   );
                 });
                 console.log(
-                  `  [Survival Campaign] 🌟 Unlocked Advancement(s): [${newAdvs.join(', ')}] | Goal: ${campaignGoal.title} | Tier: ${finalEval.techTier}`
+                  `  [Survival Campaign] 🌟 Unlocked Advancement(s): [${newAdvs.join(', ')}] | Goal: ${campaignGoal.title} | Tier: ${finalEval.techTier} | GoalPassed=${campaignGoalPassed}`
                 );
               }
             }
@@ -1586,29 +1588,41 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             );
           });
 
-          // Synchronize Step-0 packets (teleport, terrain chunk, initial loadout, sparring entity) and invalidate stale scan cache
+          // Synchronize Step-0 packets (teleport, terrain chunk, initial loadout, sparring entity, hunger drain) and invalidate stale scan cache
           const postResetBot = worker.system1.bot;
           const postOriginVec = new Vec3(shardedTask.origin.x, shardedTask.origin.y, shardedTask.origin.z);
+          const isFoodHungerTask =
+            task.id.startsWith('omni_food_') &&
+            !/(golden|milk|potion|bottle|honey)/i.test(String((task as any).targetObject || ''));
+          const syncTimeoutMs = isFoodHungerTask ? 4500 : 1500;
           const syncStart = Date.now();
-          while (Date.now() - syncStart < 1500) {
+          while (Date.now() - syncStart < syncTimeoutMs) {
             const pNow = postResetBot?.entity?.position;
-            const posOk = Boolean(pNow && pNow.distanceTo(postOriginVec) <= 4.0);
+            const posOk = Boolean(
+              pNow &&
+                Math.hypot(pNow.x - postOriginVec.x, pNow.z - postOriginVec.z) <= 4.0 &&
+                Math.abs(pNow.y - postOriginVec.y) <= 24.0
+            );
             const floorBlk = postResetBot?.blockAt?.(postOriginVec.offset(0, -1, 0));
             const floorOk = Boolean(floorBlk && floorBlk.name !== 'void_air');
             const needLoadout = Array.isArray(task.initialLoadout) && task.initialLoadout.length > 0;
             const invOk = !needLoadout || (postResetBot?.inventory?.items?.()?.length || 0) > 0;
+            const foodOk = !isFoodHungerTask || (postResetBot?.food ?? 20) < 19;
             const oppOk =
               !task.sparringConfig ||
               Object.values(postResetBot?.entities || {}).some(
                 (e: any) =>
                   e &&
                   e.username &&
-                  e.username.toLowerCase() === worker.sparringPartner.username.toLowerCase()
+                  e.username.toLowerCase() === worker.sparringPartner.username.toLowerCase() &&
+                  e.position &&
+                  e.position.distanceTo(postOriginVec) <= 25.0
               );
-            if (posOk && floorOk && invOk && oppOk) break;
+            if (posOk && floorOk && invOk && foodOk && oppOk) break;
             await new Promise((r) => setTimeout(r, 50));
           }
           worker.system1.invalidatePerceptionCache();
+          worker.system1.refreshWorldStateNow(true);
 
           // Sparring partner mode is activated at step 0 so both agents engage simultaneously
           worker.sparringPartner.setMode({ mode: 'idle' });
@@ -2013,9 +2027,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                       sneak: cs.sneak ? 1 : 0,
                       attack: nowMs - ((bot as any)._lastAttackAt || 0) <= 120 ? 1 : 0,
                       useItem: (bot as any).usingHeldItem ? 1 : 0,
-                      swapSlot: 0,
+                      swapSlot: nowMs - ((bot as any)._lastSwapSlotAt || 0) <= 120 ? 1 : 0,
                       digBlock: (bot as any).targetDigBlock ? 1 : 0,
-                      dropItem: 0,
+                      dropItem: nowMs - ((bot as any)._lastDropItemAt || (bot as any)._lastDropAt || 0) <= 120 ? 1 : 0,
                     });
                     if (activeChunkTicks.length >= 8) {
                       flushShadowChunk();
@@ -2063,7 +2077,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     stepSummary = String(parsed.summary || '');
                     if (toolName === 'tame_animal' && stepSuccess) wolvesTamed = Math.max(1, wolvesTamed);
                     if (toolName === 'shoot_bow' && parsed.data?.fired) arrowsFired += Number(parsed.data.fired) || 0;
-                    if ((toolName === 'eat_food' || toolName === 'consume_item') && stepSuccess) foodConsumed++;
+                    if ((toolName === 'eat_food' || toolName === 'consume_item') && stepSuccess && parsed.data?.foodEaten) foodConsumed++;
                     if (toolName === 'engage_combat' && parsed.data?.totalStrikes) {
                       damageDealt += Number(parsed.data.totalStrikes) * 4;
                     }
@@ -2400,7 +2414,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             }
           }
 
-          // 3. Trigger RTX 5060 80.8M Temporal Action Chunking Transformer (ACT) Fine-Tuning
+          // 3. Trigger RTX 5060 211.4M Multi-Modal Action Transformer (ACT) Fine-Tuning
           if (fs.existsSync(venvPython) && fs.existsSync(actScript)) {
             try {
               const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
@@ -2410,7 +2424,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               actAimErrorDeg = typeof parsedAct.aim_error_deg === 'number' ? parsedAct.aim_error_deg : undefined;
               actDiscreteAccPct =
                 typeof parsedAct.discrete_accuracy_pct === 'number' ? parsedAct.discrete_accuracy_pct : undefined;
-              actLossDelta = `ACT (80.8M): ${parsedAct.initial_loss} -> ${parsedAct.final_loss} (aim err: ${parsedAct.aim_error_deg}°, disc: ${parsedAct.discrete_accuracy_pct}%)`;
+              actLossDelta = `ACT (211.4M): ${parsedAct.initial_loss} -> ${parsedAct.final_loss} (aim err: ${parsedAct.aim_error_deg}°, disc: ${parsedAct.discrete_accuracy_pct}%)`;
             } catch (err: any) {
               actLossDelta = `ACT note: ${err.message}`;
             }
@@ -2641,7 +2655,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         );
       }
       if (rlLossDelta) console.log(`  System 1 (PPO Reflex): ${rlLossDelta}`);
-      if (actLossDelta) console.log(`  System 1 (80.8M ACT):  ${actLossDelta}`);
+      if (actLossDelta) console.log(`  System 1 (211.4M ACT): ${actLossDelta}`);
       if (slmLossDelta) console.log(`  System 2 (SLM LoRA):   ${slmLossDelta}`);
       console.log(`  Weights Updated: voxel_reflex_policy_latest.pt, action_head_latest.pt, & slm_minecraft_savant_latest/`);
       if (isNewBest) {

@@ -248,6 +248,25 @@ export class System1BotController {
     this.lastBlockScanPos = null;
     this.cachedTerrainContext = undefined;
     this.cachedNotableBlocks = [];
+    this.latestWorldState = null;
+    this.entityPerceptionTimestamps.clear();
+  }
+
+  public refreshWorldStateNow(immediateEntityPerception = false): SanitizedWorldState | null {
+    if (!this.bot?.entity) return null;
+    if (immediateEntityPerception) {
+      const entitiesObj = this.bot.entities || {};
+      for (const idStr of Object.keys(entitiesObj)) {
+        const ent = entitiesObj[idStr];
+        if (!ent || ent === this.bot.entity || !ent.position) continue;
+        if (ent.isValid === false || (typeof (ent as any).health === 'number' && (ent as any).health <= 0)) {
+          continue;
+        }
+        this.entityPerceptionTimestamps.set(ent.id, 0);
+      }
+    }
+    this.latestWorldState = this.buildSanitizedWorldState();
+    return this.latestWorldState;
   }
 
   public onDisconnect(handler: (reason: string) => void): void {
@@ -566,6 +585,7 @@ export class System1BotController {
     for (const idStr of Object.keys(entitiesObj)) {
       const ent = entitiesObj[idStr];
       if (!ent || ent === this.bot.entity || !ent.position) continue;
+      if (ent.isValid === false || (typeof (ent as any).health === 'number' && (ent as any).health <= 0)) continue;
 
       const rawName = (ent.name || ent.username || ent.displayName || 'unknown').toLowerCase();
       const isBoss = isBossOrCrystalEntity(rawName);

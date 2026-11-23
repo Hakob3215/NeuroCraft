@@ -237,30 +237,32 @@ export class HeadlessMinecraftServerManager {
 
     const { x, y, z } = task.origin;
 
-    // Scoped cleanup within 128m radius so parallel shards and Persistent Survival Sector (X=20000) are untouched
+    // Ensure chunks are loaded across the local arena bounding box BEFORE cleanup & entity resets
+    this.sendCommand(`forceload remove ${x - 48} ${z - 48} ${x + 48} ${z + 48}`);
+    this.sendCommand(`forceload add ${x - 24} ${z - 24} ${x + 24} ${z + 24}`);
+    this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
+    await new Promise((r) => setTimeout(r, 150));
+
+    // Scoped cleanup within 128m radius so parallel shards and Persistent Survival Sector (X=20000) are untouched.
+    // Teleport non-players into the void below bedrock first so death animations & slime splits/drops leave arena.
+    this.sendCommand(`tp @e[type=!minecraft:player,x=${x},y=${y},z=${z},distance=..128] ${x} -500 ${z}`);
+    this.sendCommand(`kill @e[type=!minecraft:player,x=${x},y=-500,z=${z},distance=..128]`);
     this.sendCommand(`kill @e[type=minecraft:experience_orb,x=${x},y=${y},z=${z},distance=..128]`);
     this.sendCommand(`kill @e[type=minecraft:item,x=${x},y=${y},z=${z},distance=..128]`);
-    this.sendCommand(`kill @e[type=!minecraft:player,x=${x},y=${y},z=${z},distance=..128]`);
-    await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => setTimeout(r, 100));
 
     this.sendCommand(`clear ${botUsername}`);
     this.sendCommand(`effect clear ${botUsername}`);
     this.sendCommand(`effect give ${botUsername} minecraft:instant_health 1 10 true`);
-    this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
-
-    // Ensure chunks are loaded across the local arena bounding box (clearing legacy chunk pins in this shard first)
-    this.sendCommand(`forceload remove ${x - 48} ${z - 48} ${x + 48} ${z + 48}`);
-    this.sendCommand(`forceload add ${x - 24} ${z - 24} ${x + 24} ${z + 24}`);
-    this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
-    await new Promise((r) => setTimeout(r, 250));
+    if (!task.id.startsWith('omni_food_')) {
+      this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
+    }
     this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
 
     // Execute the task's procedural 1.20.4 arena commands
     const cmds = task.buildArenaCommands(task.origin);
     for (let cmd of cmds) {
-      if (botUsername !== 'NeuroAgent') {
-        cmd = cmd.replace(/\bNeuroAgent\b/g, botUsername).replace(/@p\b/g, botUsername);
-      }
+      cmd = cmd.replace(/\bNeuroAgent\b/g, botUsername).replace(/@p\b/g, botUsername);
       this.sendCommand(cmd);
     }
     await new Promise((r) => setTimeout(r, 150));
@@ -271,6 +273,9 @@ export class HeadlessMinecraftServerManager {
     }
 
     this.sendCommand(`gamemode survival ${botUsername}`);
+    if (task.id.startsWith('omni_food_')) {
+      this.sendCommand(`effect give ${botUsername} minecraft:hunger 5 255 true`);
+    }
 
     if (sparringConfig) {
       const opp = sparringConfig.username;

@@ -107,8 +107,8 @@ export class MinecraftOmniscienceGenerator {
             loadout = [{ name: 'iron_axe', count: 1 }];
             setupCmds = ['setblock ~ ~ ~-2 air', 'setblock ~ ~1 ~-2 oak_log', 'tp @p ~ ~1 ~-4 0 0'];
             prompt = 'Strip the bark off the oak log right in front of you with your axe.';
-            expectedTool = 'strip_log';
-            expectedArgs = { blockName: 'oak_log' };
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'iron_axe', targetBlock: 'oak_log' };
             expectedToken = '<|act:interact_block|> <|item:oak_log|>';
             break;
 
@@ -155,8 +155,8 @@ export class MinecraftOmniscienceGenerator {
             loadout = [{ name: 'iron_hoe', count: 1 }, { name: 'wheat_seeds', count: 4 }];
             setupCmds = ['setblock ~ ~-1 ~ water', 'setblock ~1 ~-1 ~ dirt', 'tp @p ~ ~ ~ 0 0'];
             prompt = 'Till the dirt next to the water with your hoe.';
-            expectedTool = 'till_and_plant';
-            expectedArgs = { cropType: 'wheat_seeds' };
+            expectedTool = 'till_and_farm';
+            expectedArgs = { plots: 1 };
             expectedToken = '<|act:till_and_plant|>';
             break;
 
@@ -204,8 +204,8 @@ export class MinecraftOmniscienceGenerator {
             loadout = [{ name: 'milk_bucket', count: 1 }];
             setupCmds = ['effect give @p poison 30 1'];
             prompt = 'You are poisoned by a cave spider! Drink the milk bucket immediately to cure it!';
-            expectedTool = 'consume_item';
-            expectedArgs = { item: 'milk_bucket' };
+            expectedTool = 'eat_food';
+            expectedArgs = { foodName: 'milk_bucket' };
             expectedToken = '<|act:consume|> <|item:milk_bucket|>';
             break;
 
@@ -213,8 +213,8 @@ export class MinecraftOmniscienceGenerator {
             loadout = [{ name: 'shield', count: 1, slot: 45 }, { name: 'iron_sword', count: 1 }];
             setupCmds = ['summon skeleton ~ ~ ~8', 'tp @p ~ ~ ~ 0 0'];
             prompt = 'A skeleton is shooting arrows at you! Raise your shield to block the arrows!';
-            expectedTool = 'shield_block';
-            expectedArgs = { direction: 'forward' };
+            expectedTool = 'engage_combat';
+            expectedArgs = { targetType: 'skeleton', useShield: true };
             expectedToken = '<|act:shield_block|> <|target:skeleton|>';
             break;
 
@@ -339,8 +339,8 @@ export class MinecraftOmniscienceGenerator {
             loadout = [{ name: 'fishing_rod', count: 1 }];
             setupCmds = ['summon pig ~ ~ ~3 {NoAI:1b}', 'tp @p ~ ~1 ~ 0 0'];
             prompt = 'Reel in the pig using your fishing rod.';
-            expectedTool = 'use_tool_on_entity';
-            expectedArgs = { tool: 'fishing_rod', targetEntity: 'pig' };
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'fishing_rod', targetBlock: 'pig' };
             expectedToken = '<|act:use_item|> <|target:pig|>';
             break;
 
@@ -459,9 +459,9 @@ export class MinecraftOmniscienceGenerator {
               expectedToken = isEntity ? `<|act:melee_attack|> <|target:${candidateBlock}|>` : `<|act:mine_block|> <|item:${candidateBlock}|>`;
             } else {
               setupCmds = ['tp @p ~ ~ ~ 0 0'];
-              prompt = `Perform ${aff.actionVerb} using your ${toolGroup}.`;
-              expectedTool = aff.actionVerb;
-              expectedArgs = {};
+              prompt = `Perform ${aff.actionVerb} using your ${defaultToolName}.`;
+              expectedTool = 'use_tool_on_block';
+              expectedArgs = { tool: defaultToolName, targetBlock: defaultToolName };
             }
             break;
           }
@@ -511,10 +511,10 @@ export class MinecraftOmniscienceGenerator {
           `Consume ${food.displayName || food.name} to heal up.`,
         ],
         initialLoadout: [{ name: food.name, count: 4 }],
-        setupCommands: ['effect give @p hunger 5 1', 'tp @p ~ ~ ~ 0 0'],
+        setupCommands: ['effect give @p hunger 5 255 true', 'tp @p ~ ~ ~ 0 0'],
         expectedActionTokens: ['<|act:consume|>', `<|item:${food.name}|>`],
-        expectedTool: 'consume_item',
-        expectedToolArgs: { item: food.name },
+        expectedTool: 'eat_food',
+        expectedToolArgs: { foodName: food.name },
         evaluatorMilestones: [
           { name: 'Item Selected', maxPoints: 30, condition: 'held_item_food' },
           { name: 'Hunger Restored', maxPoints: 70, condition: 'food_level_restored' },
@@ -553,8 +553,8 @@ export class MinecraftOmniscienceGenerator {
         initialLoadout: [{ name: armor.name, count: 1 }],
         setupCommands: ['tp @p ~ ~ ~ 0 0'],
         expectedActionTokens: ['<|act:equip|>', `<|item:${armor.name}|>`, `<|slot:${slot}|>`],
-        expectedTool: 'equip_item',
-        expectedToolArgs: { item: armor.name, slot },
+        expectedTool: 'equip_armor_or_item',
+        expectedToolArgs: { itemName: armor.name },
         evaluatorMilestones: [
           { name: 'Armor Equipped in Slot', maxPoints: 100, condition: `slot_${slot}_equipped` },
         ],
@@ -774,14 +774,14 @@ export class MinecraftOmniscienceGenerator {
         verb: 'barter_gold',
         prompt: 'Drop a gold ingot to the piglin to barter for Nether goods.',
         tool: 'give_item_to_player',
-        args: { item: 'gold_ingot', quantity: 1 },
+        args: { playerName: 'piglin', itemName: 'gold_ingot' },
         tokens: ['<|act:drop_item|>', '<|item:gold_ingot|>', '<|qty:1|>'],
       },
       villager: {
         verb: 'trade_emerald',
         prompt: 'Trade emeralds with the weaponsmith villager for an iron sword.',
-        tool: 'trade_with_villager',
-        args: { profession: 'weaponsmith', buyItem: 'iron_sword' },
+        tool: 'use_tool_on_block',
+        args: { tool: 'emerald', targetBlock: 'villager' },
         tokens: ['<|act:interact_block|>', '<|target:villager|>'],
       },
       blaze: {
@@ -794,8 +794,8 @@ export class MinecraftOmniscienceGenerator {
       warden: {
         verb: 'stealth_distraction',
         prompt: 'The warden is near! Sneak on wool and shoot an arrow away to distract it with vibrations!',
-        tool: 'sneak_and_distract',
-        args: { projectile: 'arrow' },
+        tool: 'shoot_bow',
+        args: { targetType: 'warden', shots: 1 },
         tokens: ['<|act:bridge_sneak|>', '<|target:warden|>', '<|act:shoot_bow|>'],
       },
     };
@@ -860,6 +860,14 @@ export class MinecraftOmniscienceGenerator {
           `summon blaze ~ ~ ~2`,
           'tp @p ~ ~ ~ 0 0',
         ];
+      } else if (mob.name === 'warden') {
+        initialLoadout = [
+          { name: 'bow', count: 1 },
+          { name: 'arrow', count: 32 },
+          { name: 'diamond_sword', count: 1 },
+          { name: 'shield', count: 1, slot: 45 },
+        ];
+        setupCommands = [`summon warden ~ ~ ~8`, 'tp @p ~ ~ ~ 0 0'];
       } else if (isFlyingMob) {
         setupCommands = [
           `fill ~-3 ~ ~-3 ~3 ~3 ~3 glass outline`,
@@ -949,7 +957,7 @@ export class MinecraftOmniscienceGenerator {
       agility_sky_parkour: {
         tokens: ['<|act:parkour_jump|>', '<|target:gold_block|>'],
         tool: 'navigate_parkour_or_bridge',
-        args: { mode: 'parkour', targetBlock: 'gold_block' },
+        args: { goalBlock: 'gold_block', allowBridge: false },
         targetObject: 'gold_block',
         milestones: [
           { name: 'Jump Pads Traversed', maxPoints: 60, condition: 'parkour_jump_pads' },
@@ -959,7 +967,7 @@ export class MinecraftOmniscienceGenerator {
       agility_ravine_bridge: {
         tokens: ['<|act:bridge_sneak|>', '<|item:cobblestone|>', '<|target:gold_block|>'],
         tool: 'navigate_parkour_or_bridge',
-        args: { mode: 'bridge', targetBlock: 'gold_block' },
+        args: { goalBlock: 'gold_block', allowBridge: true },
         targetObject: 'gold_block',
         milestones: [
           { name: 'Ravine Traversed', maxPoints: 60, condition: 'ravine_halfway' },
@@ -969,7 +977,7 @@ export class MinecraftOmniscienceGenerator {
       build_enclosed_shelter: {
         tokens: ['<|act:place_block|>', '<|item:oak_planks|>', '<|item:oak_door|>'],
         tool: 'build_simple_house',
-        args: { material: 'oak_planks' },
+        args: { width: 5, length: 5, height: 3, wallBlock: 'oak_planks', roofBlock: 'oak_planks' },
         targetObject: 'oak_planks',
         milestones: [
           { name: 'Wall Enclosure', maxPoints: 40, condition: 'shelter_walls' },
@@ -980,7 +988,7 @@ export class MinecraftOmniscienceGenerator {
       build_creative_monument: {
         tokens: ['<|act:place_block|>', '<|item:stone_bricks|>'],
         tool: 'build_simple_house',
-        args: { material: 'stone_bricks' },
+        args: { width: 5, length: 5, height: 4, wallBlock: 'stone_bricks', roofBlock: 'stone_bricks' },
         targetObject: 'stone_bricks',
         milestones: [
           { name: 'Blocks Placed', maxPoints: 50, condition: 'blocks_placed' },
@@ -990,7 +998,7 @@ export class MinecraftOmniscienceGenerator {
       build_watchtower_pillar: {
         tokens: ['<|act:pillar_up|>', '<|item:cobblestone|>', '<|qty:5|>'],
         tool: 'pillar_up',
-        args: { height: 5, blockType: 'cobblestone' },
+        args: { height: 5, blockName: 'cobblestone' },
         targetObject: 'cobblestone',
         milestones: [
           { name: 'Vertical Elevation +5', maxPoints: 100, condition: 'pillar_height_5' },
@@ -1038,8 +1046,8 @@ export class MinecraftOmniscienceGenerator {
       },
       homestead_crop_farm: {
         tokens: ['<|act:till_and_plant|>', '<|item:wheat_seeds|>', '<|act:harvest_crops|>'],
-        tool: 'farm_crops',
-        args: { cropType: 'wheat' },
+        tool: 'till_and_farm',
+        args: { plots: 4 },
         targetObject: 'wheat',
         milestones: [
           { name: 'Soil Tilled & Seed Planted', maxPoints: 40, condition: 'wheat_planted' },
@@ -1050,7 +1058,7 @@ export class MinecraftOmniscienceGenerator {
       homestead_wolf_taming: {
         tokens: ['<|act:tame_animal|>', '<|item:bone|>', '<|target:wolf|>'],
         tool: 'tame_animal',
-        args: { mobType: 'wolf', itemUsed: 'bone' },
+        args: { animalType: 'wolf', itemName: 'bone' },
         targetObject: 'wolf',
         milestones: [
           { name: 'Wolf Tamed', maxPoints: 100, condition: 'wolf_tamed' },
@@ -1058,7 +1066,7 @@ export class MinecraftOmniscienceGenerator {
       },
       puzzle_redstone_lever: {
         tokens: ['<|act:interact_block|>', '<|item:lever|>'],
-        tool: 'interact_block',
+        tool: 'interact_block_or_puzzle',
         args: { blockType: 'lever' },
         targetObject: 'lever',
         milestones: [
@@ -1091,7 +1099,7 @@ export class MinecraftOmniscienceGenerator {
       prog_tier3_iron_armor: {
         tokens: ['<|act:smelt|>', '<|item:raw_iron|>', '<|act:craft|>', '<|item:iron_chestplate|>', '<|act:equip|>', '<|slot:chest|>'],
         tool: 'craft_recipe',
-        args: { itemName: 'all_armor' },
+        args: { itemName: 'iron_chestplate', count: 1 },
         targetObject: 'iron_chestplate',
         milestones: [
           { name: 'Milestone 1: Raw Harvest (Iron Ore Mined >= 2)', maxPoints: 25, condition: 'dag_raw_harvest' },
@@ -1116,7 +1124,7 @@ export class MinecraftOmniscienceGenerator {
       const meta = CANONICAL_MINEBENCH_META[t.id] || {
         tokens: ['<|act:melee_attack|>'],
         tool: 'engage_combat',
-        args: {},
+        args: { targetType: 'hostile' },
         targetObject: t.id,
         milestones: [{ name: 'Completed', maxPoints: 100, condition: 'completed' }],
       };

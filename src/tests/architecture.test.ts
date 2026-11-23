@@ -3350,6 +3350,495 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('59. System1 perception filters dying/invalid entities, refreshes immediately on teleport sync, and stamps swap slot', async () => {
+  const { System1BotController } = require('../system1/botController');
+  const { HumanizedInventoryController } = require('../system1/kinematics/inventory');
+
+  const mockBot: any = {
+    entity: {
+      id: 1,
+      position: new Vec3(0, 64, 0),
+      height: 1.62,
+      yaw: 0,
+      pitch: 0,
+      velocity: new Vec3(0, 0, 0),
+      onGround: true,
+    },
+    health: 20,
+    food: 20,
+    oxygenLevel: 20,
+    heldItem: null,
+    time: { timeOfDay: 1000 },
+    entities: {
+      '10': { id: 10, name: 'zombie', type: 'hostile', health: 0, isValid: true, position: new Vec3(0, 64, -2) },
+      '11': { id: 11, name: 'skeleton', type: 'hostile', health: 20, isValid: false, position: new Vec3(0, 64, -3) },
+      '12': { id: 12, name: 'creeper', type: 'hostile', health: 20, isValid: true, position: new Vec3(0, 64, -4) },
+    },
+    inventory: {
+      items: () => [{ name: 'iron_sword', slot: 37, count: 1 }],
+    },
+    blockAt: (pos: Vec3) => (pos && pos.y < 64 ? { name: 'stone', boundingBox: 'block' } : { name: 'air', boundingBox: 'empty' }),
+    findBlock: () => null,
+    findBlocks: () => [],
+    equip: async () => {},
+  };
+
+  const controller = new System1BotController(mockBot);
+  (controller as any).bot = mockBot;
+  (controller as any).reflexEngine = { getActiveHazard: () => null };
+  controller.invalidatePerceptionCache();
+  const ws = controller.refreshWorldStateNow(true);
+  assert.ok(ws, 'refreshWorldStateNow(true) must return a fresh snapshot');
+  const entityNames = (ws!.visibleEntities || []).map((e: any) => e.name);
+  assert.ok(entityNames.includes('creeper'), 'Valid live creeper must appear immediately after refreshWorldStateNow(true)');
+  assert.ok(!entityNames.includes('zombie'), 'Dying entity with health <= 0 must be filtered out');
+  assert.ok(!entityNames.includes('skeleton'), 'Invalid entity with isValid=false must be filtered out');
+
+  const invCtrl = new HumanizedInventoryController(mockBot);
+  const eqOk = await invCtrl.equipItemHumanized('iron_sword', 'hand');
+  assert.equal(eqOk, true);
+  assert.ok(Number((mockBot as any)._lastSwapSlotAt || 0) > 0, 'equipItemHumanized must stamp _lastSwapSlotAt');
+});
+
+test('60. Evaluators grade agility height tolerance, live lever powered property, and expanded peaceful mobs', () => {
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const skyTask = MINEBENCH_TASKS.find((t: any) => t.id === 'agility_sky_parkour');
+  const bridgeTask = MINEBENCH_TASKS.find((t: any) => t.id === 'agility_ravine_bridge');
+  const leverTask = MINEBENCH_TASKS.find((t: any) => t.id === 'puzzle_redstone_lever');
+  assert.ok(skyTask && bridgeTask && leverTask);
+
+  const baseStats = {
+    blocksPlaced: 0,
+    blocksMined: 0,
+    mobsKilled: {},
+    creeperBlasts: 0,
+    arrowsFired: 0,
+    endCrystalsDestroyed: 0,
+    enderDragonSlain: false,
+    leversFlipped: 1,
+    wolvesTamed: 0,
+    ironPickaxeDurabilityUsedOnStone: 0,
+    affordanceActions: 1,
+  };
+
+  const skyAbove = evaluateMinebenchEpisode(skyTask, {
+    botPosition: { x: skyTask.origin.x + 18, y: skyTask.origin.y + 2, z: skyTask.origin.z },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: baseStats,
+  } as any);
+  assert.equal(skyAbove.passed, true, 'Landing cleanly above parkour gold pad must pass');
+
+  const skyBelow = evaluateMinebenchEpisode(skyTask, {
+    botPosition: { x: skyTask.origin.x + 18, y: skyTask.origin.y - 0.5, z: skyTask.origin.z },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: baseStats,
+  } as any);
+  assert.equal(skyBelow.passed, false, 'Sky parkour below goalY+0.5 must not pass');
+
+  const bridgePass = evaluateMinebenchEpisode(bridgeTask, {
+    botPosition: { x: bridgeTask.origin.x + 12, y: bridgeTask.origin.y + 0.5, z: bridgeTask.origin.z },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: baseStats,
+  } as any);
+  assert.equal(bridgePass.passed, true);
+
+  let leverPowered = false;
+  const makeLeverSnap = () => ({
+    botPosition: { x: leverTask.origin.x + 6, y: leverTask.origin.y, z: leverTask.origin.z },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: (bx: number, by: number, bz: number) =>
+      bx === leverTask.origin.x + 3 && by === leverTask.origin.y + 1 && bz === leverTask.origin.z - 1
+        ? ({ name: 'lever', getProperties: () => ({ powered: leverPowered }) } as any)
+        : { name: 'air' },
+    entities: [],
+    stats: baseStats,
+  });
+  const unpoweredRes = evaluateMinebenchEpisode(leverTask, makeLeverSnap() as any);
+  assert.equal(unpoweredRes.passed, false, 'Unpowered live lever at target pos must not pass');
+  assert.equal(unpoweredRes.score, 50);
+
+  leverPowered = true;
+  const poweredRes = evaluateMinebenchEpisode(leverTask, makeLeverSnap() as any);
+  assert.equal(poweredRes.passed, true);
+  assert.equal(poweredRes.score, 100);
+
+  for (const animal of ['pig', 'bee', 'axolotl', 'chicken']) {
+    const mobRes = evaluateMinebenchEpisode(
+      {
+        id: `omni_mob_${animal}`,
+        domain: 'MOB_INTERACTION',
+        targetObject: animal,
+        origin: { x: 0, y: 100, z: 0 },
+        initialLoadout: [],
+        evaluatorMilestones: [
+          { name: 'Target Engaged', maxPoints: 40, condition: 'target_engaged' },
+          { name: 'Target Resolved', maxPoints: 60, condition: 'target_resolved' },
+        ],
+      } as any,
+      {
+        botPosition: { x: 0, y: 100, z: 0 },
+        health: 20,
+        food: 20,
+        deaths: 0,
+        inventory: [],
+        equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+        blockAt: () => ({ name: 'air' }),
+        entities: [],
+        stats: baseStats,
+      } as any
+    );
+    assert.equal(mobRes.passed, true, `Peaceful mob ${animal} interaction must pass without killing`);
+  }
+});
+
+test('61. Regenerated Omniscience dataset has zero unregistered tools and slm_trainer filters plain QA/invalid tools', () => {
+  const { execFileSync } = require('child_process');
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const registered = new Set(registry.listSchemas().map((t: any) => t.name));
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasks: any[] = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8')
+  );
+  assert.ok(tasks.length > 0);
+
+  for (const t of tasks) {
+    assert.ok(registered.has(t.expectedTool), `Task ${t.taskId} references unregistered tool "${t.expectedTool}"`);
+    if (t.taskId?.startsWith('omni_food_')) {
+      assert.ok(
+        !(t.setupCommands || []).some((c: string) => c.includes('hunger 5 1')),
+        `${t.taskId} must not use weak hunger 5 1 setup command`
+      );
+    }
+  }
+  const piglinTask = tasks.find((t) => t.taskId === 'omni_mob_piglin');
+  assert.ok(piglinTask);
+  assert.equal(piglinTask.expectedTool, 'give_item_to_player');
+  assert.equal(piglinTask.expectedToolArgs.playerName, 'piglin');
+  assert.equal(piglinTask.expectedToolArgs.itemName, 'gold_ingot');
+
+  const wardenTask = tasks.find((t) => t.taskId === 'omni_mob_warden');
+  assert.ok(wardenTask);
+  assert.equal(wardenTask.expectedTool, 'shoot_bow');
+  assert.ok((wardenTask.initialLoadout || []).some((i: any) => i.name === 'bow'));
+  assert.ok((wardenTask.initialLoadout || []).some((i: any) => i.name === 'arrow'));
+
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+from minebench.slm_trainer import filter_valid_tool_trajectory
+
+qa_row = {"id": "omni_qa_item_apple", "messages": [{"role": "system", "content": "s"}, {"role": "user", "content": "q"}, {"role": "assistant", "content": "<|intent:chat|> Apple stacks to 64."}]}
+bad_tool_row = {"id": "omni_tool_axe_strip_log", "messages": [{"role": "system", "content": "s"}, {"role": "user", "content": "q"}, {"role": "assistant", "content": json.dumps({"thought": "t", "toolCall": {"name": "strip_log", "arguments": {"blockName": "oak_log"}}})}]}
+good_row = {"id": "omni_tool_axe_strip_log", "messages": [{"role": "system", "content": "s"}, {"role": "user", "content": "q"}, {"role": "assistant", "content": json.dumps({"thought": "t", "toolCall": {"name": "use_tool_on_block", "arguments": {"tool": "iron_axe", "targetBlock": "oak_log"}}})}]}
+
+assert filter_valid_tool_trajectory(qa_row) is None
+assert filter_valid_tool_trajectory(bad_tool_row) is None
+assert filter_valid_tool_trajectory(good_row) is not None
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('62. Skill guards: shulker_bullet filter, gather_resource empty & *_block, interact allowlist/dist, and piglin barter drop', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  assert.equal(registry.listSchemas().length, 35);
+
+  const gatherTool = registry.getTool('gather_resource')!;
+  const emptyGather = await gatherTool.handler(
+    {},
+    { bot: { inventory: { items: () => [] } } } as any
+  );
+  assert.equal(emptyGather.success, false, 'gather_resource({}) must fail without defaulting to log');
+
+  let seenMatcher: ((b: any) => boolean) | null = null;
+  const blockGather = await gatherTool.handler(
+    { blockType: 'diamond_block', count: 1 },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        version: '1.20.4',
+        heldItem: null,
+        recipesFor: () => [],
+        inventory: { items: () => [] },
+        findBlocks: (opts: any) => {
+          seenMatcher = opts.matching;
+          return [];
+        },
+        findBlock: (opts: any) => {
+          seenMatcher = seenMatcher || opts.matching;
+          return null;
+        },
+        blockAt: () => ({ name: 'air', boundingBox: 'empty' }),
+      },
+      kinematics: { equipItemHumanized: async () => false },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(blockGather.success, false);
+  const matcherFn = seenMatcher as ((b: any) => boolean) | null;
+  assert.ok(matcherFn);
+  assert.equal(matcherFn({ name: 'diamond_block' }), true);
+  assert.equal(matcherFn({ name: 'diamond_ore' }), false, 'diamond_block must not match diamond_ore');
+
+  const combatTool = registry.getTool('engage_combat')!;
+  const bulletRes = await combatTool.handler(
+    { targetType: 'shulker', maxRange: 16 },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [] },
+        blockAt: () => ({ name: 'air', boundingBox: 'empty' }),
+        findBlock: () => null,
+        findBlocks: () => [],
+        pathfinder: { setGoal: () => {} },
+        setControlState: () => {},
+        clearControlStates: () => {},
+        entities: {
+          '5': { id: 5, name: 'shulker_bullet', type: 'projectile', position: new Vec3(2, 64, 2), isValid: true },
+        },
+      },
+      kinematics: { equipItemHumanized: async () => false },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(bulletRes.success, false, 'shulker_bullet projectile must be ignored by engage_combat');
+
+  const interactTool = registry.getTool('interact_block_or_puzzle')!;
+  const farGold = await interactTool.handler(
+    { blockType: 'gold_block' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [] },
+        findBlock: () => ({ position: new Vec3(5, 64, 0), name: 'gold_block' }),
+      },
+      kinematics: { pathfindTo: async () => {} },
+    } as any
+  );
+  assert.equal(farGold.success, false, 'interact_block_or_puzzle must fail if bot never reached gold_block');
+
+  let brickActivated = 0;
+  const nonInter = await interactTool.handler(
+    { blockType: 'stone_bricks' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [] },
+        findBlock: () => ({ position: new Vec3(1, 64, 0), name: 'stone_bricks' }),
+        blockAt: () => ({ position: new Vec3(1, 64, 0), name: 'stone_bricks' }),
+        activateBlock: async () => { brickActivated++; },
+      },
+      kinematics: { pathfindTo: async () => {}, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(nonInter.success, false, 'stone_bricks is not interactive');
+  assert.equal(brickActivated, 0);
+
+  const giveTool = registry.getTool('give_item_to_player')!;
+  let tossed = 0;
+  const piglinEnt = { id: 42, name: 'piglin', type: 'mob', position: new Vec3(1.5, 64, 0), isValid: true };
+  const dropBot: any = {
+    username: 'NeuroAgent',
+    entity: { position: new Vec3(0, 64, 0) },
+    players: {},
+    entities: { '42': piglinEnt },
+    inventory: { items: () => [{ name: 'gold_ingot', count: 1 }] },
+    nearestEntity: (pred: (e: any) => boolean) => (pred(piglinEnt) ? piglinEnt : null),
+    tossStack: async () => { tossed++; },
+    setControlState: () => {},
+    clearControlStates: () => {},
+  };
+  const giveRes = await giveTool.handler(
+    { playerName: 'piglin', itemName: 'gold_ingot' },
+    {
+      bot: dropBot,
+      kinematics: { pathfindTo: async () => {}, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(giveRes.success, true, 'give_item_to_player must resolve piglin entity by name');
+  assert.equal(tossed, 1);
+  assert.ok(Number(dropBot._lastDropItemAt || 0) > 0, 'give_item_to_player must stamp _lastDropItemAt');
+});
+
+test('63. rl_trainer VALID_MCP_TOOLS matches 35 registered tools, GRPO skips stepReward<=0 on fails, DPO enforces combat & worker/prompt guards', () => {
+  const { execFileSync } = require('child_process');
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const toolNames = registry.listSchemas().map((t: any) => t.name);
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+import minebench.rl_trainer as rt
+
+js_tools = set(${JSON.stringify(toolNames)})
+assert len(js_tools) == 35
+assert js_tools == rt.VALID_MCP_TOOLS, (js_tools ^ rt.VALID_MCP_TOOLS)
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    rows = [
+        # Failed episode prefix: step 0 stepReward==0 must NOT enter GRPO, step 1 stepReward>0 CAN enter
+        {
+            "taskId": "prog_tier1_stone_age",
+            "domain": "PROGRESSION_DRAGON",
+            "workerId": 0,
+            "prompt": "Make stone pickaxe",
+            "passed": False,
+            "score": 25,
+            "rawReward": 20.0,
+            "executedTools": [
+                {"name": "gather_resource", "args": {"blockType": "oak_log"}, "success": True, "stepReward": 0.0, "thought": "Zero reward"},
+                {"name": "craft_item", "args": {"itemName": "oak_planks"}, "success": True, "stepReward": 15.0, "thought": "Planks"},
+            ],
+        },
+        # Passed combat task using navigate_to_coordinates must NOT become a DPO winner
+        {
+            "taskId": "combat_spider_swarm",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 0,
+            "prompt": "Kill spiders",
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [
+                {"name": "navigate_to_coordinates", "args": {"x": 10, "y": 100, "z": 10}, "success": True, "stepReward": 60.0, "thought": "Walk"},
+            ],
+        },
+        {
+            "taskId": "combat_spider_swarm",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 0,
+            "prompt": "Kill spiders",
+            "passed": False,
+            "score": 0,
+            "rawReward": 0.0,
+            "executedTools": [
+                {"name": "engage_combat", "args": {"targetType": "creeper"}, "success": False, "stepReward": 0.0, "thought": "Wrong target"},
+            ],
+        },
+        # Multi-worker & prompt guard on engage_combat
+        {
+            "taskId": "combat_zombie_skirmish",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 0,
+            "prompt": "Fight A",
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [
+                {"name": "engage_combat", "args": {"targetType": "zombie"}, "success": True, "stepReward": 80.0, "thought": "Strike zombie"},
+            ],
+        },
+        {
+            "taskId": "combat_zombie_skirmish",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 1,
+            "prompt": "Fight A",
+            "passed": False,
+            "score": 0,
+            "rawReward": 0.0,
+            "executedTools": [
+                {"name": "eat_food", "args": {"foodName": "bread"}, "success": False, "stepReward": 0.0, "thought": "Cross worker"},
+            ],
+        },
+        {
+            "taskId": "combat_zombie_skirmish",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 0,
+            "prompt": "Fight B",
+            "passed": False,
+            "score": 0,
+            "rawReward": 0.0,
+            "executedTools": [
+                {"name": "eat_food", "args": {"foodName": "apple"}, "success": False, "stepReward": 0.0, "thought": "Diff prompt"},
+            ],
+        },
+        {
+            "taskId": "combat_zombie_skirmish",
+            "domain": "COMBAT_TACTICAL",
+            "workerId": 0,
+            "prompt": "Fight A",
+            "passed": False,
+            "score": 0,
+            "rawReward": 0.0,
+            "executedTools": [
+                {"name": "engage_combat", "args": {"targetType": "skeleton"}, "success": False, "stepReward": 0.0, "thought": "Same worker+prompt"},
+            ],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(r) for r in rows) + "\\n", encoding="utf-8")
+    trans_row = {"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}
+    trans_p.write_text(json.dumps(trans_row) + "\\n", encoding="utf-8")
+    orig_paths = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH = replay_p
+        rt.REAL_TRANSITIONS_PATH = trans_p
+        rt.GRPO_DATASET_PATH = grpo_p
+        rt.DPO_PAIRS_PATH = dpo_p
+        rt.RL_METRICS_PATH = metrics_p
+        rt.CHECKPOINT_DIR = tp / "ckpt"
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.RESULTS_DIR = tp / "res"
+        rt.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        tier1_steps = [g.get("step") for g in grpo_items if g.get("taskId") == "prog_tier1_stone_age"]
+        assert 0 not in tier1_steps and 1 in tier1_steps, f"Unexpected tier1 prefix steps: {tier1_steps}"
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 1, f"Expected exactly 1 clean combat_zombie_skirmish DPO pair, got {dpo_items}"
+        assert dpo_items[0]["taskId"] == "combat_zombie_skirmish"
+        rej_tool = json.loads(dpo_items[0]["rejected"])["toolCall"]
+        assert rej_tool == {"name": "engage_combat", "arguments": {"targetType": "skeleton"}}, rej_tool
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig_paths
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 
