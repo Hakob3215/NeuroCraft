@@ -169,12 +169,11 @@ export function evaluateOmniscienceMilestones(
 
   const taskId = String(task?.id || task?.taskId || '').toLowerCase();
   const waterDeployed = ((snap.stats as any).waterPlaced || 0) > 0 || invNames.includes('bucket');
-  const descendedSafe = snap.deaths === 0 && snap.health >= 15 && (snap.botPosition?.y ?? 999) <= (task?.origin?.y ?? 100) + 2;
+  const descendedSafe = snap.deaths === 0 && snap.health >= 15 && (snap.botPosition?.y ?? 999) <= (task?.origin?.y ?? 100) + 4;
   const waterClutchSuccess =
     taskId === 'omni_tool_water_bucket_water_clutch' &&
-    snap.deaths === 0 &&
-    snap.health >= 15 &&
-    (waterDeployed || descendedSafe || ((snap.stats as any).affordanceActions || 0) > 0);
+    waterDeployed &&
+    descendedSafe;
   const elytraEquipped = snap.equippedArmor?.torso === 'elytra';
   const horizDist = Math.hypot((snap.botPosition?.x ?? 0) - (task?.origin?.x ?? 0), (snap.botPosition?.z ?? 0) - (task?.origin?.z ?? 0));
   const elytraGlideSuccess = taskId === 'omni_tool_elytra_glide_and_boost' && elytraEquipped && horizDist > 8.0 && snap.deaths === 0;

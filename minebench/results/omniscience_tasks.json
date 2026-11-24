@@ -1083,7 +1083,7 @@
       }
     ],
     "setupCommands": [
-      "summon vindicator ~ ~ ~3 {HandItems:[{id:\"iron_axe\",Count:1b},{id:\"shield\",Count:1b}]}",
+      "summon vindicator ~ ~ ~8 {HandItems:[{id:\"iron_axe\",Count:1b},{id:\"shield\",Count:1b}]}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -11709,7 +11709,8 @@
       }
     ],
     "setupCommands": [
-      "summon drowned ~ ~ ~4",
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
+      "summon drowned ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -12992,9 +12993,10 @@
       }
     ],
     "setupCommands": [
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
       "fill ~-3 ~ ~-3 ~3 ~3 ~3 glass outline",
       "fill ~-2 ~ ~-2 ~2 ~2 ~2 air",
-      "summon phantom ~ ~ ~2",
+      "summon phantom ~ ~ ~2 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -13645,7 +13647,8 @@
       }
     ],
     "setupCommands": [
-      "summon skeleton ~ ~ ~4",
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
+      "summon skeleton ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -14006,7 +14009,8 @@
       }
     ],
     "setupCommands": [
-      "summon stray ~ ~ ~4",
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
+      "summon stray ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -14822,7 +14826,8 @@
       }
     ],
     "setupCommands": [
-      "summon zombie ~ ~ ~4",
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
+      "summon zombie ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -14924,7 +14929,8 @@
       }
     ],
     "setupCommands": [
-      "summon zombie_villager ~ ~ ~4",
+      "fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass",
+      "summon zombie_villager ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15039,7 +15045,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15104,7 +15110,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15169,7 +15175,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15234,7 +15240,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15429,7 +15435,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:echo_shard\",Count:1b}]}",
-      "summon minecraft:skeleton ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:skeleton ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15494,7 +15500,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:sponge\",Count:1b}]}",
-      "summon minecraft:drowned ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15559,7 +15565,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:map\",Count:1b}]}",
-      "summon minecraft:drowned ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15624,7 +15630,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:heart_of_the_sea\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15689,7 +15695,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:ender_eye\",Count:1b}]}",
-      "summon minecraft:zombie ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -15949,7 +15955,7 @@
     ],
     "setupCommands": [
       "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:sniffer_egg\",Count:1b}]}",
-      "summon minecraft:drowned ~2 ~1 ~4 {PersistenceRequired:1b}",
+      "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [

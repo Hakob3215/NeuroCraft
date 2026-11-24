@@ -477,7 +477,7 @@ MULTI_STEP_GOLD_SPEC = [
     },
     {
         "taskId": "omni_craft_chest",
-        "domain": "HOMESTEADING_ECONOMY",
+        "domain": "PROGRESSION_DRAGON",
         "activeGoal": "Harvest wood, craft planks and a crafting table, and craft 1x Chest.",
         "steps": [
             {

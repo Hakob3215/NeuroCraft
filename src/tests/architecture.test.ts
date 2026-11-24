@@ -5166,6 +5166,58 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('82. water_clutch rejects dry falls without water deployment, undead arenas have sun protection, and gather_resource accepts item/itemName aliases', () => {
+  const { execFileSync } = require('child_process');
+  const { evaluateOmniscienceMilestones } = require('../../minebench/dist/minebench/evaluators');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasks: any[] = JSON.parse(fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8'));
+  const wcTask = { ...tasks.find((t) => t.taskId === 'omni_tool_water_bucket_water_clutch'), origin: { x: 4500, y: 100, z: 500 } };
+  assert.ok(wcTask);
+
+  const dryFallRes = evaluateOmniscienceMilestones(wcTask, {
+    botPosition: { x: 4500, y: 100, z: 500 },
+    health: 19.2,
+    food: 20,
+    deaths: 0,
+    inventory: [{ name: 'water_bucket', count: 1 }],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: {
+      blocksPlaced: 0, blocksMined: 0, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0,
+      endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0,
+      affordanceActions: 1, waterPlaced: 0, ironPickaxeDurabilityUsedOnStone: 0,
+    },
+  } as any);
+  assert.equal(dryFallRes.passed, false);
+  assert.equal(dryFallRes.score, 0, 'Dry fall onto stone with water_bucket still unused must score 0');
+
+  for (const mob of ['skeleton', 'stray', 'zombie', 'zombie_villager', 'drowned', 'phantom']) {
+    const t = tasks.find((x) => x.taskId === `omni_mob_${mob}`);
+    assert.ok(t, `Missing omni_mob_${mob}`);
+    const cmds: string[] = t.setupCommands || [];
+    assert.ok(cmds.some((c) => c.includes('minecraft:tinted_glass')), `omni_mob_${mob} must include tinted_glass overhead shade`);
+    if (mob !== 'phantom') {
+      assert.ok(cmds.some((c) => c.includes('minecraft:stone_button')), `omni_mob_${mob} must wear stone_button helmet`);
+    }
+  }
+  const shieldTask = tasks.find((t) => t.taskId === 'omni_tool_axe_disable_shield');
+  assert.ok((shieldTask.setupCommands || []).some((c: string) => c.includes('~ ~ ~8')), 'vindicator must spawn at ~ ~ ~8');
+
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import sys
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+from minebench.rl_trainer import has_required_args
+assert has_required_args("gather_resource", {"itemName": "sand"}) is True
+assert has_required_args("gather_resource", {"item": "sand"}) is True
+assert has_required_args("gather_resource", {}) is False
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 

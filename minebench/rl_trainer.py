@@ -144,7 +144,7 @@ def is_valid_tool_for_task(task_id: str, prompt: str, tool_name: str) -> bool:
 
 
 REQUIRED_TOOL_ARG_ALIASES = {
-    "gather_resource": ("blockType", "resource", "block"),
+    "gather_resource": ("blockType", "resource", "block", "itemName", "item"),
     "craft_item": ("itemName", "recipeName", "item"),
     "smelt_item": ("inputItem", "itemName", "oreType"),
     "equip_armor_or_item": ("itemName", "item"),

@@ -116,7 +116,7 @@ export class MinecraftOmniscienceGenerator {
           case 'disable_shield':
             loadout = [{ name: 'diamond_axe', count: 1 }, { name: 'shield', count: 1 }];
             setupCmds = [
-              'summon vindicator ~ ~ ~3 {HandItems:[{id:"iron_axe",Count:1b},{id:"shield",Count:1b}]}',
+              'summon vindicator ~ ~ ~8 {HandItems:[{id:"iron_axe",Count:1b},{id:"shield",Count:1b}]}',
               'tp @p ~ ~ ~ 0 0',
             ];
             prompt = 'Attack the shielding opponent with your axe to disable their shield!';
@@ -914,6 +914,19 @@ export class MinecraftOmniscienceGenerator {
         setupCommands = [`summon ${mob.name} ~ ~ ~4`, 'tp @p ~ ~ ~ 0 0'];
       }
 
+      const SUN_BURNING_UNDEAD = new Set(['skeleton', 'stray', 'zombie', 'zombie_villager', 'drowned', 'phantom']);
+      if (SUN_BURNING_UNDEAD.has(mob.name)) {
+        const shadeCmd = 'fill ~-6 ~6 ~-6 ~6 ~6 ~6 minecraft:tinted_glass';
+        const undeadNbt =
+          mob.name === 'phantom'
+            ? '{PersistenceRequired:1b}'
+            : '{ArmorItems:[{},{},{},{id:"minecraft:stone_button",Count:1b}],PersistenceRequired:1b}';
+        setupCommands = [
+          shadeCmd,
+          ...setupCommands.map((c) => (c.startsWith(`summon ${mob.name} `) ? `${c} ${undeadNbt}` : c)),
+        ];
+      }
+
       tasks.push({
         taskId: `omni_mob_${mob.name}`,
         domain: 'MOB_INTERACTION',
@@ -955,6 +968,10 @@ export class MinecraftOmniscienceGenerator {
       else if (/(spider|mineshaft|poison)/.test(hazardText)) guardMob = 'spider';
       else if (/(skeleton|stray|igloo|ancient)/.test(hazardText)) guardMob = 'skeleton';
       else if (/(shulker|end_city)/.test(hazardText)) guardMob = 'shulker';
+      const guardNbt =
+        guardMob === 'zombie' || guardMob === 'skeleton' || guardMob === 'drowned'
+          ? '{ArmorItems:[{},{},{},{id:"minecraft:stone_button",Count:1b}],PersistenceRequired:1b}'
+          : '{PersistenceRequired:1b}';
       tasks.push({
         taskId: `omni_structure_${struct.id}`,
         domain: 'STRUCTURE_RAID',
@@ -973,7 +990,7 @@ export class MinecraftOmniscienceGenerator {
         ],
         setupCommands: [
           `setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:"minecraft:${lootItem}",Count:1b}]}`,
-          `summon minecraft:${guardMob} ~2 ~1 ~4 {PersistenceRequired:1b}`,
+          `summon minecraft:${guardMob} ~2 ~1 ~4 ${guardNbt}`,
           'tp @p ~ ~ ~ 0 0',
         ],
         expectedActionTokens: ['<|act:open_container|>', '<|act:melee_attack|>', '<|act:mine_block|>'],
