@@ -386,6 +386,7 @@
     ],
     "setupCommands": [
       "fill 413 63 88 437 63 112 minecraft:stone_bricks",
+      "fill 413 64 88 437 65 112 minecraft:glass outline",
       "fill 414 64 89 436 70 111 minecraft:air",
       "tp NeuroAgent 425 64 100 0 0",
       "summon minecraft:skeleton 432 64 100 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",Count:1b},{}],ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}]}"
@@ -444,6 +445,7 @@
     ],
     "setupCommands": [
       "fill 436 63 86 464 63 114 minecraft:sandstone",
+      "fill 436 64 86 464 65 114 minecraft:glass outline",
       "fill 437 64 87 463 69 113 minecraft:air",
       "tp NeuroAgent 450 64 100 0 0",
       "summon minecraft:spider 454 64 102 {PersistenceRequired:1b}",
@@ -516,6 +518,7 @@
     ],
     "setupCommands": [
       "fill 486 63 86 514 63 114 minecraft:end_stone_bricks",
+      "fill 486 64 86 514 65 114 minecraft:glass outline",
       "fill 487 64 87 513 70 113 minecraft:air",
       "tp NeuroAgent 500 64 100 0 0",
       "summon minecraft:enderman 505 64 100 {PersistenceRequired:1b}"
@@ -759,7 +762,8 @@
       "fill 790 60 90 812 61 110 minecraft:bedrock",
       "fill 790 62 90 812 62 110 minecraft:stone",
       "fill 790 63 90 812 63 110 minecraft:grass_block",
-      "fill 790 64 90 812 72 110 minecraft:air",
+      "fill 790 64 90 812 65 110 minecraft:glass outline",
+      "fill 791 64 91 811 72 109 minecraft:air",
       "fill 795 64 98 797 65 102 minecraft:stone",
       "fill 796 64 101 797 65 102 minecraft:coal_ore",
       "fill 804 64 100 804 68 100 minecraft:oak_log",
@@ -823,7 +827,8 @@
     "setupCommands": [
       "fill 840 60 90 862 62 110 minecraft:bedrock",
       "fill 840 63 90 862 63 110 minecraft:grass_block",
-      "fill 840 64 90 862 72 110 minecraft:air",
+      "fill 840 64 90 862 65 110 minecraft:glass outline",
+      "fill 841 64 91 861 72 109 minecraft:air",
       "fill 844 64 105 844 68 105 minecraft:oak_log",
       "fill 843 67 104 845 69 106 minecraft:oak_leaves",
       "fill 857 64 106 857 68 106 minecraft:oak_log",
@@ -933,7 +938,8 @@
     ],
     "setupCommands": [
       "fill -24 63 -24 24 63 24 minecraft:end_stone",
-      "fill -24 64 -24 24 82 24 minecraft:air",
+      "fill -24 64 -24 24 65 24 minecraft:glass outline",
+      "fill -23 64 -23 23 82 23 minecraft:air",
       "fill 10 64 8 12 70 10 minecraft:obsidian",
       "summon minecraft:end_crystal 11 71 9",
       "fill -12 64 8 -10 70 10 minecraft:obsidian",
@@ -14356,7 +14362,8 @@
       }
     ],
     "setupCommands": [
-      "summon villager ~ ~ ~3",
+      "setblock ~ ~ ~4 grindstone",
+      "summon villager ~ ~ ~3 {PersistenceRequired:1b,VillagerData:{profession:\"minecraft:weaponsmith\",level:2,type:\"minecraft:plains\"},Offers:{Recipes:[{buy:{id:\"minecraft:emerald\",Count:2b},sell:{id:\"minecraft:iron_sword\",Count:1b},maxUses:16}]}}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [

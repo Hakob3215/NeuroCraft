@@ -211,13 +211,14 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'held_tool_correct') {
+      const isMiningAffordance = /(chop_|mine_|dig_|harvest_|break_)/i.test(taskId);
       const hasCorrectTool = Boolean(
         targetObj &&
           (invNames.some((n) => n === targetObj || n.includes(targetObj) || (targetObj.endsWith('_bucket') && n === 'bucket')) ||
             Object.values(snap.equippedArmor || {}).some((eq) => eq && String(eq).toLowerCase().includes(targetObj)))
       );
       const didAnyAction =
-        snap.stats.blocksMined > 0 ||
+        (isMiningAffordance && snap.stats.blocksMined > 0) ||
         snap.stats.blocksPlaced > 0 ||
         (snap.stats as any).foodConsumed > 0 ||
         snap.stats.leversFlipped > 0 ||
@@ -233,8 +234,9 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'affordance_action_completed') {
+      const isMiningAffordance = /(chop_|mine_|dig_|harvest_|break_)/i.test(taskId);
       const anyAction =
-        snap.stats.blocksMined > 0 ||
+        (isMiningAffordance && snap.stats.blocksMined > 0) ||
         snap.stats.blocksPlaced > 0 ||
         snap.stats.leversFlipped > 0 ||
         snap.stats.wolvesTamed > 0 ||

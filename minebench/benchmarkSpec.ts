@@ -269,6 +269,7 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     ],
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 12} ${y - 1} ${z - 12} ${x + 12} ${y - 1} ${z + 12} minecraft:stone_bricks`,
+      `fill ${x - 12} ${y} ${z - 12} ${x + 12} ${y + 1} ${z + 12} minecraft:glass outline`,
       `fill ${x - 11} ${y} ${z - 11} ${x + 11} ${y + 6} ${z + 11} minecraft:air`,
       `tp NeuroAgent ${x} ${y} ${z} 0 0`,
       `summon minecraft:skeleton ${x + 7} ${y} ${z} {PersistenceRequired:1b,HandItems:[{id:"minecraft:bow",Count:1b},{}],ArmorItems:[{},{},{},{id:"minecraft:stone_button",Count:1b}]}`,
@@ -291,6 +292,7 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     ],
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 14} ${y - 1} ${z - 14} ${x + 14} ${y - 1} ${z + 14} minecraft:sandstone`,
+      `fill ${x - 14} ${y} ${z - 14} ${x + 14} ${y + 1} ${z + 14} minecraft:glass outline`,
       `fill ${x - 13} ${y} ${z - 13} ${x + 13} ${y + 5} ${z + 13} minecraft:air`,
       `tp NeuroAgent ${x} ${y} ${z} 0 0`,
       `summon minecraft:spider ${x + 4} ${y} ${z + 2} {PersistenceRequired:1b}`,
@@ -320,6 +322,7 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     ],
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 14} ${y - 1} ${z - 14} ${x + 14} ${y - 1} ${z + 14} minecraft:end_stone_bricks`,
+      `fill ${x - 14} ${y} ${z - 14} ${x + 14} ${y + 1} ${z + 14} minecraft:glass outline`,
       `fill ${x - 13} ${y} ${z - 13} ${x + 13} ${y + 6} ${z + 13} minecraft:air`,
       `tp NeuroAgent ${x} ${y} ${z} 0 0`,
       `summon minecraft:enderman ${x + 5} ${y} ${z} {PersistenceRequired:1b}`,
@@ -433,7 +436,8 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
       `fill ${x - 10} ${y - 4} ${z - 10} ${x + 12} ${y - 3} ${z + 10} minecraft:bedrock`,
       `fill ${x - 10} ${y - 2} ${z - 10} ${x + 12} ${y - 2} ${z + 10} minecraft:stone`,
       `fill ${x - 10} ${y - 1} ${z - 10} ${x + 12} ${y - 1} ${z + 10} minecraft:grass_block`,
-      `fill ${x - 10} ${y} ${z - 10} ${x + 12} ${y + 8} ${z + 10} minecraft:air`,
+      `fill ${x - 10} ${y} ${z - 10} ${x + 12} ${y + 1} ${z + 10} minecraft:glass outline`,
+      `fill ${x - 9} ${y} ${z - 9} ${x + 11} ${y + 8} ${z + 9} minecraft:air`,
       // Exposed stone outcrop & coal vein
       `fill ${x - 5} ${y} ${z - 2} ${x - 3} ${y + 1} ${z + 2} minecraft:stone`,
       `fill ${x - 4} ${y} ${z + 1} ${x - 3} ${y + 1} ${z + 2} minecraft:coal_ore`,
@@ -458,7 +462,8 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 10} ${y - 4} ${z - 10} ${x + 12} ${y - 2} ${z + 10} minecraft:bedrock`,
       `fill ${x - 10} ${y - 1} ${z - 10} ${x + 12} ${y - 1} ${z + 10} minecraft:grass_block`,
-      `fill ${x - 10} ${y} ${z - 10} ${x + 12} ${y + 8} ${z + 10} minecraft:air`,
+      `fill ${x - 10} ${y} ${z - 10} ${x + 12} ${y + 1} ${z + 10} minecraft:glass outline`,
+      `fill ${x - 9} ${y} ${z - 9} ${x + 11} ${y + 8} ${z + 9} minecraft:air`,
       // Natural trees for wood, fuel, and crafting table bootstrapping
       `fill ${x - 6} ${y} ${z + 5} ${x - 6} ${y + 4} ${z + 5} minecraft:oak_log`,
       `fill ${x - 7} ${y + 3} ${z + 4} ${x - 5} ${y + 5} ${z + 6} minecraft:oak_leaves`,
@@ -500,7 +505,8 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     ],
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 24} ${y - 1} ${z - 24} ${x + 24} ${y - 1} ${z + 24} minecraft:end_stone`,
-      `fill ${x - 24} ${y} ${z - 24} ${x + 24} ${y + 18} ${z + 24} minecraft:air`,
+      `fill ${x - 24} ${y} ${z - 24} ${x + 24} ${y + 1} ${z + 24} minecraft:glass outline`,
+      `fill ${x - 23} ${y} ${z - 23} ${x + 23} ${y + 18} ${z + 23} minecraft:air`,
       // Obsidian pillars with End Crystals
       `fill ${x + 10} ${y} ${z + 8} ${x + 12} ${y + 6} ${z + 10} minecraft:obsidian`,
       `summon minecraft:end_crystal ${x + 11} ${y + 7} ${z + 9}`,
@@ -679,7 +685,8 @@ export const DQN_MULTIPLAYER_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 4} ${y - 1} ${z - 3} ${x + 9} ${y - 1} ${z + 23} minecraft:smooth_stone`,
-      `fill ${x - 4} ${y} ${z - 3} ${x + 9} ${y + 6} ${z + 23} minecraft:air`,
+      `fill ${x - 4} ${y} ${z - 3} ${x + 9} ${y + 1} ${z + 23} minecraft:glass outline`,
+      `fill ${x - 3} ${y} ${z - 2} ${x + 8} ${y + 6} ${z + 22} minecraft:air`,
       // Obstacles in lane
       `fill ${x - 2} ${y} ${z + 7} ${x + 2} ${y} ${z + 7} minecraft:oak_fence`,
       `fill ${x + 3} ${y} ${z + 12} ${x + 7} ${y} ${z + 12} minecraft:oak_fence`,
@@ -707,7 +714,8 @@ export const DQN_MULTIPLAYER_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 8} ${y - 1} ${z - 6} ${x + 14} ${y - 1} ${z + 14} minecraft:grass_block`,
-      `fill ${x - 8} ${y} ${z - 6} ${x + 14} ${y + 10} ${z + 14} minecraft:air`,
+      `fill ${x - 8} ${y} ${z - 6} ${x + 14} ${y + 1} ${z + 14} minecraft:glass outline`,
+      `fill ${x - 7} ${y} ${z - 5} ${x + 13} ${y + 10} ${z + 13} minecraft:air`,
       // Shared oak log pillars (fast, reliable 1.20.4 timber columns)
       `fill ${x - 3} ${y} ${z + 4} ${x - 3} ${y + 4} ${z + 4} minecraft:oak_log`,
       `fill ${x + 2} ${y} ${z + 5} ${x + 2} ${y + 4} ${z + 5} minecraft:oak_log`,
@@ -879,7 +887,8 @@ export const SELF_SPARRING_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 4} ${y - 1} ${z - 3} ${x + 9} ${y - 1} ${z + 23} minecraft:smooth_stone`,
-      `fill ${x - 4} ${y} ${z - 3} ${x + 9} ${y + 6} ${z + 23} minecraft:air`,
+      `fill ${x - 4} ${y} ${z - 3} ${x + 9} ${y + 1} ${z + 23} minecraft:glass outline`,
+      `fill ${x - 3} ${y} ${z - 2} ${x + 8} ${y + 6} ${z + 22} minecraft:air`,
       `fill ${x - 2} ${y} ${z + 7} ${x + 2} ${y} ${z + 7} minecraft:oak_fence`,
       `fill ${x + 3} ${y} ${z + 12} ${x + 7} ${y} ${z + 12} minecraft:oak_fence`,
       `fill ${x - 1} ${y - 1} ${z + 19} ${x + 1} ${y - 1} ${z + 21} minecraft:gold_block`,
@@ -905,7 +914,8 @@ export const SELF_SPARRING_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 8} ${y - 1} ${z - 6} ${x + 14} ${y - 1} ${z + 14} minecraft:grass_block`,
-      `fill ${x - 8} ${y} ${z - 6} ${x + 14} ${y + 10} ${z + 14} minecraft:air`,
+      `fill ${x - 8} ${y} ${z - 6} ${x + 14} ${y + 1} ${z + 14} minecraft:glass outline`,
+      `fill ${x - 7} ${y} ${z - 5} ${x + 13} ${y + 10} ${z + 13} minecraft:air`,
       `fill ${x - 3} ${y} ${z + 4} ${x - 3} ${y + 4} ${z + 4} minecraft:oak_log`,
       `fill ${x + 2} ${y} ${z + 5} ${x + 2} ${y + 4} ${z + 5} minecraft:oak_log`,
       `fill ${x + 7} ${y} ${z + 4} ${x + 7} ${y + 4} ${z + 4} minecraft:oak_log`,

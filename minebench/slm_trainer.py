@@ -80,9 +80,16 @@ def stratified_sample_by_domain(items: List[Dict], max_items: int) -> List[Dict]
 
 
 def filter_valid_tool_trajectory(traj: Dict) -> Optional[Dict]:
-    """Ensures every SFT trajectory has valid JSON and a registered MCP toolCall name in VALID_MCP_TOOLS."""
+    """Ensures every SFT trajectory has valid JSON, registered toolCall name, and non-negative advantage for rollouts."""
     if not isinstance(traj, dict):
         return None
+    provider_name = str(traj.get("provider") or "")
+    if provider_name not in ("gold_curriculum", "gold_continuation", "omniscience_gold"):
+        try:
+            if float(traj.get("advantage", 0.0)) < 0.0:
+                return None
+        except Exception:
+            pass
     msgs = traj.get("messages", [])
     if not isinstance(msgs, list) or len(msgs) < 3 or msgs[-1].get("role") != "assistant":
         return None

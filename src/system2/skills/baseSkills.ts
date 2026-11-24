@@ -4,6 +4,31 @@ import { logVerbose } from '../../logger';
 import { sharedNeuralBridge } from '../../system1/neural/neuralBridge';
 
 /**
+ * Safely unwraps string or structured object arguments emitted by SLMs without coercing to "[object Object]".
+ */
+export function pickStrArg(v: any): string {
+  if (typeof v === 'string') return v;
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v);
+  if (v && typeof v === 'object') {
+    const inner =
+      v.name ??
+      v.block ??
+      v.blockName ??
+      v.item ??
+      v.itemName ??
+      v.animalType ??
+      v.target ??
+      v.type ??
+      v.id ??
+      v.username;
+    if (inner !== undefined && inner !== null && typeof inner !== 'object') {
+      return String(inner);
+    }
+  }
+  return '';
+}
+
+/**
  * Returns the minimum pickaxe tier required to harvest `blockName` in vanilla Minecraft
  * so the agent NEVER mines `iron_ore` with a `wooden_pickaxe` or punches `stone` by hand!
  */
@@ -617,8 +642,18 @@ async function safeDigSingleBlock(
     }
 
     const freshBlock = ctx.bot.blockAt(blockPos);
-    if (!freshBlock || freshBlock.name === 'air' || freshBlock.boundingBox === 'empty') {
+    if (
+      !freshBlock ||
+      freshBlock.name === 'air' ||
+      freshBlock.name === 'cave_air' ||
+      freshBlock.name === 'void_air' ||
+      freshBlock.name.includes('water') ||
+      freshBlock.name.includes('lava')
+    ) {
       return true;
+    }
+    if (freshBlock.diggable === false) {
+      return false;
     }
 
     const prevHeld = ctx.bot.heldItem?.name || null;
@@ -1574,7 +1609,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['follow', 'accompany', 'walk', 'player', 'companion'],
     },
     async (args, ctx) => {
-      const targetName = String(args.playerName || '').trim();
+      const targetName = pickStrArg(args.playerName).trim();
       const followDist = Number(args.distance) || 3;
       const isGenericPlayerRef =
         !targetName ||
@@ -1643,7 +1678,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['come', 'here', 'goto', 'approach', 'player'],
     },
     async (args, ctx) => {
-      const targetName = String(args.playerName || '').trim();
+      const targetName = pickStrArg(args.playerName).trim();
       const isGenericPlayerRef =
         !targetName || ['player', 'me', 'human', 'owner', 'user'].includes(targetName.toLowerCase());
       const playerObj: any =
@@ -2284,7 +2319,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['explore', 'dig', 'staircase', 'underground', 'cave', 'search', 'find', 'ores', 'stone', 'iron'],
     },
     async (args, ctx) => {
-      const mode = String(args.mode || 'staircase_mine').toLowerCase();
+      const mode = (pickStrArg(args.mode) || 'staircase_mine').toLowerCase();
       const steps = Math.min(16, Math.max(2, Number(args.steps) || 6));
 
       if (mode.includes('explore') || mode.includes('surface')) {
@@ -2370,7 +2405,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['craft', 'make', 'recipe', 'pickaxe', 'sword', 'planks', 'stick', 'table', 'furnace', 'armor', 'iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots'],
     },
     async (args, ctx) => {
-      const itemName = String(args.itemName || args.recipeName || args.item || '').toLowerCase().trim();
+      const itemName = pickStrArg(args.itemName || args.recipeName || args.item).toLowerCase().trim();
       if (!itemName) {
         return { success: false, summary: 'Missing required itemName argument for craft_item.' };
       }
@@ -2400,7 +2435,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['craft_recipe', 'craft', 'recipe', 'crafting_table', 'mcp'],
     },
     async (args, ctx) => {
-      const itemName = String(args.recipeName || args.itemName || 'oak_planks').toLowerCase().trim();
+      const itemName = (pickStrArg(args.recipeName || args.itemName) || 'oak_planks').toLowerCase().trim();
       const count = Math.max(1, Number(args.count) || 1);
       return await craftItemWithAutoPrereqs(ctx, itemName, count, true, false);
     }
@@ -2430,7 +2465,14 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['smelt', 'furnace', 'iron_ingot', 'raw_iron', 'iron_ore', 'cook', 'coal'],
     },
     async (args, ctx) => {
-      const requestedInput = String(args.inputItem || args.itemToSmelt || args.oreType || args.itemName || args.item || 'raw_iron').toLowerCase();
+      const requestedInput = (
+        pickStrArg(args.inputItem) ||
+        pickStrArg(args.itemToSmelt) ||
+        pickStrArg(args.oreType) ||
+        pickStrArg(args.itemName) ||
+        pickStrArg(args.item) ||
+        'raw_iron'
+      ).toLowerCase();
       const targetCount = Math.min(32, Math.max(1, Number(args.count) || 4));
 
       const invItems = ctx.bot.inventory?.items() || [];
@@ -2628,9 +2670,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['equip', 'wear', 'armor', 'iron_helmet', 'iron_chestplate', 'iron_leggings', 'iron_boots', 'shield'],
     },
     async (args, ctx) => {
-      let query = String(args.itemName || args.item || 'all_armor').toLowerCase();
+      let query = (pickStrArg(args.itemName) || pickStrArg(args.item) || 'all_armor').toLowerCase();
       if (query === 'leather_cap' || query === 'cap') query = 'leather_helmet';
-      const slot = String(args.slot || '').toLowerCase();
+      const slot = pickStrArg(args.slot).toLowerCase();
       const equippedList: string[] = [];
 
       const slotMap: Array<{ suffix: string; dest: 'head' | 'torso' | 'legs' | 'feet' }> = [
@@ -2722,7 +2764,12 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
     async (args, ctx) => {
       const maxRange = Math.max(8, Number(args.maxRange) || 32);
       const targetCount = Math.max(1, Math.min(16, Number(args.count) || 1));
-      const rawTargetType = String(args.targetType || args.targetMob || args.target || 'hostile').toLowerCase().trim();
+      const rawTargetType = (
+        pickStrArg(args.targetType) ||
+        pickStrArg(args.targetMob) ||
+        pickStrArg(args.target) ||
+        'hostile'
+      ).toLowerCase().trim();
       const normalizedTarget = rawTargetType
         .replace(/\s+/g, '_')
         .replace(/^(hostiles|mobs|monsters|enemies|enemy|any)$/, 'hostile')
@@ -3189,8 +3236,20 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['give', 'drop', 'toss', 'share', 'hand', 'item'],
     },
     async (args, ctx) => {
-      const playerName = String(args.playerName || args.targetPlayerName || args.recipient || args.player || args.target || '');
-      const itemQuery = String(args.itemName || args.item || args.itemQuery || 'any').toLowerCase();
+      const playerName = (
+        pickStrArg(args.playerName) ||
+        pickStrArg(args.targetPlayer) ||
+        pickStrArg(args.targetPlayerName) ||
+        pickStrArg(args.recipient) ||
+        pickStrArg(args.player) ||
+        pickStrArg(args.target)
+      ).trim();
+      const itemQuery = (
+        pickStrArg(args.itemName) ||
+        pickStrArg(args.item) ||
+        pickStrArg(args.itemQuery) ||
+        'any'
+      ).toLowerCase();
 
       const items = ctx.bot.inventory?.items() || [];
       if (items.length === 0) {
@@ -3271,14 +3330,14 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       try {
         (ctx.bot as any)._lastDropItemAt = Date.now();
         await ctx.bot.tossStack(matchedItem);
-        // Step back and poll until the tossed stack is picked up (up to 1800ms)
+        // Step back and poll until the tossed stack is picked up (up to ~2640ms so recipients reliably collect it)
         try {
           ctx.bot.setControlState?.('back', true);
           await new Promise((r) => setTimeout(r, 300));
           ctx.bot.clearControlStates?.();
         } catch {}
-        for (let w = 0; w < 12; w++) {
-          await new Promise((r) => setTimeout(r, 150));
+        for (let w = 0; w < 16; w++) {
+          await new Promise((r) => setTimeout(r, 165));
           const nearbyDrop = ctx.bot.nearestEntity?.(
             (e: any) =>
               e &&
@@ -3330,9 +3389,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['chest', 'store', 'deposit', 'put', 'container', 'storage', 'iron_ingot'],
     },
     async (args, ctx) => {
-      const itemQuery = String(args.itemName || 'iron_ingot').toLowerCase().trim();
+      const itemQuery = (pickStrArg(args.itemName) || 'iron_ingot').toLowerCase().trim();
       const maxCount = Math.max(1, Number(args.count) || 64);
-      const playerName = args.playerName ? String(args.playerName).trim() : '';
+      const playerName = pickStrArg(args.playerName).trim();
       const mcData = require('minecraft-data')(ctx.bot.version);
 
       // If a playerName was specified, walk near them first (tunneling/staircasing out of underground mines if needed)
@@ -3493,8 +3552,8 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['manage_chest', 'chest', 'deposit', 'withdraw', 'transfer', 'container', 'mcp'],
     },
     async (args, ctx) => {
-      const action = String(args.action || 'deposit').toLowerCase().trim();
-      const itemName = String(args.itemName || 'all').toLowerCase().trim();
+      const action = (pickStrArg(args.action) || 'deposit').toLowerCase().trim();
+      const itemName = (pickStrArg(args.itemName) || 'all').toLowerCase().trim();
       const count = Math.max(1, Number(args.count) || 64);
 
       if (action === 'deposit') {
@@ -3592,7 +3651,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const height = Math.max(2, Math.min(16, Math.floor(Number(args.height) || 4)));
 
       // 1. Determine center position
-      const speaker = String(args.speaker || '').toLowerCase();
+      const speaker = pickStrArg(args.speaker).toLowerCase();
       const speakerPlayer = Object.values(ctx.bot.players || {}).find(
         (p: any) => p?.entity && (!speaker || p.username.toLowerCase() === speaker)
       ) as any;
@@ -3847,8 +3906,8 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const countItem = (n: string) =>
         inv.filter((it: any) => it.name === n || it.name.includes(n)).reduce((s: number, it: any) => s + it.count, 0);
 
-      let wallBlock = String(args.wallBlock || '').toLowerCase().replace('minecraft:', '').trim();
-      let roofBlock = String(args.roofBlock || '').toLowerCase().replace('minecraft:', '').trim();
+      let wallBlock = pickStrArg(args.wallBlock).toLowerCase().replace('minecraft:', '').trim();
+      let roofBlock = pickStrArg(args.roofBlock).toLowerCase().replace('minecraft:', '').trim();
 
       if (!wallBlock) {
         const candidates = [
@@ -4248,7 +4307,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['tame', 'wolf', 'dog', 'cat', 'pet', 'animal', 'bone', 'companion'],
     },
     async (args, ctx) => {
-      const rawAnimal = String(args.animalType || 'wolf').toLowerCase().trim();
+      const rawAnimal = (pickStrArg(args.animalType) || 'wolf').toLowerCase().trim();
       const animalType =
         rawAnimal === 'dog' || rawAnimal === 'dogs' || rawAnimal === 'wolves'
           ? 'wolf'
@@ -4262,7 +4321,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       };
 
       const candidateItems = args.itemName
-        ? [String(args.itemName).toLowerCase().trim()]
+        ? [pickStrArg(args.itemName).toLowerCase().trim()].filter(Boolean)
         : defaultFoods[animalType] || ['bone', 'cod', 'salmon', 'wheat'];
 
       const targetAnimal: any = Object.values(ctx.bot.entities || {})
@@ -4378,7 +4437,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
     },
     async (args, ctx) => {
       const targetHeight = Math.max(1, Math.min(16, Number(args.height) || 3));
-      const preferred = args.blockName ? String(args.blockName).toLowerCase().trim() : '';
+      const preferred = pickStrArg(args.blockName).toLowerCase().trim();
       const placeableCandidates = [
         ...(preferred ? [preferred] : []),
         'dirt',
@@ -4479,9 +4538,11 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['eat', 'food', 'hungry', 'hunger', 'heal', 'consume', 'beef', 'steak', 'bread', 'apple'],
     },
     async (args, ctx) => {
-      const preferred = (args.foodName || args.itemName || args.item)
-        ? String(args.foodName || args.itemName || args.item).toLowerCase().trim()
-        : '';
+      const preferred = (
+        pickStrArg(args.foodName) ||
+        pickStrArg(args.itemName) ||
+        pickStrArg(args.item)
+      ).toLowerCase().trim();
       const isBeverage =
         preferred.includes('milk') ||
         preferred.includes('potion') ||
@@ -4594,7 +4655,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['bow', 'shoot', 'arrow', 'ranged', 'snipe', 'end_crystal', 'blaze', 'ender_dragon'],
     },
     async (args, ctx) => {
-      const targetType = String(args.targetType || args.target || args.targetEntity || 'hostile').toLowerCase().trim();
+      const targetType = (pickStrArg(args.targetType) || pickStrArg(args.target) || pickStrArg(args.targetEntity) || 'hostile').toLowerCase().trim();
       const maxShots = Math.max(1, Math.min(12, Number(args.shots) || 3));
 
       const hasBow = await ctx.kinematics.equipItemHumanized('bow', 'hand');
@@ -5003,7 +5064,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['parkour', 'jump', 'bridge', 'ravine', 'chasm', 'course', 'agility', 'gold_block'],
     },
     async (args, ctx) => {
-      const goalBlockName = String(args.goalBlock || 'gold_block').toLowerCase().trim();
+      const goalBlockName = (pickStrArg(args.goalBlock) || 'gold_block').toLowerCase().trim();
       const allowBridge = args.allowBridge !== false;
 
       let goalPos = ctx.bot.findBlock({
@@ -5220,9 +5281,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       },
     },
     async (args: any, ctx: any) => {
-      const structureType = String(args.structureType || 'cabin').toLowerCase();
-      const mode = (args.mode === 'creative' || structureType.includes('monument') || structureType.includes('statue') || structureType.includes('art') || structureType.includes('pixel') || structureType.includes('smile') || structureType.includes('face')) ? 'creative' : 'shelter';
-      const style = String(args.style || 'oak').toLowerCase();
+      const structureType = (pickStrArg(args.structureType) || 'cabin').toLowerCase();
+      const mode = (pickStrArg(args.mode) === 'creative' || structureType.includes('monument') || structureType.includes('statue') || structureType.includes('art') || structureType.includes('pixel') || structureType.includes('smile') || structureType.includes('face')) ? 'creative' : 'shelter';
+      const style = (pickStrArg(args.style) || 'oak').toLowerCase();
       const width = Math.max(3, Math.min(11, Number(args.width) || 5));
       const length = Math.max(3, Math.min(11, Number(args.length) || 5));
       const height = Math.max(3, Math.min(9, Number(args.height) || 4));
@@ -5981,11 +6042,59 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       }
       await ctx.kinematics.pathfindTo(b.position, 2.5);
       await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), 120);
+      const readStateSnap = (pos: Vec3) => {
+        const cur = ctx.bot.blockAt?.(pos);
+        const above = ctx.bot.blockAt?.(pos.offset(0, 1, 0));
+        const propsObj =
+          typeof cur?.getProperties === 'function'
+            ? cur.getProperties()
+            : (cur?._properties ?? cur?.properties ?? {});
+        return {
+          name: String(cur?.name || ''),
+          aboveName: String(above?.name || ''),
+          propsJson: JSON.stringify(propsObj || {}),
+        };
+      };
+      const isMutatingTarget =
+        b.name.endsWith('_log') ||
+        b.name.endsWith('_stem') ||
+        b.name === 'grass_block' ||
+        b.name === 'dirt' ||
+        b.name === 'pumpkin' ||
+        b.name === 'campfire' ||
+        b.name === 'soul_campfire' ||
+        b.name === 'obsidian' ||
+        b.name === 'tnt';
+      const preSnap =
+        isMutatingTarget && typeof ctx.bot.blockAt === 'function' ? readStateSnap(b.position) : null;
       try {
         if (target === 'obsidian' || b.name === 'obsidian') {
           await ctx.bot.activateBlock(b, new Vec3(0, 1, 0));
         } else {
           await ctx.bot.activateBlock(b);
+        }
+        if (preSnap) {
+          await new Promise((r) => setTimeout(r, 180));
+          let postSnap = readStateSnap(b.position);
+          const changed = (p0: typeof preSnap, p1: typeof preSnap) =>
+            p1.name !== p0.name || p1.aboveName !== p0.aboveName || p1.propsJson !== p0.propsJson;
+          if (!changed(preSnap, postSnap)) {
+            const refreshed = ctx.bot.blockAt?.(b.position) || b;
+            await ctx.bot.lookAt?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), true)?.catch(() => {});
+            if (target === 'obsidian' || b.name === 'obsidian') {
+              await ctx.bot.activateBlock(refreshed, new Vec3(0, 1, 0));
+            } else {
+              await ctx.bot.activateBlock(refreshed);
+            }
+            await new Promise((r) => setTimeout(r, 180));
+            postSnap = readStateSnap(b.position);
+          }
+          if (!changed(preSnap, postSnap)) {
+            return {
+              success: false,
+              summary: `Activated ${b.name} at (${b.position.x}, ${b.position.y}, ${b.position.z}), but block state did not change.`,
+            };
+          }
         }
         return { success: true, summary: `Used ${resolvedTool} on ${target}!` };
       } catch (e: any) {
@@ -6008,17 +6117,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
     },
     async (args, ctx) => {
       await ctx.kinematics.equipItemHumanized('flint_and_steel', 'hand');
-      const pickFireStr = (v: any): string => {
-        if (typeof v === 'string') return v;
-        if (v && typeof v === 'object') {
-          return String(v.name || v.block || v.blockName || v.type || v.target || '');
-        }
-        return '';
-      };
       const rawTarget = (
-        pickFireStr(args.targetBlock) ||
-        pickFireStr(args.blockType) ||
-        pickFireStr(args.target) ||
+        pickStrArg(args.targetBlock) ||
+        pickStrArg(args.blockType) ||
+        pickStrArg(args.target) ||
         'campfire'
       ).toLowerCase().trim();
       let target = rawTarget.replace(/(_block|_portal_frame|_frame|_item)$/, '');
@@ -6050,11 +6152,51 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       if (!b) return { success: false, summary: `Target block ${target} not found within 16m.` };
       await ctx.kinematics.pathfindTo(b.position, 2.5);
       await ctx.kinematics.lookAtSmooth?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), 120);
+      const readFireSnap = (pos: Vec3) => {
+        const cur = ctx.bot.blockAt?.(pos);
+        const above = ctx.bot.blockAt?.(pos.offset(0, 1, 0));
+        const propsObj =
+          typeof cur?.getProperties === 'function'
+            ? cur.getProperties()
+            : (cur?._properties ?? cur?.properties ?? {});
+        return {
+          name: String(cur?.name || ''),
+          aboveName: String(above?.name || ''),
+          propsJson: JSON.stringify(propsObj || {}),
+        };
+      };
+      const isFireMutating =
+        b.name === 'obsidian' || b.name === 'campfire' || b.name === 'soul_campfire' || b.name === 'tnt';
+      const preFireSnap =
+        isFireMutating && typeof ctx.bot.blockAt === 'function' ? readFireSnap(b.position) : null;
       try {
         if (target === 'obsidian' || b.name === 'obsidian') {
           await ctx.bot.activateBlock(b, new Vec3(0, 1, 0));
         } else {
           await ctx.bot.activateBlock(b);
+        }
+        if (preFireSnap) {
+          await new Promise((r) => setTimeout(r, 180));
+          let postFireSnap = readFireSnap(b.position);
+          const changed = (p0: typeof preFireSnap, p1: typeof preFireSnap) =>
+            p1.name !== p0.name || p1.aboveName !== p0.aboveName || p1.propsJson !== p0.propsJson;
+          if (!changed(preFireSnap, postFireSnap)) {
+            const refreshed = ctx.bot.blockAt?.(b.position) || b;
+            await ctx.bot.lookAt?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), true)?.catch(() => {});
+            if (target === 'obsidian' || b.name === 'obsidian') {
+              await ctx.bot.activateBlock(refreshed, new Vec3(0, 1, 0));
+            } else {
+              await ctx.bot.activateBlock(refreshed);
+            }
+            await new Promise((r) => setTimeout(r, 180));
+            postFireSnap = readFireSnap(b.position);
+          }
+          if (!changed(preFireSnap, postFireSnap)) {
+            return {
+              success: false,
+              summary: `Attempted to ignite ${b.name} at (${b.position.x}, ${b.position.y}, ${b.position.z}), but block state did not change.`,
+            };
+          }
         }
         return { success: true, summary: `Ignited ${target} using flint and steel!` };
       } catch (e: any) {

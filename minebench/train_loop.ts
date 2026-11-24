@@ -718,33 +718,36 @@ export async function seedPersistentSurvivalSector(
   for (const cmd of cmds) {
     server.sendCommand(cmd);
   }
-  await new Promise((r) => setTimeout(r, 350));
+  await new Promise((r) => setTimeout(r, 1500));
 }
 
 export function evaluateSurvivalAdvancements(
   invNames: string[],
   blocksPlaced: number,
-  mobsKilledTotal: number
+  mobsKilledTotal: number,
+  priorUnlocked?: Set<string>
 ): { unlocked: string[]; techTier: string; score: number } {
   const has = (sub: string) => invNames.some((n) => n.includes(sub));
-  const unlocked: string[] = [];
+  const unlockedSet = new Set<string>(priorUnlocked ? Array.from(priorUnlocked) : []);
 
-  if (has('_log') || has('_stem') || has('_planks')) unlocked.push('Wood Age');
-  if (has('cobblestone') || has('stone_pickaxe') || has('furnace')) unlocked.push('Stone Age');
-  if (has('stone_pickaxe') || has('iron_pickaxe') || has('diamond_pickaxe')) unlocked.push('Getting an Upgrade');
-  if (has('iron_ingot') || has('raw_iron') || has('iron_sword') || has('iron_pickaxe')) unlocked.push('Acquire Hardware');
-  if (has('_helmet') || has('_chestplate') || has('_leggings') || has('_boots')) unlocked.push('Suit Up');
-  if (has('bucket') || has('obsidian') || has('flint_and_steel')) unlocked.push('Hot Stuff');
-  if (has('diamond')) unlocked.push('Diamonds!');
-  if (has('blaze') || has('nether') || has('wither')) unlocked.push('We Need to Go Deeper');
-  if (blocksPlaced >= 4 || has('bread') || has('wheat') || mobsKilledTotal > 0) unlocked.push('Homesteader & Hunter');
+  if (has('_log') || has('_stem') || has('_planks')) unlockedSet.add('Wood Age');
+  if (has('cobblestone') || has('stone_pickaxe') || has('furnace')) unlockedSet.add('Stone Age');
+  if (has('stone_pickaxe') || has('iron_pickaxe') || has('diamond_pickaxe')) unlockedSet.add('Getting an Upgrade');
+  if (has('iron_ingot') || has('raw_iron') || has('iron_sword') || has('iron_pickaxe')) unlockedSet.add('Acquire Hardware');
+  if (has('_helmet') || has('_chestplate') || has('_leggings') || has('_boots')) unlockedSet.add('Suit Up');
+  if (has('bucket') || has('obsidian') || has('flint_and_steel')) unlockedSet.add('Hot Stuff');
+  if (has('diamond')) unlockedSet.add('Diamonds!');
+  if (has('blaze') || has('nether') || has('wither')) unlockedSet.add('We Need to Go Deeper');
+  if (blocksPlaced >= 4 || has('bread') || has('wheat') || mobsKilledTotal > 0) unlockedSet.add('Homesteader & Hunter');
+
+  const unlocked = Array.from(unlockedSet);
 
   let techTier = 'Raw';
-  if (unlocked.includes('We Need to Go Deeper')) techTier = 'Nether';
-  else if (unlocked.includes('Diamonds!')) techTier = 'Diamond';
-  else if (unlocked.includes('Acquire Hardware') || unlocked.includes('Suit Up')) techTier = 'Iron';
-  else if (unlocked.includes('Stone Age') || unlocked.includes('Getting an Upgrade')) techTier = 'Stone';
-  else if (unlocked.includes('Wood Age')) techTier = 'Wood';
+  if (unlockedSet.has('We Need to Go Deeper')) techTier = 'Nether';
+  else if (unlockedSet.has('Diamonds!')) techTier = 'Diamond';
+  else if (unlockedSet.has('Acquire Hardware') || unlockedSet.has('Suit Up')) techTier = 'Iron';
+  else if (unlockedSet.has('Stone Age') || unlockedSet.has('Getting an Upgrade')) techTier = 'Stone';
+  else if (unlockedSet.has('Wood Age')) techTier = 'Wood';
 
   const score = Math.min(100, unlocked.length * 14 + Math.min(16, blocksPlaced * 2 + mobsKilledTotal * 5));
   return { unlocked, techTier, score };
@@ -796,7 +799,7 @@ export function applyRandomWoodSpecies(task: MinebenchTaskSpec, fixedSpecies?: s
   };
 }
 
-function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): MinebenchTaskSpec[] {
+export function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): MinebenchTaskSpec[] {
   if (!fs.existsSync(tasksPath)) return [];
   try {
     const rawAll: any[] = JSON.parse(fs.readFileSync(tasksPath, 'utf-8'));
@@ -883,21 +886,20 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
       evaluatorMilestones: t.evaluatorMilestones,
       buildArenaCommands: (orig: { x: number; y: number; z: number }) => {
         const rawCmds: string[] = t.setupCommands || [];
-        let elevatedTpCmd: string | null = null;
+        let customTpCmd: string | null = null;
         let maxTpDy = 0;
         for (const cmd of rawCmds) {
-          const m = cmd.match(/^tp\s+@p\s+~\S*\s+~(\d+(?:\.\d+)?)\s+~/);
+          if (/^tp\s+@p\s+/i.test(cmd)) {
+            customTpCmd = cmd;
+          }
+          const m = cmd.match(/^tp\s+@p\s+~\S*\s+~(\d+(?:\.\d+)?)\s+~/i);
           if (m) {
-            const dy = parseFloat(m[1]);
-            if (dy >= 5) {
-              elevatedTpCmd = cmd;
-              maxTpDy = Math.max(maxTpDy, Math.ceil(dy));
-            }
+            maxTpDy = Math.max(maxTpDy, Math.ceil(parseFloat(m[1])));
           }
         }
         const airTop = orig.y + Math.max(10, maxTpDy + 10);
-        const finalTp = elevatedTpCmd
-          ? resolveMinecraftCoordinates(elevatedTpCmd, orig)
+        const finalTp = customTpCmd
+          ? resolveMinecraftCoordinates(customTpCmd, orig).replace(/@p\b/g, 'NeuroAgent')
           : `tp NeuroAgent ${orig.x} ${orig.y} ${orig.z} 0 0`;
         return [
           `gamerule commandModificationBlockLimit 100000`,
@@ -907,7 +909,7 @@ function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Minebench
           `fill ${orig.x - 12} ${orig.y} ${orig.z - 12} ${orig.x + 12} ${orig.y + 2} ${orig.z + 12} minecraft:glass outline`,
           `fill ${orig.x - 11} ${orig.y} ${orig.z - 11} ${orig.x + 11} ${orig.y + 2} ${orig.z + 11} minecraft:air`,
           ...rawCmds
-            .filter((cmd: string) => !cmd.startsWith('tp @p') && !cmd.startsWith('tp NeuroAgent'))
+            .filter((cmd: string) => !/^tp\s+@p\b/i.test(cmd) && !/^tp\s+NeuroAgent\b/i.test(cmd))
             .map((cmd: string) => resolveMinecraftCoordinates(cmd, orig)),
           finalTp,
         ];
@@ -1283,14 +1285,31 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let sDeaths = 0;
           let sBlocksPlaced = 0;
           let sKills = 0;
+          let survivalTrackingActive = false;
           const onSDeath = () => { sDeaths++; };
           const onSBlock = (o: any, n: any) => {
-            if (o?.name === 'air' && n?.name && n.name !== 'air' && n.position?.distanceTo(sBot.entity.position) <= 6.0) {
+            if (!survivalTrackingActive || !o || !n || !sBot?.entity) return;
+            const nn = String(n.name || '').toLowerCase();
+            if (
+              o.name === 'air' &&
+              nn &&
+              nn !== 'air' &&
+              nn !== 'water' &&
+              nn !== 'lava' &&
+              n.position?.distanceTo(sBot.entity.position) <= 5.5
+            ) {
               sBlocksPlaced++;
             }
           };
           const onSKill = (e: any) => {
-            if (e && !String(e.name || '').toLowerCase().startsWith('neuroagent')) sKills++;
+            if (
+              survivalTrackingActive &&
+              e &&
+              !String(e.name || '').toLowerCase().startsWith('neuroagent') &&
+              Date.now() - ((sBot as any)._lastAttackAt || 0) <= 2000
+            ) {
+              sKills++;
+            }
           };
           sBot.on('death', onSDeath);
           sBot.on('blockUpdate', onSBlock);
@@ -1304,7 +1323,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let finalEval = evaluateSurvivalAdvancements(
             (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase()),
             sBlocksPlaced,
-            sKills
+            sKills,
+            persistentUnlockedAdvancements
           );
 
           try {
@@ -1359,6 +1379,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               let hardTimer: ReturnType<typeof setTimeout> | null = null;
               try {
+                survivalTrackingActive = true;
                 const rpcPromise = survivalWorker.mcpServer.handleRpcRequest(
                   { jsonrpc: '2.0', id: sub.id, method: 'tools/call', params: { name: toolName, arguments: toolArgs } },
                   () => survivalWorker!.system1.createToolExecutionContext(sub, async () => {}, abortCtrl.signal)
@@ -1385,6 +1406,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   summary = String(rpcRes.error.message || 'Survival step timeout');
                 }
               } finally {
+                survivalTrackingActive = false;
                 if (hardTimer) clearTimeout(hardTimer);
                 clearTimeout(timer);
                 try {
@@ -1404,7 +1426,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               );
 
               const invNames = (sBot.inventory?.items() || []).map((i: any) => i.name.toLowerCase());
-              const nextEval = evaluateSurvivalAdvancements(invNames, sBlocksPlaced, sKills);
+              const nextEval = evaluateSurvivalAdvancements(
+                invNames,
+                sBlocksPlaced,
+                sKills,
+                persistentUnlockedAdvancements
+              );
               const newAdvs = nextEval.unlocked.filter((a) => !persistentUnlockedAdvancements.has(a));
               for (const a of newAdvs) persistentUnlockedAdvancements.add(a);
               const rewardDelta = newAdvs.length * 40 + (ok ? 5 : -2);
@@ -1594,15 +1621,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const isFoodHungerTask =
             task.id.startsWith('omni_food_') &&
             !/(golden|milk|potion|bottle|honey)/i.test(String((task as any).targetObject || ''));
-          const maxYDelta = task.id.includes('water_clutch') ? 24.0 : 2.5;
+          const maxYDelta = task.id.includes('water_clutch') ? 24.0 : 3.0;
           const syncTimeoutMs = isFoodHungerTask ? 5200 : 1500;
           const syncStart = Date.now();
           while (Date.now() - syncStart < syncTimeoutMs) {
             const pNow = postResetBot?.entity?.position;
             const posOk = Boolean(
               pNow &&
-                Math.hypot(pNow.x - postOriginVec.x, pNow.z - postOriginVec.z) <= 4.0 &&
-                Math.abs(pNow.y - postOriginVec.y) <= maxYDelta
+                Math.hypot(pNow.x - postOriginVec.x, pNow.z - postOriginVec.z) <= 5.5 &&
+                pNow.y >= postOriginVec.y - 2.0 &&
+                pNow.y <= postOriginVec.y + maxYDelta
             );
             const floorBlk = postResetBot?.blockAt?.(postOriginVec.offset(0, -1, 0));
             const floorOk = Boolean(floorBlk && floorBlk.name !== 'void_air');
@@ -1727,7 +1755,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             if (newBlock.name === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               waterPlaced++;
             }
+            const bnOld = String(oldBlock.name || '').toLowerCase();
             const bnNew = String(newBlock.name || '').toLowerCase();
+            const getLit = (blk: any): any => {
+              const p = typeof blk?.getProperties === 'function' ? blk.getProperties() : (blk?._properties ?? blk?.properties ?? {});
+              return p?.lit;
+            };
             const isToolModifiedBlock =
               (bnNew === 'lever' && isBlockPowered(newBlock)) ||
               bnNew.startsWith('stripped_') ||
@@ -1738,7 +1771,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               bnNew === 'nether_portal' ||
               bnNew === 'water' ||
               bnNew === 'lava' ||
-              bnNew === 'campfire';
+              bnNew === 'campfire' ||
+              (bnOld === 'tnt' && bnNew === 'air') ||
+              (bnOld === 'fire' && bnNew === 'air') ||
+              (bnOld === 'campfire' && bnNew === 'campfire' && getLit(oldBlock) !== getLit(newBlock));
             if (isToolModifiedBlock && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               affordanceActions++;
             }
@@ -2116,6 +2152,54 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   stepSummary = rpcRes.error.message;
                 }
 
+                const AFFORDANCE_TOOLS = new Set([
+                  'shear_sheep',
+                  'breed_animals',
+                  'use_tool_on_block',
+                  'light_block_fire',
+                  'loot_chest',
+                  'interact_block_or_puzzle',
+                  'till_and_farm',
+                  'tame_animal',
+                  'give_item_to_player',
+                  'store_items_in_chest',
+                  'manage_chest',
+                  'equip_armor_or_item',
+                  'smelt_item',
+                  'smelt_ores',
+                ]);
+                const isBlockMutatingToolTask =
+                  /(strip_log|create_grass_path|carve_pumpkin|light_nether_portal|light_campfire|extinguish_campfire|ignite_tnt|extinguish_fire|hydrate_farmland|till_farmland)/i.test(
+                    task.id
+                  );
+                const isFoodConsumeTask =
+                  task.id.startsWith('omni_food_') ||
+                  task.id.includes('cure_poison') ||
+                  task.id.includes('bad_omen');
+                if (
+                  stepSuccess &&
+                  ((AFFORDANCE_TOOLS.has(toolName) && !isBlockMutatingToolTask) ||
+                    (toolName === 'eat_food' && isFoodConsumeTask))
+                ) {
+                  affordanceActions++;
+                }
+                const isNonWeaponToolOnMob =
+                  toolName === 'use_tool_on_block' &&
+                  !String(toolArgs?.tool || '').toLowerCase().endsWith('_sword') &&
+                  /(sheep|cow|pig|wolf|chicken|animal|horse|goat|cat|villager|mob)/i.test(
+                    `${toolArgs?.targetBlock || ''} ${toolArgs?.targetEntity || ''} ${stepSummary}`
+                  );
+                const isAnimalInteract =
+                  toolName === 'interact_block_or_puzzle' && stepSummary.startsWith('Interacted with ');
+                if (
+                  stepSuccess &&
+                  (['tame_animal', 'shear_sheep', 'breed_animals', 'give_item_to_player'].includes(toolName) ||
+                    isNonWeaponToolOnMob ||
+                    isAnimalInteract)
+                ) {
+                  mobInteractions++;
+                }
+
                 const postSnap = buildSnapshot();
                 const postGrading = evaluateMinebenchEpisode(shardedTask, postSnap);
                 stepReward = Number((postGrading.rawReward - preGrading.rawReward).toFixed(3));
@@ -2171,45 +2255,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 } catch {}
               }
 
-              const AFFORDANCE_TOOLS = new Set([
-                'shear_sheep',
-                'breed_animals',
-                'use_tool_on_block',
-                'light_block_fire',
-                'loot_chest',
-                'interact_block_or_puzzle',
-                'till_and_farm',
-                'tame_animal',
-                'give_item_to_player',
-                'store_items_in_chest',
-                'manage_chest',
-                'equip_armor_or_item',
-                'smelt_item',
-                'smelt_ores',
-              ]);
-              const isFoodConsumeTask =
-                task.id.startsWith('omni_food_') ||
-                task.id.includes('cure_poison') ||
-                task.id.includes('bad_omen');
-              if (stepSuccess && (AFFORDANCE_TOOLS.has(toolName) || (toolName === 'eat_food' && isFoodConsumeTask))) {
-                affordanceActions++;
-              }
-              const isNonWeaponToolOnMob =
-                toolName === 'use_tool_on_block' &&
-                !String(toolArgs?.tool || '').toLowerCase().endsWith('_sword') &&
-                /(sheep|cow|pig|wolf|chicken|animal|horse|goat|cat|villager|mob)/i.test(
-                  `${toolArgs?.targetBlock || ''} ${toolArgs?.targetEntity || ''} ${stepSummary}`
-                );
-              const isAnimalInteract =
-                toolName === 'interact_block_or_puzzle' && stepSummary.startsWith('Interacted with ');
-              if (
-                stepSuccess &&
-                (['tame_animal', 'shear_sheep', 'breed_animals', 'give_item_to_player'].includes(toolName) ||
-                  isNonWeaponToolOnMob ||
-                  isAnimalInteract)
-              ) {
-                mobInteractions++;
-              }
               executedTools.push({
                 name: toolName,
                 arguments: toolArgs,

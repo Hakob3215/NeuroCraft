@@ -447,18 +447,30 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
         is_passed = bool(r.get("passed", False))
         score_val = float(r.get("score", 0.0))
         raw_r = float(r.get("rawReward", 0.0))
-        if not is_passed and score_val < 25.0 and raw_r < 25.0:
-            continue
+        provider_r = str(r.get("provider", "local_gpu"))
 
         tid = r.get("taskId")
         prompt = str(r.get("prompt", "Execute task."))
         if not tid:
             continue
 
+        if not is_passed:
+            if provider_r == "open_world_survival":
+                continue
+            tid_s = str(tid)
+            if not (tid_s.startswith("prog_") or tid_s.startswith("omni_craft_") or tid_s.startswith("build_")):
+                continue
+            if score_val < 25.0 and raw_r < 25.0:
+                continue
+
         exec_tools = r.get("executedTools", [])
+        adv = (raw_r - mean_rew) / std_rew
+        if not is_passed and adv < 0.0:
+            continue
+
         max_valid_step_idx = len(exec_tools) - 1
         if not is_passed:
-            # Distill only verified productive prefixes for partial milestone episodes
+            # Distill only verified productive prefixes for positive-advantage multi-step DAG partial episodes
             max_valid_step_idx = -1
             for s_i, t_entry in enumerate(exec_tools):
                 if bool(t_entry.get("success", False)) and float(t_entry.get("stepReward", 0.0)) > 0.0:
@@ -466,7 +478,6 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             if max_valid_step_idx < 0:
                 continue
 
-        adv = (raw_r - mean_rew) / std_rew
         is_recent = r_idx >= len(records) - 300
         prior_steps: List[Dict] = []
 

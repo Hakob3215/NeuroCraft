@@ -3727,8 +3727,8 @@ with tempfile.TemporaryDirectory() as tmp:
             "workerId": 0,
             "prompt": "Make stone pickaxe",
             "passed": False,
-            "score": 25,
-            "rawReward": 20.0,
+            "score": 50,
+            "rawReward": 40.0,
             "executedTools": [
                 {"name": "gather_resource", "args": {"blockType": "oak_log"}, "success": True, "stepReward": 0.0, "thought": "Zero reward"},
                 {"name": "craft_item", "args": {"itemName": "oak_planks"}, "success": True, "stepReward": 15.0, "thought": "Planks"},
@@ -4200,6 +4200,356 @@ with tempfile.TemporaryDirectory() as tmp:
         assert len(dpo_items) == 0, f"Gold seed must never act as DPO winner, got {dpo_items}"
     finally:
         rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('69. Omniscience buildArenaCommands keeps low tp offsets, classical/MP arenas are fenced, and villager spawns with trades', () => {
+  const { sampleDiverseOmniscienceTasks } = require('../../minebench/dist/minebench/train_loop');
+  const { MINEBENCH_TASKS, MULTIPLAYER_TASKS, SELF_SPARRING_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasksPath = path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json');
+  const omniTasks = sampleDiverseOmniscienceTasks(tasksPath, 500);
+  const chopLog = omniTasks.find((t: any) => t.id === 'omni_tool_axe_chop_log');
+  const stripLog = omniTasks.find((t: any) => t.id === 'omni_tool_axe_strip_log');
+  assert.ok(chopLog && stripLog);
+
+  const chopCmds = chopLog.buildArenaCommands!({ x: 8500, y: 100, z: 500 });
+  assert.equal(chopCmds[chopCmds.length - 1], 'tp NeuroAgent 8500 101 498 0 0', 'Must keep ~ ~1 ~-2 spawn offset outside oak_log');
+  const stripCmds = stripLog.buildArenaCommands!({ x: 8500, y: 100, z: 500 });
+  assert.equal(stripCmds[stripCmds.length - 1], 'tp NeuroAgent 8500 101 496 0 0', 'Must keep ~ ~1 ~-4 spawn offset');
+
+  const fencedIds = [
+    'combat_skeleton_duel',
+    'combat_spider_swarm',
+    'combat_enderman_hunt',
+    'prog_tier1_stone_age',
+    'prog_tier3_iron_armor',
+    'prog_tier6_ender_dragon',
+    'mp_mob_escort_race',
+    'mp_resource_duel',
+    'mp_mob_escort_race_self',
+    'mp_resource_duel_self',
+  ];
+  const allSpecs = [...MINEBENCH_TASKS, ...MULTIPLAYER_TASKS, ...SELF_SPARRING_TASKS];
+  for (const id of fencedIds) {
+    const spec = allSpecs.find((t: any) => t.id === id);
+    assert.ok(spec, `Missing task spec ${id}`);
+    const cmds = spec.buildArenaCommands({ x: 400, y: 64, z: 100 });
+    assert.ok(cmds.some((c: string) => c.includes('minecraft:glass outline')), `${id} must have glass perimeter fence`);
+  }
+
+  const rawOmni: any[] = JSON.parse(fs.readFileSync(tasksPath, 'utf8'));
+  const villager = rawOmni.find((t) => t.taskId === 'omni_mob_villager');
+  assert.ok(villager);
+  assert.ok(
+    (villager.setupCommands || []).some((c: string) => c.includes('minecraft:weaponsmith') && c.includes('Offers:{Recipes:')),
+    'omni_mob_villager must spawn weaponsmith with trades'
+  );
+});
+
+test('70. safeDigSingleBlock digs diggable boundingBox=empty blocks, activate checks block-state mutation, and args unwrap objects', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+
+  const gatherTool = registry.getTool('gather_resource')!;
+  let digCalls = 0;
+  let leverRemoved = false;
+  let invHasLever = false;
+  const leverPos = new Vec3(1, 64, 0);
+  const leverBlock = () =>
+    leverRemoved
+      ? { name: 'air', boundingBox: 'empty', position: leverPos, diggable: false }
+      : { name: 'lever', boundingBox: 'empty', position: leverPos, diggable: true };
+
+  const gatherRes = await gatherTool.handler(
+    { blockType: 'lever', count: 1 },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0), onGround: true },
+        heldItem: null,
+        inventory: { items: () => (invHasLever ? [{ name: 'lever', count: 1 }] : []) },
+        findBlocks: () => (leverRemoved ? [] : [leverPos]),
+        findBlock: () => (leverRemoved ? null : leverBlock()),
+        blockAt: (p: Vec3) => (p.x === 1 && p.y === 64 && p.z === 0 ? leverBlock() : { name: 'stone', boundingBox: 'block', position: p }),
+        canDigBlock: (b: any) => Boolean(b && b.diggable !== false),
+        lookAt: async () => {},
+        dig: async () => {
+          digCalls++;
+          leverRemoved = true;
+          invHasLever = true;
+        },
+        pathfinder: { setGoal: () => {} },
+        clearControlStates: () => {},
+        on: () => {},
+        removeListener: () => {},
+      },
+      kinematics: {
+        pathfindTo: async () => true,
+        lookAtSmooth: async () => {},
+      },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(digCalls, 1, 'safeDigSingleBlock must actually dig boundingBox=empty blocks like lever');
+  assert.equal(gatherRes.success, true);
+
+  const useTool = registry.getTool('use_tool_on_block')!;
+  const noMutRes = await useTool.handler(
+    { tool: 'iron_axe', targetBlock: 'oak_log' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'iron_axe', count: 1 }] },
+        findBlock: () => ({ name: 'oak_log', position: new Vec3(2, 64, 0) }),
+        blockAt: (p: Vec3) => (p.y === 64 ? { name: 'oak_log', position: p } : { name: 'air', position: p }),
+        activateBlock: async () => {},
+        lookAt: async () => {},
+      },
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(noMutRes.success, false, 'use_tool_on_block must return false if log was not stripped on server');
+
+  let isStripped = false;
+  const mutRes = await useTool.handler(
+    { tool: 'iron_axe', targetBlock: 'oak_log' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'iron_axe', count: 1 }] },
+        findBlock: () => ({ name: 'oak_log', position: new Vec3(2, 64, 0) }),
+        blockAt: (p: Vec3) =>
+          p.y === 64
+            ? { name: isStripped ? 'stripped_oak_log' : 'oak_log', position: p }
+            : { name: 'air', position: p },
+        activateBlock: async () => { isStripped = true; },
+        lookAt: async () => {},
+      },
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(mutRes.success, true);
+
+  const lightTool = registry.getTool('light_block_fire')!;
+  const unlitRes = await lightTool.handler(
+    { targetBlock: 'campfire' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'flint_and_steel', count: 1 }] },
+        findBlock: () => ({ name: 'campfire', position: new Vec3(2, 64, 0), getProperties: () => ({ lit: false }) }),
+        blockAt: (p: Vec3) =>
+          p.y === 64 ? { name: 'campfire', position: p, getProperties: () => ({ lit: false }) } : { name: 'air', position: p },
+        activateBlock: async () => {},
+        lookAt: async () => {},
+      },
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(unlitRes.success, false, 'light_block_fire must fail if campfire lit remains false');
+
+  const navTool = registry.getTool('navigate_parkour_or_bridge')!;
+  const navRes = await navTool.handler(
+    { goalBlock: { type: 'chicken' } },
+    { bot: { entity: { position: new Vec3(0, 64, 0) }, findBlock: () => null } } as any
+  );
+  assert.equal(navRes.success, false);
+  assert.ok(!navRes.summary.toLowerCase().includes('[object'), `Unexpected [object coercion: ${navRes.summary}`);
+
+  const giveTool = registry.getTool('give_item_to_player')!;
+  const compEnt = { id: 7, type: 'player', username: 'Companion', position: new Vec3(1, 64, 0), isValid: true };
+  let tossedItemName = '';
+  const giveObjRes = await giveTool.handler(
+    { targetPlayer: 'Companion', itemName: { name: 'bread' } },
+    {
+      bot: {
+        username: 'NeuroAgent',
+        entity: { position: new Vec3(0, 64, 0) },
+        players: { Companion: { username: 'Companion', entity: compEnt } },
+        entities: { '7': compEnt },
+        inventory: { items: () => [{ name: 'bread', count: 2 }] },
+        nearestEntity: (fn: any) => (fn(compEnt) ? compEnt : null),
+        tossStack: async (it: any) => { tossedItemName = it.name; },
+        setControlState: () => {},
+        clearControlStates: () => {},
+      },
+      kinematics: { pathfindTo: async () => true, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+    } as any
+  );
+  assert.equal(giveObjRes.success, true);
+  assert.equal(tossedItemName, 'bread');
+});
+
+test('71. Evaluators reject blocksMined shortcut on non-mining omni_tool_axe_strip_log while keeping chop_log valid', () => {
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+
+  const mkSnap = (invName: string) => ({
+    botPosition: { x: 0, y: 100, z: 0 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [{ name: invName, count: 1 }],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: {
+      blocksPlaced: 0, blocksMined: 1, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0,
+      endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0,
+      affordanceActions: 0, ironPickaxeDurabilityUsedOnStone: 0,
+    },
+  });
+
+  const stripFail = evaluateMinebenchEpisode(
+    {
+      id: 'omni_tool_axe_strip_log',
+      domain: 'TOOL_AFFORDANCES',
+      targetObject: 'iron_axe',
+      origin: { x: 0, y: 100, z: 0 },
+      initialLoadout: [{ name: 'iron_axe', count: 1 }],
+      evaluatorMilestones: [
+        { name: 'Tool Equipped', maxPoints: 30, condition: 'held_tool_correct' },
+        { name: 'Affordance Executed', maxPoints: 70, condition: 'affordance_action_completed' },
+      ],
+    } as any,
+    mkSnap('iron_axe') as any
+  );
+  assert.equal(stripFail.passed, false);
+  assert.equal(stripFail.score, 0, 'Mining oak_log must not pass omni_tool_axe_strip_log');
+
+  const chopPass = evaluateMinebenchEpisode(
+    {
+      id: 'omni_tool_axe_chop_log',
+      domain: 'TOOL_AFFORDANCES',
+      targetObject: 'diamond_axe',
+      origin: { x: 0, y: 100, z: 0 },
+      initialLoadout: [{ name: 'diamond_axe', count: 1 }],
+      evaluatorMilestones: [
+        { name: 'Tool Equipped', maxPoints: 30, condition: 'held_tool_correct' },
+        { name: 'Affordance Executed', maxPoints: 70, condition: 'affordance_action_completed' },
+      ],
+    } as any,
+    mkSnap('diamond_axe') as any
+  );
+  assert.equal(chopPass.passed, true);
+  assert.equal(chopPass.score, 100);
+});
+
+test('72. Open-world evaluateSurvivalAdvancements merges persistent priorUnlocked across iterations', () => {
+  const { evaluateSurvivalAdvancements } = require('../../minebench/dist/minebench/train_loop');
+  const prior = new Set<string>(['Homesteader & Hunter', 'Wood Age']);
+  const eval2 = evaluateSurvivalAdvancements([], 0, 0, prior);
+  assert.ok(eval2.unlocked.includes('Homesteader & Hunter'));
+  assert.ok(eval2.unlocked.includes('Wood Age'));
+  assert.equal(eval2.techTier, 'Wood');
+  assert.equal(eval2.score, 28);
+});
+
+test('73. rl_trainer & slm_trainer block negative-advantage, non-DAG failed rollouts, and failed open_world_survival from GRPO/SFT', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+import minebench.rl_trainer as rt
+from minebench.slm_trainer import filter_valid_tool_trajectory
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    rows = [
+        # Winner sets mean ~ 50
+        {
+            "taskId": "omni_craft_bucket",
+            "domain": "CRAFTING_RECIPES",
+            "prompt": "Craft bucket",
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [
+                {"name": "craft_item", "args": {"itemName": "bucket"}, "success": True, "stepReward": 100.0, "thought": "Craft"},
+            ],
+        },
+        # Negative-advantage failed DAG episode (rawReward=10 < mean) must NOT enter GRPO, but CAN become DPO negative
+        {
+            "taskId": "omni_craft_bucket",
+            "domain": "CRAFTING_RECIPES",
+            "prompt": "Craft bucket",
+            "passed": False,
+            "score": 30,
+            "rawReward": 10.0,
+            "executedTools": [
+                {"name": "gather_resource", "args": {"blockType": "stone"}, "success": True, "stepReward": 10.0, "thought": "Wrong step"},
+            ],
+        },
+        # Non-DAG failed episode with high rawReward=90 must NOT enter GRPO
+        {
+            "taskId": "omni_mob_creeper",
+            "domain": "MOB_INTERACTION",
+            "prompt": "Fight creeper",
+            "passed": False,
+            "score": 40,
+            "rawReward": 90.0,
+            "executedTools": [
+                {"name": "engage_combat", "args": {"targetType": "creeper"}, "success": True, "stepReward": 40.0, "thought": "Engaged"},
+            ],
+        },
+        # Failed open_world_survival row with high reward must NEVER enter GRPO
+        {
+            "taskId": "prog_survival_goal",
+            "provider": "open_world_survival",
+            "domain": "PROGRESSION_DRAGON",
+            "prompt": "Survive",
+            "passed": False,
+            "score": 45,
+            "rawReward": 95.0,
+            "executedTools": [
+                {"name": "gather_resource", "args": {"blockType": "oak_log"}, "success": True, "stepReward": 45.0, "thought": "Log"},
+            ],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(x) for x in rows) + "\\n", encoding="utf-8")
+    trans_p.write_text(json.dumps({"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}) + "\\n", encoding="utf-8")
+    orig = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH = replay_p
+        rt.REAL_TRANSITIONS_PATH = trans_p
+        rt.GRPO_DATASET_PATH = grpo_p
+        rt.DPO_PAIRS_PATH = dpo_p
+        rt.RL_METRICS_PATH = metrics_p
+        rt.CHECKPOINT_DIR = tp / "ckpt"
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.RESULTS_DIR = tp / "res"
+        rt.RESULTS_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert not any(not g.get("passed", False) for g in grpo_items), f"Negative-adv/non-DAG/survival fails leaked to GRPO: {grpo_items}"
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 1 and dpo_items[0]["taskId"] == "omni_craft_bucket"
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig
+
+neg_rollout = {
+    "provider": "local_gpu",
+    "advantage": -0.25,
+    "messages": [
+        {"role": "system", "content": "s"},
+        {"role": "user", "content": "u"},
+        {"role": "assistant", "content": json.dumps({"thought": "t", "toolCall": {"name": "craft_item", "arguments": {"itemName": "bucket"}}})},
+    ],
+}
+assert filter_valid_tool_trajectory(neg_rollout) is None
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');

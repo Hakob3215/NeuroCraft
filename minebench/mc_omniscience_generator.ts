@@ -870,7 +870,11 @@ export class MinecraftOmniscienceGenerator {
         setupCommands = [`summon piglin ~ ~ ~3`, 'tp @p ~ ~ ~ 0 0'];
       } else if (mob.name === 'villager') {
         initialLoadout = [{ name: 'emerald', count: 16 }];
-        setupCommands = [`summon villager ~ ~ ~3`, 'tp @p ~ ~ ~ 0 0'];
+        setupCommands = [
+          'setblock ~ ~ ~4 grindstone',
+          'summon villager ~ ~ ~3 {PersistenceRequired:1b,VillagerData:{profession:"minecraft:weaponsmith",level:2,type:"minecraft:plains"},Offers:{Recipes:[{buy:{id:"minecraft:emerald",Count:2b},sell:{id:"minecraft:iron_sword",Count:1b},maxUses:16}]}}',
+          'tp @p ~ ~ ~ 0 0',
+        ];
       } else if (mob.name === 'blaze') {
         initialLoadout = [
           { name: 'bow', count: 1 },
