@@ -5008,6 +5008,164 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('80. Evaluators exclude player self-deaths from mobsKilled, resolveSafeRespawnOrigin matches sharded bots, craft maps to PROGRESSION_DRAGON, and interact rejects campfire', async () => {
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+  const { resolveSafeRespawnOrigin, sampleDiverseOmniscienceTasks } = require('../../minebench/dist/minebench/train_loop');
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+
+  const wardenTask = {
+    id: 'omni_mob_warden',
+    domain: 'MOB_INTERACTION',
+    targetObject: 'warden',
+    origin: { x: 0, y: 100, z: 0 },
+    evaluatorMilestones: [
+      { name: 'Target Engaged', maxPoints: 40, condition: 'target_engaged' },
+      { name: 'Target Resolved', maxPoints: 60, condition: 'target_resolved' },
+    ],
+  } as any;
+  const selfDeathRes = evaluateMinebenchEpisode(wardenTask, {
+    botPosition: { x: 0, y: 100, z: 0 },
+    health: 20,
+    food: 20,
+    deaths: 1,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: {
+      blocksPlaced: 0, blocksMined: 0, mobsKilled: { player: 1 }, creeperBlasts: 0, arrowsFired: 0,
+      endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0,
+      damageDealt: 4, ironPickaxeDurabilityUsedOnStone: 0,
+    },
+  } as any);
+  assert.equal(selfDeathRes.passed, false);
+  assert.equal(selfDeathRes.score, 0, 'Bot death recorded as player must never satisfy hostile target_resolved/engaged');
+
+  const wardenKillRes = evaluateMinebenchEpisode(wardenTask, {
+    botPosition: { x: 0, y: 100, z: 0 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: {
+      blocksPlaced: 0, blocksMined: 0, mobsKilled: { warden: 1 }, creeperBlasts: 0, arrowsFired: 0,
+      endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0,
+      damageDealt: 20, ironPickaxeDurabilityUsedOnStone: 0,
+    },
+  } as any);
+  assert.equal(wardenKillRes.passed, true);
+  assert.equal(wardenKillRes.score, 100);
+
+  const safeSharded = resolveSafeRespawnOrigin({
+    id: 'prog_tier6_ender_dragon',
+    origin: { x: 4000, y: 64, z: 0 },
+    buildArenaCommands: ({ x, y, z }: any) => [
+      `fill ${x} ${y + 1} ${z} ${x} ${y + 3} ${z} minecraft:bedrock`,
+      `tp NeuroAgent_1 ${x} ${y} ${z - 6} 0 0`,
+    ],
+  } as any);
+  assert.deepEqual(safeSharded, { x: 4000, y: 64, z: -6 });
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const omniTasks = sampleDiverseOmniscienceTasks(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 500);
+  const craftTask = omniTasks.find((t: any) => String(t.id || '').startsWith('omni_craft_'));
+  assert.ok(craftTask);
+  assert.equal(craftTask.domain, 'PROGRESSION_DRAGON');
+
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const interactTool = registry.getTool('interact_block_or_puzzle')!;
+  const campRes = await interactTool.handler(
+    { blockType: 'campfire' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [] },
+        findBlock: () => ({ name: 'campfire', position: new Vec3(1, 64, 0) }),
+        blockAt: (p: Vec3) => (p.x === 1 && p.y === 64 ? { name: 'campfire', position: p } : { name: 'air', position: p }),
+        activateBlock: async () => {},
+      },
+      kinematics: { pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(campRes.success, false, 'interact_block_or_puzzle must reject non-lever campfire manipulation');
+});
+
+test('81. rl_trainer excludes failed omni_craft_* rollouts from GRPO and strips duplicate coop speaker prefixes in GRPO & DPO', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+import minebench.rl_trainer as rt
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p, trans_p, grpo_p, dpo_p, metrics_p, res_dir = tp / "r.jsonl", tp / "t.jsonl", tp / "g.jsonl", tp / "d.jsonl", tp / "m.json", tp / "res"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    rows = [
+        # Failed omni_craft_* even with high score/rawReward must NOT enter GRPO partial distillation
+        {
+            "taskId": "omni_craft_piston",
+            "domain": "PROGRESSION_DRAGON",
+            "prompt": "Craft piston",
+            "passed": False,
+            "score": 50,
+            "rawReward": 95.0,
+            "executedTools": [{"name": "gather_resource", "args": {"blockType": "oak_log"}, "success": True, "stepReward": 25.0, "thought": "Logs"}],
+        },
+        # Coop winner + loser with embedded speaker prefix in prompt
+        {
+            "taskId": "coop_give_food",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 2,
+            "speaker": "DQN_Opponent_3",
+            "prompt": 'DQN_Opponent_3 says: "I am starving!" Deliver beef.',
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [{"name": "give_item_to_player", "args": {"playerName": "DQN_Opponent_3", "itemName": "cooked_beef"}, "success": True, "stepReward": 100.0, "thought": "Feed"}],
+        },
+        {
+            "taskId": "coop_give_food",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 2,
+            "speaker": "DQN_Opponent_3",
+            "prompt": 'DQN_Opponent_3 says: "I am starving!" Deliver beef.',
+            "passed": False,
+            "score": 0,
+            "rawReward": -10.0,
+            "executedTools": [{"name": "follow_player", "args": {"playerName": "DQN_Opponent_3"}, "success": False, "stepReward": -5.0, "thought": "Wrong"}],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(x) for x in rows) + "\\n", encoding="utf-8")
+    trans_p.write_text(json.dumps({"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}) + "\\n", encoding="utf-8")
+    orig = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = replay_p, trans_p, grpo_p, dpo_p, metrics_p, tp / "ckpt", res_dir
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert not any(g.get("taskId") == "omni_craft_piston" for g in grpo_items), f"Failed omni_craft leaked to GRPO: {grpo_items}"
+        coop_g = [g for g in grpo_items if g.get("taskId") == "coop_give_food"][0]
+        u_msg = coop_g["messages"][1]["content"]
+        assert 'Player "DQN_Opponent_3" says:' in u_msg and "DQN_Opponent_3 says:" not in u_msg, f"Duplicate speaker prefix in GRPO: {u_msg}"
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 1
+        dpo_u = dpo_items[0]["prompt_messages"][1]["content"]
+        assert 'Player "DQN_Opponent_3" says:' in dpo_u and "DQN_Opponent_3 says:" not in dpo_u
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 

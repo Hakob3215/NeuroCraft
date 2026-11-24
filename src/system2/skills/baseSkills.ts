@@ -331,64 +331,6 @@ export async function equipBestToolForBlockName(ctx: any, blockName: string): Pr
 }
 
 /**
- * If a pickaxe breaks mid-mining (or is missing when trying to break stone/ores),
- * attempts to automatically craft a replacement pickaxe (`stone_pickaxe`, `wooden_pickaxe`, or `iron_pickaxe`)
- * on the spot from materials already in the bot's inventory!
- */
-async function tryAutoCraftReplacementPickaxe(
-  ctx: any,
-  requiredTier: 'wood' | 'stone' | 'iron' | 'diamond'
-): Promise<boolean> {
-  if (requiredTier === 'diamond') return false;
-  if (!ctx.bot?.version || typeof ctx.bot.recipesFor !== 'function' || typeof ctx.bot.craft !== 'function') {
-    return false;
-  }
-  if ((ctx as any)._isAutoCraftingPickaxe) return false;
-  (ctx as any)._isAutoCraftingPickaxe = true;
-
-  try {
-    const invItems = ctx.bot.inventory?.items() || [];
-    const countByFilter = (pred: (n: string) => boolean) =>
-      invItems.filter((i: any) => pred(i.name.toLowerCase())).reduce((s: number, i: any) => s + i.count, 0);
-
-    const ironIngots = countByFilter((n) => n === 'iron_ingot');
-    const cobble = countByFilter((n) => n === 'cobblestone' || n === 'cobbled_deepslate');
-    const planks = countByFilter((n) => n.endsWith('_planks'));
-    const logs = countByFilter((n) => n.endsWith('_log') || n.endsWith('_stem'));
-    const sticks = countByFilter((n) => n === 'stick');
-    const totalPotentialPlanks = planks + logs * 4;
-    const canHaveSticks = sticks >= 2 || totalPotentialPlanks >= 2;
-
-    if (!canHaveSticks) {
-      return false;
-    }
-
-    const candidates: string[] = [];
-    if (requiredTier === 'iron') {
-      if (ironIngots >= 3) candidates.push('iron_pickaxe');
-    } else {
-      // For wood and stone tiers, prefer stone_pickaxe to conserve iron ingots!
-      if (cobble >= 3) candidates.push('stone_pickaxe');
-      if (requiredTier === 'wood' && totalPotentialPlanks >= 5) candidates.push('wooden_pickaxe');
-      if (ironIngots >= 3 && cobble < 3) candidates.push('iron_pickaxe');
-    }
-
-    for (const pickName of candidates) {
-      logVerbose('GATHER', `Tool durability exhausted or missing for ${requiredTier} tier; attempting on-the-spot auto-craft of ${pickName}...`);
-      const res = await craftItemWithAutoPrereqs(ctx, pickName, 1, true);
-      if (res.success) {
-        logVerbose('GATHER', `Successfully auto-crafted replacement ${pickName} mid-task!`);
-        await ctx.kinematics.equipItemHumanized(pickName, 'hand');
-        return true;
-      }
-    }
-    return false;
-  } finally {
-    (ctx as any)._isAutoCraftingPickaxe = false;
-  }
-}
-
-/**
  * Verifies that the bot has the required harvesting tool equipped for `block` before digging.
  * 1. Equips the optimal tool via `equipBestToolForBlockName`.
  * 2. If held item is not sufficient, directly searches inventory for an existing pickaxe satisfying `reqTier`.
@@ -4928,7 +4870,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         'loom', 'cartography_table', 'grindstone', 'stonecutter', 'smithing_table',
         'note_block', 'jukebox', 'repeater', 'comparator', 'daylight_detector',
         'hopper', 'dropper', 'dispenser', 'lectern', 'composter',
-        'beehive', 'bee_nest', 'respawn_anchor', 'campfire', 'cake',
+        'beehive', 'bee_nest', 'respawn_anchor', 'cake',
         'flower_pot', 'sign', 'beacon', 'end_portal_frame', 'cauldron',
         'sweet_berry_bush',
       ];

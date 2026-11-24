@@ -516,7 +516,7 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             if provider_r == "open_world_survival":
                 continue
             tid_s = str(tid)
-            if not (tid_s.startswith("prog_") or tid_s.startswith("omni_craft_") or tid_s.startswith("build_")):
+            if not (tid_s.startswith("prog_") or tid_s.startswith("build_")):
                 continue
             if score_val < 25.0 and raw_r < 25.0:
                 continue
@@ -561,9 +561,15 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 continue
 
             rec_speaker = str(r.get("speaker") or "Trainer").strip() or "Trainer"
+            clean_prompt = re.sub(
+                rf'^(?:Player\s+")?{re.escape(rec_speaker)}"?\s+says:\s*',
+                "",
+                str(prompt or "").strip(),
+                flags=re.IGNORECASE,
+            ).strip()
             if len(prior_steps) == 0:
                 user_content = (
-                    f'Player "{rec_speaker}" says: "{prompt}"\n'
+                    f'Player "{rec_speaker}" says: "{clean_prompt}"\n'
                     'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                 )
             else:
@@ -744,8 +750,14 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                     continue
                 if step_idx == 0 and len(winner.get("messages", [])) > 1:
                     rej_speaker = str(r.get("speaker") or "Trainer").strip() or "Trainer"
+                    clean_rej_prompt = re.sub(
+                        rf'^(?:Player\s+")?{re.escape(rej_speaker)}"?\s+says:\s*',
+                        "",
+                        str(rej_base_prompt or "").strip(),
+                        flags=re.IGNORECASE,
+                    ).strip()
                     expected_rej_user = (
-                        f'Player "{rej_speaker}" says: "{rej_base_prompt}"\n'
+                        f'Player "{rej_speaker}" says: "{clean_rej_prompt}"\n'
                         'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                     )
                     if expected_rej_user != str(winner["messages"][1].get("content", "")):

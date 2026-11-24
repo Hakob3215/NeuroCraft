@@ -612,7 +612,7 @@ function renderHtmlDashboard(history: IterationRecord[], state: PersistentTraini
         responsive: true,
         maintainAspectRatio: false,
         plugins: {
-          title: { display: true, text: 'Panel 4: Dual-Brain Neural Telemetry (SLM Loss & ACT 80.8M Aim Error)', color: '#f8fafc', font: { size: 15 } },
+          title: { display: true, text: 'Panel 4: Dual-Brain Neural Telemetry (SLM Loss & ACT 211.4M Aim Error)', color: '#f8fafc', font: { size: 15 } },
           legend: { labels: { color: '#94a3b8' } }
         },
         scales: {

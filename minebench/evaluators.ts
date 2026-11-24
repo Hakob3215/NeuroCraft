@@ -347,7 +347,14 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'target_engaged' || cond === 'target_resolved') {
-      const totalKills = Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0);
+      const targetMobLower = (task.targetObject || '').toLowerCase();
+      const nonPlayerKills = Object.entries(snap.stats.mobsKilled || {})
+        .filter(([k]) => {
+          const kl = String(k).toLowerCase();
+          return kl !== 'player' && !kl.startsWith('neuroagent');
+        })
+        .reduce((a, [, v]) => a + v, 0);
+      const targetSpecificKills = targetMobLower ? Number(snap.stats.mobsKilled?.[targetMobLower] || 0) : nonPlayerKills;
       const tamed = (snap.stats.wolvesTamed || 0) > 0;
       const sheared = invNames.some((n) => n.includes('wool'));
       const peacefulMobs = [
@@ -356,9 +363,9 @@ export function evaluateOmniscienceMilestones(
         'goat', 'axolotl', 'frog', 'camel', 'sniffer', 'allay', 'strider', 'parrot', 'bat', 'iron_golem', 'snow_golem',
         'polar_bear', 'wandering_trader', 'cod', 'salmon', 'pufferfish', 'tropical_fish', 'tadpole',
       ];
-      const isPeacefulTarget = peacefulMobs.includes((task.targetObject || '').toLowerCase());
+      const isPeacefulTarget = peacefulMobs.includes(targetMobLower);
       const dealtDamage = Boolean(((snap.stats as any)?.damageDealt || 0) > 0 || (snap.stats.arrowsFired || 0) > 0);
-      const validKill = totalKills > 0 && dealtDamage;
+      const validKill = (isPeacefulTarget ? nonPlayerKills > 0 : targetSpecificKills > 0) && dealtDamage;
       const mobInteracted = tamed || sheared || ((snap.stats as any).mobInteractions || 0) > 0;
 
       if (cond === 'target_engaged') {

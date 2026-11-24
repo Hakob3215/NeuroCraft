@@ -703,7 +703,7 @@ export function resolveSafeRespawnOrigin(task: MinebenchTaskSpec): { x: number; 
     for (let i = cmds.length - 1; i >= 0; i--) {
       const m = cmds[i]
         .trim()
-        .match(/^tp\s+(?:NeuroAgent|@p)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
+        .match(/^tp\s+(?:NeuroAgent(?:_\d+)?|@p)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
       if (m) {
         return { x: Number(m[1]), y: Number(m[2]), z: Number(m[3]) };
       }
@@ -898,7 +898,7 @@ export function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Mi
     const origin = { x: 500, y: 100, z: 500 };
 
     const domainMap: Record<string, MinebenchDomain> = {
-      CRAFTING_RECIPES: 'HOMESTEADING_ECONOMY',
+      CRAFTING_RECIPES: 'PROGRESSION_DRAGON',
       TOOL_AFFORDANCES: 'HOMESTEADING_ECONOMY',
       MOB_INTERACTION: 'TACTICAL_COMBAT',
       STRUCTURE_RAID: 'TACTICAL_COMBAT',
@@ -1785,6 +1785,15 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             } catch {}
           };
           const onEntityDead = (ent: any) => {
+            if (
+              !testbenchTrackingActive ||
+              !ent ||
+              ent === bot.entity ||
+              ent.type === 'player' ||
+              String(ent.name || '').toLowerCase() === 'player'
+            ) {
+              return;
+            }
             const n = String(ent?.name || ent?.displayName || '').toLowerCase();
             if (n && !n.startsWith('neuroagent')) {
               killedMobsMap[n] = (killedMobsMap[n] || 0) + 1;
@@ -1857,7 +1866,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             }
           };
           const onEntityHurt = (ent: any) => {
-            if (!ent || ent === bot.entity || !bot.entity) return;
+            if (!testbenchTrackingActive || !ent || ent === bot.entity || !bot.entity) return;
             const recentAttack = Date.now() - ((bot as any)._lastAttackAt || 0) <= 650;
             if (recentAttack && ent.position?.distanceTo(bot.entity.position) <= 6.5) {
               damageDealt += 4;
@@ -1988,21 +1997,6 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             for (let stepIdx = 0; stepIdx < task.maxSteps; stepIdx++) {
               if (isShuttingDown || deaths > 0 || Date.now() - taskT0 > task.maxDurationSeconds * 1000) break;
 
-              if (stepIdx === 0 && task.sparringConfig) {
-                worker.sparringPartner.setMode({
-                  mode: task.sparringConfig.mode,
-                  targetUsername: worker.botUsername,
-                  goalPos: task.sparringConfig.goalOffset
-                    ? {
-                        x: shardedTask.origin.x + task.sparringConfig.goalOffset.dx,
-                        y: shardedTask.origin.y + task.sparringConfig.goalOffset.dy,
-                        z: shardedTask.origin.z + task.sparringConfig.goalOffset.dz,
-                      }
-                    : undefined,
-                  targetBlockName: task.sparringConfig.targetBlockName,
-                });
-              }
-
               const preRlState = sampleLiveRLTransitionState(worker.system1);
               const preSnap = buildSnapshot();
               const preGrading = evaluateMinebenchEpisode(shardedTask, preSnap);
@@ -2026,11 +2020,15 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 .replace(/\bDQN_Opponent\b/g, worker.sparringPartner.username)
                 .replace(/\bMirrorAgent\b/g, worker.sparringPartner.username)
                 .replace(/\bCompanion_Player\b/g, worker.sparringPartner.username);
-              lastEffectivePrompt = effectivePrompt;
 
               const continuationGoal = goalPlanner.formatGoalHorizonContext(worldState);
               const isCoop = task.domain === 'MULTIPLAYER_ARENA' && task.id.startsWith('coop_');
               const speaker = isCoop ? worker.sparringPartner.username : 'Trainer';
+              if (isCoop) {
+                const spEsc = speaker.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                effectivePrompt = effectivePrompt.replace(new RegExp(`^(?:Player\\s+")?${spEsc}"?\\s+says:\\s*`, 'i'), '').trim();
+              }
+              lastEffectivePrompt = effectivePrompt;
               if (stepIdx === 0) lastSpeaker = speaker;
               const decision =
                 stepIdx === 0
@@ -2038,6 +2036,21 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   : await worker.llm.generateGoalContinuationDecision(continuationGoal, stepHistory, worldState, schemas, []);
 
               if (isShuttingDown || deaths > 0) break;
+
+              if (stepIdx === 0 && task.sparringConfig) {
+                worker.sparringPartner.setMode({
+                  mode: task.sparringConfig.mode,
+                  targetUsername: worker.botUsername,
+                  goalPos: task.sparringConfig.goalOffset
+                    ? {
+                        x: shardedTask.origin.x + task.sparringConfig.goalOffset.dx,
+                        y: shardedTask.origin.y + task.sparringConfig.goalOffset.dy,
+                        z: shardedTask.origin.z + task.sparringConfig.goalOffset.dz,
+                      }
+                    : undefined,
+                  targetBlockName: task.sparringConfig.targetBlockName,
+                });
+              }
 
               if (decision.activeGoal) activeGoal = decision.activeGoal;
               if (stepIdx === 0 && (decision.activeGoal || (Array.isArray(decision.planSteps) && decision.planSteps.length > 0))) {
