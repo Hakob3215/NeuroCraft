@@ -49,6 +49,7 @@ export interface OmniscienceTaskDraft {
 
 export interface OmniscienceTrajectoryRecord {
   id: string;
+  domain?: string;
   category: string;
   targetObject: string;
   advantage: number;
@@ -944,6 +945,16 @@ export class MinecraftOmniscienceGenerator {
 
     for (const struct of ALL_MC_STRUCTURES) {
       const lootItem = struct.keyLoot && struct.keyLoot.length > 0 ? struct.keyLoot[0] : 'emerald';
+      const hazardText = `${struct.id} ${(struct.hazards || []).join(' ')}`.toLowerCase();
+      let guardMob = 'zombie';
+      if (/(blaze|fortress|wither)/.test(hazardText)) guardMob = 'blaze';
+      else if (/(piglin|bastion)/.test(hazardText)) guardMob = 'piglin';
+      else if (/(drowned|monument|guardian|shipwreck|ocean|ruin)/.test(hazardText)) guardMob = 'drowned';
+      else if (/(pillager|outpost|mansion|vindicator|evoker)/.test(hazardText)) guardMob = 'pillager';
+      else if (/(witch|swamp|hut)/.test(hazardText)) guardMob = 'witch';
+      else if (/(spider|mineshaft|poison)/.test(hazardText)) guardMob = 'spider';
+      else if (/(skeleton|stray|igloo|ancient)/.test(hazardText)) guardMob = 'skeleton';
+      else if (/(shulker|end_city)/.test(hazardText)) guardMob = 'shulker';
       tasks.push({
         taskId: `omni_structure_${struct.id}`,
         domain: 'STRUCTURE_RAID',
@@ -962,6 +973,7 @@ export class MinecraftOmniscienceGenerator {
         ],
         setupCommands: [
           `setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:"minecraft:${lootItem}",Count:1b}]}`,
+          `summon minecraft:${guardMob} ~2 ~1 ~4 {PersistenceRequired:1b}`,
           'tp @p ~ ~ ~ 0 0',
         ],
         expectedActionTokens: ['<|act:open_container|>', '<|act:melee_attack|>', '<|act:mine_block|>'],
@@ -1202,11 +1214,23 @@ export class MinecraftOmniscienceGenerator {
     const records: OmniscienceTrajectoryRecord[] = [];
 
     drafts.forEach((draft, idx) => {
-      const speech = `Executing ${draft.expectedTool.replace(/_/g, ' ')} for ${draft.targetObject}!`;
-      const actionTokensStr = draft.expectedActionTokens.join(' ');
+      // Skip single-step direct craft shortcuts (allowAutoPrereqs=false requires multi-step DAGs)
+      if ((draft.category as string) === 'crafting' || draft.taskId.startsWith('omni_craft_')) {
+        return;
+      }
+      const speech = `Executing ${draft.expectedTool.replace(/_/g, ' ')} for ${draft.targetObject}.`;
+      const groundedSystemPrompt =
+        'You are NeuroAgent, an autonomous Minecraft AI companion.\n' +
+        `State: Domain:${draft.domain || 'SURVIVAL'} HP:20/20 Food:20/20\n` +
+        'Recent Actions: [none]\n' +
+        'Respond ONLY with valid JSON.';
+      const wrappedUserPrompt =
+        `Player "Trainer" says: "${draft.prompt}"\n` +
+        'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}';
 
       records.push({
         id: `omni_gold_${idx}_${draft.taskId}`,
+        domain: draft.domain,
         category: draft.category,
         targetObject: draft.targetObject,
         advantage: 1.0,
@@ -1214,11 +1238,11 @@ export class MinecraftOmniscienceGenerator {
         messages: [
           {
             role: 'system',
-            content: 'You are NeuroAgent, an intelligent Minecraft 1.20.4 companion. Use native action tokens for physical tasks and speak naturally.',
+            content: groundedSystemPrompt,
           },
           {
             role: 'user',
-            content: draft.prompt,
+            content: wrappedUserPrompt,
           },
           {
             role: 'assistant',
@@ -1228,6 +1252,7 @@ export class MinecraftOmniscienceGenerator {
                 name: draft.expectedTool,
                 arguments: draft.expectedToolArgs,
               },
+              goalCompleted: false,
             }),
           },
         ],

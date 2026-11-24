@@ -393,6 +393,61 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                     except Exception:
                         pass
 
+    def _infer_domain_from_tid(tid: str) -> str:
+        t = str(tid or "").lower()
+        if t.startswith("omni_tool_"):
+            return "TOOL_AFFORDANCES"
+        if t.startswith("omni_food_"):
+            return "NUTRITION"
+        if t.startswith("omni_equip_"):
+            return "EQUIPMENT"
+        if t.startswith("omni_block_"):
+            return "BLOCK_MINING"
+        if t.startswith("omni_mob_"):
+            return "MOB_INTERACTION"
+        if t.startswith("omni_structure_"):
+            return "STRUCTURE_RAID"
+        if t.startswith("prog_"):
+            return "PROGRESSION_DRAGON"
+        if t.startswith("combat_"):
+            return "COMBAT_TACTICAL"
+        return "SURVIVAL"
+
+    def _normalize_omni_gold_entry(d: Dict, tid: str) -> Dict:
+        if not d.get("domain"):
+            d["domain"] = _infer_domain_from_tid(tid)
+        msgs = list(d.get("messages") or [])
+        if len(msgs) >= 3:
+            sys_c = str(msgs[0].get("content") or "")
+            if "NeuroAgent" not in sys_c or "Use native action tokens" in sys_c or sys_c.strip() in ("", "sys"):
+                msgs[0] = {
+                    "role": "system",
+                    "content": (
+                        "You are NeuroAgent, an autonomous Minecraft AI companion.\n"
+                        f"State: Domain:{d['domain']} HP:20/20 Food:20/20\n"
+                        "Recent Actions: [none]\n"
+                        "Respond ONLY with valid JSON."
+                    ),
+                }
+            u_c = str(msgs[1].get("content") or "").strip()
+            if not u_c.startswith('Player "') and not u_c.startswith("Active Goal:"):
+                msgs[1] = {
+                    "role": "user",
+                    "content": (
+                        f'Player "Trainer" says: "{u_c}"\n'
+                        'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
+                    ),
+                }
+            try:
+                parsed_a = json.loads(str(msgs[2].get("content") or "{}"))
+                if isinstance(parsed_a, dict) and "goalCompleted" not in parsed_a:
+                    parsed_a["goalCompleted"] = False
+                    msgs[2] = {"role": "assistant", "content": json.dumps(parsed_a)}
+            except Exception:
+                pass
+            d["messages"] = msgs
+        return d
+
     # Also seed from omniscience_gold_dataset.jsonl if present and not yet in bank
     omni_gold_path = RESULTS_DIR / "omniscience_gold_dataset.jsonl"
     if omni_gold_path.exists():
@@ -405,10 +460,13 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                         tid = re.sub(r"^omni_gold_\d+_", "", str(raw_tid or "")).strip()
                         step = int(d.get("step", 0))
                         u_msg, t_name = _extract_tool_and_prompt(d)
+                        if tid.startswith("omni_craft_") or t_name in ("craft_item", "craft_recipe"):
+                            continue
                         if tid and is_valid_tool_for_task(tid, u_msg, t_name):
                             d["taskId"] = tid
                             d["provider"] = d.get("provider") or "omniscience_gold"
                             d["passed"] = False
+                            d = _normalize_omni_gold_entry(d, tid)
                             key = (tid, step)
                             if key not in task_gold_bank:
                                 task_gold_bank[key] = d
@@ -502,9 +560,10 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 prior_steps.append({"name": tool_name, "args": tool_args, "ok": step_ok, "summary": step_summary})
                 continue
 
+            rec_speaker = str(r.get("speaker") or "Trainer").strip() or "Trainer"
             if len(prior_steps) == 0:
                 user_content = (
-                    f'Player "Trainer" says: "{prompt}"\n'
+                    f'Player "{rec_speaker}" says: "{prompt}"\n'
                     'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                 )
             else:
@@ -684,8 +743,9 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 if winner_base_prompt and rej_base_prompt and winner_base_prompt != rej_base_prompt:
                     continue
                 if step_idx == 0 and len(winner.get("messages", [])) > 1:
+                    rej_speaker = str(r.get("speaker") or "Trainer").strip() or "Trainer"
                     expected_rej_user = (
-                        f'Player "Trainer" says: "{rej_base_prompt}"\n'
+                        f'Player "{rej_speaker}" says: "{rej_base_prompt}"\n'
                         'Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "arguments":{}}}'
                     )
                     if expected_rej_user != str(winner["messages"][1].get("content", "")):

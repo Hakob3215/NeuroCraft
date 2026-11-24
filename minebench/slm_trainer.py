@@ -45,7 +45,7 @@ MODEL_ID = "Qwen/Qwen2.5-Coder-1.5B-Instruct"
 
 
 def stratified_sample_by_domain(items: List[Dict], max_items: int) -> List[Dict]:
-    """Balances samples round-robin across gameplay domains to prevent majority-domain collapse."""
+    """Balances samples round-robin across gameplay domains, prioritizing live rollouts over static seeds."""
     import random
 
     if not items or max_items <= 0:
@@ -56,24 +56,53 @@ def stratified_sample_by_domain(items: List[Dict], max_items: int) -> List[Dict]
         dom = str(item.get("domain") or "general").strip().lower() or "general"
         buckets.setdefault(dom, []).append(item)
 
-    for bucket in buckets.values():
-        random.shuffle(bucket)
+    for dom, bucket in buckets.items():
+        tier_live: List[Dict] = []
+        tier_curr: List[Dict] = []
+        tier_omni: List[Dict] = []
+        for it in bucket:
+            prov = str(it.get("provider") or "local_gpu")
+            if prov == "omniscience_gold":
+                tier_omni.append(it)
+            elif prov in ("gold_curriculum", "gold_continuation"):
+                tier_curr.append(it)
+            else:
+                tier_live.append(it)
+        random.shuffle(tier_live)
+        random.shuffle(tier_curr)
+        random.shuffle(tier_omni)
+        # Stack lowest priority at bottom so bucket.pop() yields live rollouts first
+        buckets[dom] = tier_omni + tier_curr + tier_live
 
     domain_keys = list(buckets.keys())
     random.shuffle(domain_keys)
 
+    omni_cap = max(32, max_items // 4)
+    omni_selected = 0
     selected: List[Dict] = []
+    deferred_omni: List[Dict] = []
     while len(selected) < max_items:
         progressed = False
         for dom in domain_keys:
             bucket = buckets[dom]
-            if bucket:
-                selected.append(bucket.pop())
+            while bucket:
+                cand = bucket.pop()
+                if str(cand.get("provider") or "") == "omniscience_gold":
+                    if omni_selected >= omni_cap:
+                        deferred_omni.append(cand)
+                        continue
+                    omni_selected += 1
+                selected.append(cand)
                 progressed = True
-                if len(selected) >= max_items:
-                    break
+                break
+            if len(selected) >= max_items:
+                break
         if not progressed:
             break
+
+    if len(selected) < max_items and deferred_omni:
+        need = max_items - len(selected)
+        selected.extend(deferred_omni[:need])
 
     random.shuffle(selected)
     return selected
@@ -509,9 +538,15 @@ def train_slm_qlora(
 
     initial_loss = 0.0
     final_loss = 0.0
+    sft_mean_loss = 0.0
+    dpo_mean_loss = 0.0
+    dpo_initial_loss = 0.0
+    dpo_final_loss = 0.0
     step_count = 0
     total_samples = len(dpo_tokenized) + len(sft_tokenized)
     batch_losses: list[float] = []
+    sft_losses: list[float] = []
+    dpo_losses: list[float] = []
 
     optimizer.zero_grad(set_to_none=True)
 
@@ -578,6 +613,7 @@ def train_slm_qlora(
                         continue
 
                     b_loss = float(raw_loss.item())
+                    dpo_losses.append(b_loss)
                     loss = raw_loss / gradient_accumulation_steps
                     loss.backward()
                     del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
@@ -598,6 +634,7 @@ def train_slm_qlora(
                         continue
 
                     b_loss = float(raw_loss.item())
+                    sft_losses.append(b_loss)
                     # Scale loss by advantage weight and gradient accumulation
                     loss = (raw_loss * b_weights.mean()) / gradient_accumulation_steps
                     loss.backward()
@@ -640,12 +677,22 @@ def train_slm_qlora(
             optimizer.zero_grad(set_to_none=True)
 
         avg_loss = epoch_loss / max(1, batches)
-        window = max(2, min(len(batch_losses), max(4, len(batch_losses) // 4)))
-        if epoch == 0 and len(batch_losses) > 0:
-            initial_loss = sum(batch_losses[:window]) / window
-        if len(batch_losses) > 0:
-            final_loss = sum(batch_losses[-window:]) / window
-        print(f"  [Epoch {epoch + 1}/{epochs}] Mean Loss: {avg_loss:.4f} (Window: {initial_loss:.4f} -> {final_loss:.4f}, {batches} steps)")
+        primary_losses = sft_losses if sft_losses else batch_losses
+        window = max(2, min(len(primary_losses), max(4, len(primary_losses) // 4))) if primary_losses else 1
+        if epoch == 0 and len(primary_losses) > 0:
+            initial_loss = sum(primary_losses[:window]) / window
+        if len(primary_losses) > 0:
+            final_loss = sum(primary_losses[-window:]) / window
+        sft_mean_loss = (sum(sft_losses) / len(sft_losses)) if sft_losses else avg_loss
+        if dpo_losses:
+            dpo_win = max(1, min(len(dpo_losses), max(2, len(dpo_losses) // 4)))
+            dpo_mean_loss = sum(dpo_losses) / len(dpo_losses)
+            dpo_initial_loss = sum(dpo_losses[:dpo_win]) / dpo_win
+            dpo_final_loss = sum(dpo_losses[-dpo_win:]) / dpo_win
+        print(
+            f"  [Epoch {epoch + 1}/{epochs}] SFT Loss: {sft_mean_loss:.4f} (Window: {initial_loss:.4f} -> {final_loss:.4f}) "
+            f"| DPO+NLL Mean: {dpo_mean_loss:.4f} ({batches} steps)"
+        )
 
     if torch.cuda.is_available():
         torch.cuda.synchronize()
@@ -683,6 +730,10 @@ def train_slm_qlora(
         "labelSmoothing": label_smoothing,
         "initialLoss": round(initial_loss, 4),
         "finalLoss": round(final_loss, 4),
+        "sftMeanLoss": round(sft_mean_loss, 4),
+        "dpoMeanLoss": round(dpo_mean_loss, 4),
+        "dpoInitialLoss": round(dpo_initial_loss, 4),
+        "dpoFinalLoss": round(dpo_final_loss, 4),
         "peakVramMb": round(peak_vram, 1),
         "trainingDurationSeconds": round(train_duration, 2),
         "savedAdapter": str(latest_adapter),

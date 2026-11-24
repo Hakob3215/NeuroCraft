@@ -237,9 +237,19 @@ export class VLACompanionClient {
     // 8: In water or submerged
     v[8] = (bot.entity as any).isInWater ? 1.0 : 0.0;
 
-    // Find nearest hostile mob
+    // Find nearest hostile mob (matching full boss & vanilla hostile set)
+    const VLA_HOSTILE_NAMES = new Set([
+      'zombie', 'husk', 'drowned', 'zombie_villager', 'skeleton', 'stray', 'wither_skeleton', 'bogged',
+      'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 'blaze', 'ghast', 'magma_cube',
+      'pillager', 'vindicator', 'evoker', 'ravager', 'illusioner', 'vex', 'phantom', 'slime',
+      'hoglin', 'piglin_brute', 'guardian', 'elder_guardian', 'shulker', 'silverfish', 'endermite',
+      'warden', 'breeze', 'ender_dragon', 'wither', 'end_crystal',
+    ]);
     const hostiles = Object.values(bot.entities || {}).filter(
-      (e) => e && e !== bot.entity && (e.type === 'hostile' || ['creeper', 'skeleton', 'zombie', 'spider', 'enderman'].includes(e.name || ''))
+      (e) =>
+        e &&
+        e !== bot.entity &&
+        (e.type === 'hostile' || VLA_HOSTILE_NAMES.has(String(e.name || e.displayName || '').toLowerCase()))
     );
     let nearestHostile: any = null;
     let minDist = 32.0;
@@ -317,9 +327,11 @@ export class VLACompanionClient {
     if (!bot?.entity?.position) return radar;
     const botPos = bot.entity.position;
     const HOSTILE_NAMES = new Set([
-      'zombie', 'husk', 'drowned', 'skeleton', 'stray', 'wither_skeleton',
-      'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 'blaze',
-      'pillager', 'vindicator', 'evoker', 'ravager', 'phantom', 'slime',
+      'zombie', 'husk', 'drowned', 'zombie_villager', 'skeleton', 'stray', 'wither_skeleton', 'bogged',
+      'creeper', 'spider', 'cave_spider', 'enderman', 'witch', 'blaze', 'ghast', 'magma_cube',
+      'pillager', 'vindicator', 'evoker', 'ravager', 'illusioner', 'vex', 'phantom', 'slime',
+      'hoglin', 'piglin_brute', 'guardian', 'elder_guardian', 'shulker', 'silverfish', 'endermite',
+      'warden', 'breeze', 'ender_dragon', 'wither', 'end_crystal',
     ]);
 
     const sorted = Object.values(bot.entities || {})

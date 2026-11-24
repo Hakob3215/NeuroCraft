@@ -99,6 +99,21 @@ const NOTABLE_BLOCKS = new Set([
   'obsidian',
   'water',
   'lava',
+  'campfire',
+  'soul_campfire',
+  'grindstone',
+  'ancient_debris',
+  'pumpkin',
+  'carved_pumpkin',
+  'tnt',
+  'nether_portal',
+  'smoker',
+  'anvil',
+  'enchanting_table',
+  'brewing_stand',
+  'beacon',
+  'barrel',
+  'spawner',
 ]);
 
 function getCompassDirection(dx: number, dz: number): string {
@@ -853,7 +868,13 @@ export class System1BotController {
             }
           }
 
-          if (isExposed && block.name !== 'stone' && notableBlocks.length < 24) {
+          if (
+            isExposed &&
+            block.name !== 'stone' &&
+            block.name !== 'dirt' &&
+            block.name !== 'sand' &&
+            block.name !== 'cobblestone'
+          ) {
             notableBlocks.push({
               name: block.name,
               position: { x: pos.x, y: pos.y, z: pos.z },
@@ -865,6 +886,9 @@ export class System1BotController {
     }
 
     notableBlocks.sort((a, b) => a.distance - b.distance);
+    if (notableBlocks.length > 24) {
+      notableBlocks.splice(24);
+    }
 
     const resourceClusters: ResourceClusterSummary[] = Array.from(clusters.entries())
       .map(([blockType, info]) => ({
@@ -1230,12 +1254,21 @@ export class System1BotController {
     const pos: Vec3 = blockOrPos?.position ? blockOrPos.position : blockOrPos;
     if (!pos) return false;
 
+    const isNonSolidOrFluid = (b: any) =>
+      !b ||
+      b.name === 'air' ||
+      b.name === 'cave_air' ||
+      b.name === 'void_air' ||
+      String(b.name || '').includes('water') ||
+      String(b.name || '').includes('lava');
+
     const block = this.bot.blockAt(pos);
-    if (!block || block.name === 'air' || block.boundingBox === 'empty') return true;
+    if (isNonSolidOrFluid(block)) return true;
+    if (block.diggable === false || block.name === 'bedrock') return false;
 
     this.bot.pathfinder?.setGoal(null);
     this.bot.clearControlStates?.();
-    this.camera.clearQueue();
+    this.camera?.clearQueue();
 
     // Ensure within reach (<= 4.2m)
     const eyePos = this.bot.entity.position.offset(0, 1.62, 0);
@@ -1257,8 +1290,11 @@ export class System1BotController {
       }
 
       const freshBlock = this.bot.blockAt(pos);
-      if (!freshBlock || freshBlock.name === 'air' || freshBlock.boundingBox === 'empty') {
+      if (isNonSolidOrFluid(freshBlock)) {
         return true;
+      }
+      if (freshBlock.diggable === false || freshBlock.name === 'bedrock') {
+        return false;
       }
 
       // Automatically select and equip the best tool for this block type
@@ -1330,7 +1366,7 @@ export class System1BotController {
       // Wait 140ms (~3 server ticks) for server block-change confirmation
       await new Promise((r) => setTimeout(r, 140));
       const after = this.bot.blockAt(pos);
-      const broke = (!after || after.name === 'air' || after.boundingBox === 'empty') && !serverReverted;
+      const broke = isNonSolidOrFluid(after) && !serverReverted;
       logVerbose('DIG', `Dig check on ${freshBlock.name} at ${this.formatPos(pos)} -> broke=${broke} (serverReverted=${serverReverted}, now=${after?.name || 'air'})`);
       if (broke) {
         return true;

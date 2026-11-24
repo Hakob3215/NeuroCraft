@@ -205,12 +205,10 @@ export async function ensurePickaxesForMining(
     const hasWoodForSticks = sticksCount >= 2 || planksCount >= 2 || logsCount >= 1;
 
     if (cobbleCount >= 3 && hasWoodForSticks) {
-      const picksToCraft = cobbleCount >= 6 ? 2 : 1;
       logVerbose(
         'MINING_PREP',
-        `Stone-mining pickaxe durability (${stoneOrWoodDurability} uses) is low for ${blocksToMineEstimate}-block dig. Proactively crafting ${picksToCraft}x stone_pickaxe to conserve iron/diamond pickaxes!`
+        `Stone-mining pickaxe durability (${stoneOrWoodDurability} uses) is low for ${blocksToMineEstimate}-block dig (auto-crafting disabled; use craft_item explicitly).`
       );
-      await craftItemWithAutoPrereqs(ctx, 'stone_pickaxe', picksToCraft, true);
     }
   }
 }
@@ -447,17 +445,9 @@ export async function ensureHarvestToolForBlock(ctx: any, block: any, depth = 0)
     }
   }
 
-  // 2. Pickaxe is missing or broke! Try auto-crafting a replacement pickaxe right now
-  const crafted = await tryAutoCraftReplacementPickaxe(ctx, reqTier);
-  if (crafted) {
-    await equipBestToolForBlockName(ctx, block.name);
-    if (isPickaxeTierSufficient(ctx.bot.heldItem?.name, reqTier)) {
-      return true;
-    }
-  }
-
+  // 2. Pickaxe is missing or broke; fail cleanly without hidden auto-crafting (AGENTS.md)
   // If tunneling through stone (`blockReqTier === 'wood'`) while gathering iron (`reqTier === 'stone'`),
-  // allow falling back to `blockReqTier` ONLY if auto-crafting `reqTier` was not possible yet.
+  // allow falling back to `blockReqTier` so existing stone/wood pickaxes can still clear obstacles.
   if (blockReqTier !== reqTier && isPickaxeTierSufficient(ctx.bot.heldItem?.name, blockReqTier)) {
     return true;
   }
@@ -516,8 +506,7 @@ export async function ensureToolsAvailable(
     }
 
     if (candidate) {
-      logVerbose('CRAFT', `Proactively crafting ${candidate} for task preparation...`);
-      await craftItemWithAutoPrereqs(ctx, candidate, 1, true);
+      logVerbose('CRAFT', `Missing ${candidate} before task preparation (auto-crafting disabled per AGENTS.md).`);
     }
   }
 }
@@ -2528,19 +2517,18 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       let placedFurnacePos: Vec3 | null = null;
       if (!furnaceBlock) {
         const hasFurnaceInv = (ctx.bot.inventory?.items() || []).some((i: any) => i.name === 'furnace');
-        if (!hasFurnaceInv) {
-          await craftItemWithAutoPrereqs(ctx, 'furnace', 1, true);
-        }
-        furnaceBlock = await placeBlockNearby(ctx, 'furnace');
-        if (furnaceBlock) {
-          placedFurnacePos = furnaceBlock.position?.clone?.() || furnaceBlock.position;
+        if (hasFurnaceInv) {
+          furnaceBlock = await placeBlockNearby(ctx, 'furnace');
+          if (furnaceBlock) {
+            placedFurnacePos = furnaceBlock.position?.clone?.() || furnaceBlock.position;
+          }
         }
       }
 
       if (!furnaceBlock) {
         return {
           success: false,
-          summary: 'No furnace nearby or in inventory (need 8 cobblestone to craft a furnace).',
+          summary: 'No furnace nearby or in inventory. Craft a furnace (8 cobblestone) with craft_item first.',
         };
       }
 
@@ -3442,55 +3430,18 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       }
 
-      // If no reachable chest exists nearby, craft one (if needed) and place it!
+      // If no reachable chest exists nearby, place an existing chest from inventory (never auto-craft)
       if (!chestBlock) {
         const hasChestInInv = (ctx.bot.inventory?.items() || []).some((i: any) => i.name === 'chest');
-        if (!hasChestInInv) {
-          // Ensure we have 8 planks
-          const curPlanks = (ctx.bot.inventory?.items() || [])
-            .filter((i: any) => i.name.endsWith('_planks'))
-            .reduce((s: number, i: any) => s + i.count, 0);
-          if (curPlanks < 8) {
-            const logItem = (ctx.bot.inventory?.items() || []).find((i: any) => i.name.endsWith('_log'));
-            if (logItem) {
-              const plankInfo = mcData.itemsByName[logItem.name.replace('_log', '_planks')];
-              if (plankInfo) {
-                const pr = ctx.bot.recipesFor(plankInfo.id, null, 1, null);
-                if (pr?.length > 0) {
-                  try {
-                    await ctx.bot.craft(pr[0], Math.min(logItem.count, 2), undefined);
-                  } catch {}
-                }
-              }
-            }
-          }
-          let table = ctx.bot.findBlock({
-            matching: (b: any) => b?.name === 'crafting_table',
-            maxDistance: 6,
-          });
-          if (table && ctx.bot.entity.position.distanceTo(table.position) > 4.0) {
-            table = null;
-          }
-          if (!table) {
-            table = await placeBlockNearby(ctx, 'crafting_table');
-          }
-          const chestInfo = mcData.itemsByName['chest'];
-          if (chestInfo && table) {
-            const cr = ctx.bot.recipesFor(chestInfo.id, null, 1, table);
-            if (cr?.length > 0) {
-              try {
-                await ctx.bot.craft(cr[0], 1, table);
-              } catch {}
-            }
-          }
+        if (hasChestInInv) {
+          chestBlock = await placeBlockNearby(ctx, 'chest');
         }
-        chestBlock = await placeBlockNearby(ctx, 'chest');
       }
 
       if (!chestBlock) {
         return {
           success: false,
-          summary: 'No chest found nearby and could not place a chest (need 8 planks / 2 logs).',
+          summary: 'No chest nearby or in inventory. Craft a chest (8 planks) with craft_item first.',
         };
       }
 
@@ -3942,21 +3893,12 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         roofBlock = wallBlock;
       }
 
-      let availableWall = countItem(wallBlock);
-      if (wallBlock.endsWith('_planks') && availableWall < 20) {
-        const logCount = inv
-          .filter((it: any) => it.name.endsWith('_log') || it.name.endsWith('_stem'))
-          .reduce((s: number, it: any) => s + it.count, 0);
-        if (logCount >= 2) {
-          await craftItemWithAutoPrereqs(ctx, wallBlock, 16, false);
-          availableWall = countItem(wallBlock);
-        }
-      }
+      const availableWall = countItem(wallBlock);
 
       if (availableWall < 12) {
         return {
           success: false,
-          summary: `Not enough building blocks (found ${availableWall}x ${wallBlock}, need at least 15 to start). Call gather_resource (blockType="wood" or "stone") first!`,
+          summary: `Not enough building blocks (found ${availableWall}x ${wallBlock}, need at least 12). Craft planks via craft_item or call gather_resource first!`,
         };
       }
 
@@ -5898,10 +5840,42 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             await ctx.kinematics.pathfindTo(targetSurface.position, 2.5);
           }
           await ctx.kinematics.lookAtSmooth?.(targetSurface.position.offset(0.5, 0.9, 0.5), 100);
+          const countInv = (n: string) =>
+            (ctx.bot.inventory?.items?.() || [])
+              .filter((i: any) => String(i.name || '').toLowerCase() === n)
+              .reduce((s: number, i: any) => s + (i.count ?? 1), 0);
+          const probeOffsets = [
+            new Vec3(0, 0, 0),
+            new Vec3(0, 1, 0),
+            new Vec3(1, 0, 0),
+            new Vec3(-1, 0, 0),
+            new Vec3(0, 0, 1),
+            new Vec3(0, 0, -1),
+          ];
+          const probeHas = (names: string[]) =>
+            typeof ctx.bot.blockAt === 'function' &&
+            probeOffsets.some((off) => {
+              const blk = ctx.bot.blockAt(targetSurface.position.plus(off));
+              return blk && names.includes(String(blk.name || '').toLowerCase());
+            });
+          const preWater = countInv('water_bucket');
+          const preBucket = countInv('bucket');
+          const hadFire = probeHas(['fire']);
+          const hadWaterBefore = probeHas(['water']);
           try {
             await ctx.bot.activateBlock(targetSurface).catch(() => {});
             ctx.bot.activateItem?.();
             await new Promise((r) => setTimeout(r, 400));
+            const invChanged = countInv('water_bucket') < preWater || countInv('bucket') > preBucket;
+            const worldChanged =
+              (!hadWaterBefore && probeHas(['water', 'obsidian', 'cobblestone'])) ||
+              (hadFire && !probeHas(['fire']));
+            if (!invChanged && !worldChanged) {
+              return {
+                success: false,
+                summary: `Activated water_bucket near ${targetSurface.name}, but neither water deployment nor bucket consumption occurred on server.`,
+              };
+            }
             return { success: true, summary: `Deployed water_bucket on ${targetSurface.name}!` };
           } catch (e: any) {
             return { success: false, summary: `Could not deploy water_bucket: ${e.message}` };
@@ -5961,10 +5935,35 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             await ctx.kinematics.pathfindTo(floorSurface.position, 2.5);
           }
           await ctx.kinematics.lookAtSmooth?.(floorSurface.position.offset(0.5, 1.0, 0.5), 100);
+          const countInv = (n: string) =>
+            (ctx.bot.inventory?.items?.() || [])
+              .filter((i: any) => String(i.name || '').toLowerCase() === n)
+              .reduce((s: number, i: any) => s + (i.count ?? 1), 0);
+          const probeHasLava = () =>
+            typeof ctx.bot.blockAt === 'function' &&
+            [
+              new Vec3(0, 0, 0),
+              new Vec3(0, 1, 0),
+              new Vec3(1, 1, 0),
+              new Vec3(-1, 1, 0),
+              new Vec3(0, 1, 1),
+              new Vec3(0, 1, -1),
+            ].some((off) => String(ctx.bot.blockAt(floorSurface.position.plus(off))?.name || '').toLowerCase() === 'lava');
+          const preLavaBucket = countInv('lava_bucket');
+          const preEmptyBucket = countInv('bucket');
+          const hadLavaBefore = probeHasLava();
           try {
             await ctx.bot.activateBlock(floorSurface, new Vec3(0, 1, 0)).catch(() => {});
             ctx.bot.activateItem?.();
             await new Promise((r) => setTimeout(r, 250));
+            const invChanged = countInv('lava_bucket') < preLavaBucket || countInv('bucket') > preEmptyBucket;
+            const lavaAppeared = !hadLavaBefore && probeHasLava();
+            if (!invChanged && !lavaAppeared) {
+              return {
+                success: false,
+                summary: `Activated lava_bucket near ${matchedMob?.name || target}, but no lava block or bucket state change occurred.`,
+              };
+            }
             return { success: true, summary: `Deployed lava_bucket near ${matchedMob?.name || target}!` };
           } catch (e: any) {
             return { success: false, summary: `Could not deploy lava_bucket: ${e.message}` };
@@ -5993,7 +5992,48 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (!ent || ent.position.distanceTo(ctx.bot.entity.position) > 16) return null;
         await ctx.kinematics.pathfindTo(ent.position, 2.2);
         await ctx.kinematics.lookAtSmooth?.(ent.position.offset(0, 0.8, 0), 120);
+        const entName = String(ent.name || ent.displayName || '').toLowerCase();
+        if (entName === 'villager' && typeof ctx.bot.openVillager === 'function') {
+          const villagerWin = await ctx.bot.openVillager(ent);
+          try {
+            const trades = villagerWin?.trades || [];
+            const inv = ctx.bot.inventory?.items?.() || [];
+            const countItem = (n: string) =>
+              inv.filter((i: any) => String(i.name || '').toLowerCase() === n.toLowerCase()).reduce((s: number, i: any) => s + (i.count ?? 1), 0);
+            const affordableIdx = trades.findIndex((t: any) => {
+              if (!t || t.tradeDisabled) return false;
+              const in1 = t.inputItem1;
+              const ok1 = !in1 || countItem(in1.name) >= (in1.count || 1);
+              const in2 = t.hasItem2 && t.inputItem2 ? t.inputItem2 : null;
+              const ok2 = !in2 || countItem(in2.name) >= (in2.count || 1);
+              return ok1 && ok2;
+            });
+            if (affordableIdx < 0) {
+              return { success: false, summary: 'Opened villager trade screen, but no affordable trade matches current inventory.' };
+            }
+            if (typeof ctx.bot.trade === 'function') {
+              await ctx.bot.trade(villagerWin, affordableIdx, 1);
+            }
+            return { success: true, summary: `Completed villager trade #${affordableIdx + 1} with ${entName}!` };
+          } finally {
+            try { villagerWin?.close?.(); } catch {}
+          }
+        }
+        const countInv = (n: string) =>
+          (ctx.bot.inventory?.items?.() || [])
+            .filter((i: any) => String(i.name || '').toLowerCase() === n)
+            .reduce((s: number, i: any) => s + (i.count ?? 1), 0);
+        const preMilk = countInv('milk_bucket') + countInv('mushroom_stew');
+        const preBucket = countInv('bucket');
         await ctx.bot.activateEntity(ent);
+        if (resolvedTool === 'bucket' && (entName === 'cow' || entName === 'mooshroom' || entName === 'goat')) {
+          await new Promise((r) => setTimeout(r, 180));
+          const postMilk = countInv('milk_bucket') + countInv('mushroom_stew');
+          const postBucket = countInv('bucket');
+          if (postMilk <= preMilk && postBucket >= preBucket) {
+            return { success: false, summary: `Activated ${entName} with bucket, but gained no milk_bucket.` };
+          }
+        }
         return {
           success: true,
           summary: `Used ${resolvedTool} on entity ${ent.name || target}!`,
@@ -6055,18 +6095,31 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           propsJson: JSON.stringify(propsObj || {}),
         };
       };
-      const isMutatingTarget =
-        b.name.endsWith('_log') ||
-        b.name.endsWith('_stem') ||
-        b.name === 'grass_block' ||
-        b.name === 'dirt' ||
-        b.name === 'pumpkin' ||
-        b.name === 'campfire' ||
-        b.name === 'soul_campfire' ||
-        b.name === 'obsidian' ||
-        b.name === 'tnt';
-      const preSnap =
-        isMutatingTarget && typeof ctx.bot.blockAt === 'function' ? readStateSnap(b.position) : null;
+      const countResolvedTool = () =>
+        (ctx.bot.inventory?.items?.() || [])
+          .filter((i: any) => String(i.name || '').toLowerCase() === String(resolvedTool || '').toLowerCase())
+          .reduce((s: number, i: any) => s + (i.count ?? 1), 0);
+      const preSnap = typeof ctx.bot.blockAt === 'function' ? readStateSnap(b.position) : null;
+      const preToolCount = countResolvedTool();
+      const preWindowRef = ctx.bot.currentWindow ?? null;
+      const bLower = String(b.name || '').toLowerCase();
+      const isInteractiveUiBlock =
+        bLower === 'lever' ||
+        bLower.includes('button') ||
+        bLower.includes('door') ||
+        bLower.includes('trapdoor') ||
+        bLower.includes('gate') ||
+        bLower.includes('chest') ||
+        bLower.includes('furnace') ||
+        bLower.includes('anvil') ||
+        bLower.includes('bed') ||
+        ['crafting_table', 'enchanting_table', 'note_block', 'bell', 'jukebox', 'lectern', 'composter', 'cauldron', 'water_cauldron', 'lava_cauldron', 'beacon', 'brewing_stand', 'loom', 'cartography_table', 'grindstone', 'smithing_table', 'stonecutter', 'barrel', 'smoker'].includes(bLower);
+      const changed = (p0: any, p1: any) =>
+        Boolean(p0 && p1 && (p1.name !== p0.name || p1.aboveName !== p0.aboveName || p1.propsJson !== p0.propsJson));
+      const anyDelta = (postSnap: any) =>
+        changed(preSnap, postSnap) ||
+        countResolvedTool() !== preToolCount ||
+        (isInteractiveUiBlock && ctx.bot.currentWindow != null && ctx.bot.currentWindow !== preWindowRef);
       try {
         if (target === 'obsidian' || b.name === 'obsidian') {
           await ctx.bot.activateBlock(b, new Vec3(0, 1, 0));
@@ -6076,9 +6129,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (preSnap) {
           await new Promise((r) => setTimeout(r, 180));
           let postSnap = readStateSnap(b.position);
-          const changed = (p0: typeof preSnap, p1: typeof preSnap) =>
-            p1.name !== p0.name || p1.aboveName !== p0.aboveName || p1.propsJson !== p0.propsJson;
-          if (!changed(preSnap, postSnap)) {
+          if (!anyDelta(postSnap)) {
             const refreshed = ctx.bot.blockAt?.(b.position) || b;
             await ctx.bot.lookAt?.(b.position.offset(0.5, target === 'obsidian' ? 1.0 : 0.5, 0.5), true)?.catch(() => {});
             if (target === 'obsidian' || b.name === 'obsidian') {
@@ -6089,10 +6140,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             await new Promise((r) => setTimeout(r, 180));
             postSnap = readStateSnap(b.position);
           }
-          if (!changed(preSnap, postSnap)) {
+          if (!anyDelta(postSnap)) {
             return {
               success: false,
-              summary: `Activated ${b.name} at (${b.position.x}, ${b.position.y}, ${b.position.z}), but block state did not change.`,
+              summary: `Activated ${b.name} at (${b.position.x}, ${b.position.y}, ${b.position.z}), but no block, inventory, or container state changed.`,
             };
           }
         }

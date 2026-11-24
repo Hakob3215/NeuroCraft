@@ -49,6 +49,9 @@ export interface MinebenchEvaluationSnapshot {
     mobInteractions?: number;
     damageDealt?: number;
     waterPlaced?: number;
+    lavaPlaced?: number;
+    shieldBlocks?: number;
+    shieldDisabled?: number;
     ironPickaxeDurabilityUsedOnStone: number;
   };
   multiplayer?: {
@@ -179,6 +182,103 @@ export function evaluateOmniscienceMilestones(
     taskId === 'omni_tool_lava_bucket_smelt_fuel_100' &&
     (invNames.includes('iron_ingot') || (invNames.includes('bucket') && ((snap.stats as any).affordanceActions || 0) > 0));
 
+  const origin = task?.origin || snap.botPosition || { x: 0, y: 64, z: 0 };
+  const ox = Math.floor(origin.x ?? 0);
+  const oy = Math.floor(origin.y ?? 64);
+  const oz = Math.floor(origin.z ?? 0);
+  const scanArena = (
+    rx: number,
+    ryNeg: number,
+    ryPos: number,
+    rz: number,
+    pred: (b: NonNullable<ReturnType<MinebenchEvaluationSnapshot['blockAt']>>) => boolean
+  ): boolean => {
+    if (typeof snap?.blockAt !== 'function') return false;
+    for (let dx = -rx; dx <= rx; dx++) {
+      for (let dy = -ryNeg; dy <= ryPos; dy++) {
+        for (let dz = -rz; dz <= rz; dz++) {
+          const blk = snap.blockAt(ox + dx, oy + dy, oz + dz);
+          if (blk && pred(blk)) return true;
+        }
+      }
+    }
+    return false;
+  };
+  const totalMobsKilled = Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0);
+  const getLitProp = (b: any): any => {
+    const p = typeof b?.getProperties === 'function' ? b.getProperties() : (b?.properties || {});
+    return p?.lit;
+  };
+  const checkSpecificToolAffordance = (): boolean => {
+    if (taskId === 'omni_tool_shovel_extinguish_campfire') {
+      return scanArena(6, 2, 4, 6, (b) => b.name.includes('campfire') && (getLitProp(b) === false || getLitProp(b) === 'false'));
+    }
+    if (taskId === 'omni_tool_flint_and_steel_light_campfire') {
+      return scanArena(6, 2, 4, 6, (b) => b.name.includes('campfire') && (getLitProp(b) === true || getLitProp(b) === 'true'));
+    }
+    if (taskId === 'omni_tool_flint_and_steel_light_nether_portal') {
+      return scanArena(8, 2, 6, 8, (b) => b.name === 'nether_portal');
+    }
+    if (taskId === 'omni_tool_flint_and_steel_ignite_tnt') {
+      return !scanArena(8, 2, 4, 8, (b) => b.name === 'tnt') && (((snap.stats as any).affordanceActions || 0) > 0 || snap.stats.creeperBlasts > 0);
+    }
+    if (taskId === 'omni_tool_axe_strip_log') {
+      return scanArena(8, 2, 5, 8, (b) => b.name.startsWith('stripped_'));
+    }
+    if (taskId === 'omni_tool_shovel_create_grass_path') {
+      return scanArena(8, 2, 4, 8, (b) => b.name === 'dirt_path');
+    }
+    if (taskId === 'omni_tool_hoe_till_farmland') {
+      return scanArena(8, 2, 4, 8, (b) => b.name === 'farmland');
+    }
+    if (taskId === 'omni_tool_water_bucket_hydrate_farmland') {
+      return scanArena(8, 2, 4, 8, (b) => b.name === 'farmland') && (((snap.stats.waterPlaced || 0) > 0) || scanArena(8, 2, 4, 8, (b) => b.name === 'water'));
+    }
+    if (taskId === 'omni_tool_shears_carve_pumpkin') {
+      return scanArena(8, 2, 4, 8, (b) => b.name === 'carved_pumpkin');
+    }
+    if (taskId === 'omni_tool_lava_bucket_trap_mob') {
+      return ((snap.stats as any).lavaPlaced || 0) > 0 || scanArena(8, 2, 4, 8, (b) => b.name === 'lava');
+    }
+    if (taskId === 'omni_tool_water_bucket_extinguish_fire') {
+      return (((snap.stats.waterPlaced || 0) > 0) || ((snap.stats.affordanceActions || 0) > 0)) && !scanArena(6, 2, 4, 6, (b) => b.name === 'fire');
+    }
+    if (taskId === 'omni_tool_water_bucket_lava_to_obsidian') {
+      return ((snap.stats.waterPlaced || 0) > 0) && scanArena(8, 2, 4, 8, (b) => b.name === 'obsidian' || b.name === 'cobblestone');
+    }
+    if (taskId === 'omni_tool_shield_block_arrows') {
+      return ((snap.stats as any).shieldBlocks || 0) > 0 && snap.deaths === 0;
+    }
+    if (taskId === 'omni_tool_axe_disable_shield') {
+      return (((snap.stats as any).shieldDisabled || 0) > 0 || (snap.stats.damageDealt || 0) > 0 || totalMobsKilled > 0) && snap.deaths === 0;
+    }
+    if (taskId === 'omni_tool_water_bucket_water_clutch') {
+      return waterClutchSuccess;
+    }
+    if (taskId === 'omni_tool_elytra_glide_and_boost') {
+      return elytraGlideSuccess;
+    }
+    if (taskId === 'omni_tool_lava_bucket_smelt_fuel_100') {
+      return lavaSmeltSuccess;
+    }
+    if (/(bow|crossbow|trident)/i.test(taskId)) {
+      return snap.stats.arrowsFired > 0 || (snap.stats.damageDealt || 0) > 0 || totalMobsKilled > 0;
+    }
+    if (/(chop_|mine_|dig_|harvest_|break_)/i.test(taskId)) {
+      return snap.stats.blocksMined > 0;
+    }
+    if (/(combat|attack|slay|kill|sweep|crit)/i.test(taskId)) {
+      return totalMobsKilled > 0 || (snap.stats.damageDealt || 0) > 0;
+    }
+    return (
+      ((snap.stats as any).affordanceActions || 0) > 0 ||
+      ((snap.stats as any).mobInteractions || 0) > 0 ||
+      snap.stats.leversFlipped > 0 ||
+      snap.stats.wolvesTamed > 0 ||
+      ((snap.stats as any).foodConsumed || 0) > 0
+    );
+  };
+
   for (const m of milestones) {
     let earned = 0;
     const cond = m.condition;
@@ -211,47 +311,22 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'held_tool_correct') {
-      const isMiningAffordance = /(chop_|mine_|dig_|harvest_|break_)/i.test(taskId);
       const hasCorrectTool = Boolean(
         targetObj &&
           (invNames.some((n) => n === targetObj || n.includes(targetObj) || (targetObj.endsWith('_bucket') && n === 'bucket')) ||
             Object.values(snap.equippedArmor || {}).some((eq) => eq && String(eq).toLowerCase().includes(targetObj)))
       );
       const didAnyAction =
-        (isMiningAffordance && snap.stats.blocksMined > 0) ||
-        snap.stats.blocksPlaced > 0 ||
-        (snap.stats as any).foodConsumed > 0 ||
-        snap.stats.leversFlipped > 0 ||
-        snap.stats.wolvesTamed > 0 ||
-        ((snap.stats as any).affordanceActions || 0) > 0 ||
-        ((snap.stats as any).waterPlaced || 0) > 0 ||
-        Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0 ||
-        waterClutchSuccess ||
-        elytraGlideSuccess ||
-        (taskId === 'omni_tool_elytra_glide_and_boost' && elytraEquipped && snap.deaths === 0) ||
-        lavaSmeltSuccess;
+        checkSpecificToolAffordance() ||
+        (taskId === 'omni_tool_elytra_glide_and_boost' && elytraEquipped && snap.deaths === 0);
       if (hasCorrectTool && didAnyAction) {
         earned = m.maxPoints;
       }
     } else if (cond === 'affordance_action_completed') {
-      const isMiningAffordance = /(chop_|mine_|dig_|harvest_|break_)/i.test(taskId);
-      const anyAction =
-        (isMiningAffordance && snap.stats.blocksMined > 0) ||
-        snap.stats.blocksPlaced > 0 ||
-        snap.stats.leversFlipped > 0 ||
-        snap.stats.wolvesTamed > 0 ||
-        ((snap.stats as any).affordanceActions || 0) > 0 ||
-        ((snap.stats as any).waterPlaced || 0) > 0 ||
-        (snap.stats as any).foodConsumed > 0 ||
-        Object.values(snap.stats.mobsKilled || {}).reduce((a, b) => a + b, 0) > 0;
-      if (taskId === 'omni_tool_water_bucket_water_clutch') {
-        if (waterClutchSuccess) earned = m.maxPoints;
-      } else if (taskId === 'omni_tool_elytra_glide_and_boost') {
+      if (taskId === 'omni_tool_elytra_glide_and_boost') {
         if (elytraGlideSuccess) earned = m.maxPoints;
         else if (elytraEquipped && snap.deaths === 0) earned = 25;
-      } else if (taskId === 'omni_tool_lava_bucket_smelt_fuel_100') {
-        if (lavaSmeltSuccess || anyAction) earned = m.maxPoints;
-      } else if (anyAction) {
+      } else if (checkSpecificToolAffordance()) {
         earned = m.maxPoints;
       }
     } else if (cond === 'zero_creeper_blasts' || cond === 'kiting_damage_inflicted') {
@@ -707,8 +782,15 @@ function evaluateCombatTask(
   const livingTargets = snap.entities.filter(
     (e) => e.isValid && (e.name === targetMob || e.type === targetMob)
   );
-  const livingHp = livingTargets.reduce((acc, e) => acc + (typeof e.health === 'number' ? e.health : 20), 0);
-  damageDealt = kills >= expectedKills ? targetTotalMaxHp : Math.max(0, targetTotalMaxHp - livingHp);
+  const observedEntityDamage = livingTargets.reduce(
+    (acc, e) => acc + (typeof e.health === 'number' ? Math.max(0, 20 - e.health) : 0),
+    0
+  );
+  const recordedDamage = Math.max(0, Number(snap.stats.damageDealt || 0));
+  damageDealt =
+    kills >= expectedKills
+      ? targetTotalMaxHp
+      : Math.min(targetTotalMaxHp, kills * 20 + Math.max(observedEntityDamage, recordedDamage));
   const damageRatio = Math.min(1, damageDealt / targetTotalMaxHp);
 
   const blastPenalty = snap.stats.creeperBlasts * 20;

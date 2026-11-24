@@ -111,6 +111,7 @@ export interface TrainingState {
   lastSavedAt: string;
   latestCheckpoint: string;
   bestCheckpoint: string;
+  activeSurvivalGoalIndex?: number;
   history?: IterationRecord[];
 }
 
@@ -665,6 +666,51 @@ export const SURVIVAL_CAMPAIGN_GOALS: SurvivalCampaignGoal[] = [
       'Open-World Survival Campaign: Gather wood and stone, build an enclosed survival shelter, craft chests and furnaces, till farmland, and breed livestock.',
   },
 ];
+
+export function checkSurvivalCampaignGoalCompleted(
+  goalId: string,
+  invNames: string[],
+  mobsKilled: Record<string, number>,
+  dragonsKilled: number,
+  blocksPlaced: number
+): boolean {
+  const has = (item: string) => invNames.includes(item);
+  switch (goalId) {
+    case 'ender_dragon':
+      return dragonsKilled > 0 || (mobsKilled.ender_dragon || 0) > 0;
+    case 'wither_boss':
+      return (mobsKilled.wither || 0) > 0 || has('nether_star');
+    case 'full_beacon':
+      return has('beacon');
+    case 'ocean_sponges':
+      return has('sponge') || has('wet_sponge');
+    case 'diamond_armory':
+      return (
+        has('diamond_pickaxe') &&
+        (has('diamond_chestplate') || has('diamond_helmet') || has('diamond_leggings') || has('diamond_boots') || has('diamond_sword'))
+      );
+    case 'homestead_automation':
+      return has('chest') && has('furnace') && has('wheat') && blocksPlaced >= 12;
+    default:
+      return false;
+  }
+}
+
+export function resolveSafeRespawnOrigin(task: MinebenchTaskSpec): { x: number; y: number; z: number } {
+  const origin = task.origin || { x: 0, y: 64, z: 0 };
+  if (typeof task.buildArenaCommands === 'function') {
+    const cmds = task.buildArenaCommands(origin);
+    for (let i = cmds.length - 1; i >= 0; i--) {
+      const m = cmds[i]
+        .trim()
+        .match(/^tp\s+(?:NeuroAgent|@p)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)\s+(-?\d+(?:\.\d+)?)/i);
+      if (m) {
+        return { x: Number(m[1]), y: Number(m[2]), z: Number(m[3]) };
+      }
+    }
+  }
+  return origin;
+}
 
 export const SURVIVAL_SECTOR_ORIGIN = { x: 20000, y: 100, z: 20000 };
 
@@ -1245,7 +1291,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let testbenchFinished = false;
 
       // Launch Persistent Open-World Survival Worker concurrently with Testbench workers (zero extra batch overhead)
-      const campaignGoal = SURVIVAL_CAMPAIGN_GOALS[(iter - 1) % SURVIVAL_CAMPAIGN_GOALS.length];
+      const activeGoalIdx = (state.activeSurvivalGoalIndex ?? 0) % SURVIVAL_CAMPAIGN_GOALS.length;
+      const campaignGoal = SURVIVAL_CAMPAIGN_GOALS[activeGoalIdx];
       const survivalPromise = (async () => {
         if (!survivalWorker) return undefined;
         try {
@@ -1285,6 +1332,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let sDeaths = 0;
           let sBlocksPlaced = 0;
           let sKills = 0;
+          let sDragonsKilled = 0;
+          const sMobsKilled: Record<string, number> = {};
+          let sGoalCompleted = false;
           let survivalTrackingActive = false;
           const onSDeath = () => { sDeaths++; };
           const onSBlock = (o: any, n: any) => {
@@ -1309,6 +1359,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               Date.now() - ((sBot as any)._lastAttackAt || 0) <= 2000
             ) {
               sKills++;
+              const mobName = String(e.name || e.displayName || '').toLowerCase();
+              if (mobName) {
+                sMobsKilled[mobName] = (sMobsKilled[mobName] || 0) + 1;
+                if (mobName === 'ender_dragon') sDragonsKilled++;
+              }
             }
           };
           sBot.on('death', onSDeath);
@@ -1471,10 +1526,17 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 });
               }
 
-              // Anchor trajectory into replay buffer whenever a new Advancement is unlocked
-              if (newAdvs.length > 0 && sExecutedTools.some((t) => t.success)) {
-                const campaignGoalPassed = finalEval.score >= 80;
-                const advSlug = String(newAdvs[0] || 'advancement').replace(/[^a-z0-9_]/gi, '_');
+              // Anchor trajectory into replay buffer whenever a new Advancement or goal completion occurs
+              const campaignGoalPassed = checkSurvivalCampaignGoalCompleted(
+                campaignGoal.id,
+                invNames,
+                sMobsKilled,
+                sDragonsKilled,
+                sBlocksPlaced
+              );
+              if (campaignGoalPassed) sGoalCompleted = true;
+              if ((newAdvs.length > 0 || campaignGoalPassed) && sExecutedTools.some((t) => t.success)) {
+                const advSlug = String(newAdvs[0] || campaignGoal.id || 'advancement').replace(/[^a-z0-9_]/gi, '_');
                 await stateWriteMutex.runExclusive(async () => {
                   fs.appendFileSync(
                     replayPath,
@@ -1516,6 +1578,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           return {
             goalId: campaignGoal.id,
             goalTitle: campaignGoal.title,
+            goalPassed: sGoalCompleted,
             techTierReached: finalEval.techTier,
             advancementsUnlocked: Array.from(persistentUnlockedAdvancements),
             survivalSteps: sStepHistory.length,
@@ -1650,6 +1713,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             if (posOk && floorOk && invOk && foodOk && oppOk) break;
             await new Promise((r) => setTimeout(r, 50));
           }
+          // Drain trailing chunk/block packets from resetArenaOnLiveServer before attaching testbench tracking
+          await new Promise((r) => setTimeout(r, 250));
           worker.system1.invalidatePerceptionCache();
           worker.system1.refreshWorldStateNow(true);
 
@@ -1697,9 +1762,14 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let mobInteractions = 0;
           let damageDealt = 0;
           let waterPlaced = 0;
+          let lavaPlaced = 0;
+          let shieldBlocks = 0;
+          let shieldDisabled = 0;
+          let testbenchTrackingActive = false;
           let ironPickaxeDurabilityUsedOnStone = 0;
           let activeStepAbortController: AbortController | null = null;
           const killedMobsMap: Record<string, number> = {};
+          const safeRespawnPos = resolveSafeRespawnOrigin(shardedTask);
 
           const targetEntityName = String((task as any).targetObject || '').toLowerCase();
           const initialTargetEntities = targetEntityName ? countEntitiesByName(targetEntityName) : 0;
@@ -1711,7 +1781,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               activeStepAbortController?.abort();
             } catch {}
             try {
-              server.sendCommand(`tp ${worker.botUsername} ${shardedTask.origin.x} ${shardedTask.origin.y} ${shardedTask.origin.z} 0 0`);
+              server.sendCommand(`tp ${worker.botUsername} ${safeRespawnPos.x} ${safeRespawnPos.y} ${safeRespawnPos.z} 0 0`);
             } catch {}
           };
           const onEntityDead = (ent: any) => {
@@ -1739,44 +1809,51 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             return ((blk?.metadata ?? 0) & 8) !== 0;
           };
           const onBlockUpdate = (oldBlock: any, newBlock: any) => {
-            if (!oldBlock || !newBlock || !bot.entity) return;
+            if (!testbenchTrackingActive || !oldBlock || !newBlock || !bot.entity) return;
+            const bnOld = String(oldBlock.name || '').toLowerCase();
+            const bnNew = String(newBlock.name || '').toLowerCase();
             if (
-              (oldBlock.name === 'air' || oldBlock.name === 'lava' || oldBlock.name === 'water') &&
-              newBlock.name !== 'air' &&
-              newBlock.name !== 'lava' &&
-              newBlock.name !== 'water' &&
+              (bnOld === 'air' || bnOld === 'lava' || bnOld === 'water') &&
+              bnNew !== 'air' &&
+              bnNew !== 'lava' &&
+              bnNew !== 'water' &&
               newBlock.position?.distanceTo(bot.entity.position) <= 6.0
             ) {
               blocksPlaced++;
             }
-            if (newBlock.name === 'lever' && isBlockPowered(newBlock)) {
+            if (bnNew === 'lever' && isBlockPowered(newBlock) && !isBlockPowered(oldBlock)) {
               leversFlipped++;
             }
-            if (newBlock.name === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
+            if (bnOld === 'air' && bnNew === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               waterPlaced++;
             }
-            const bnOld = String(oldBlock.name || '').toLowerCase();
-            const bnNew = String(newBlock.name || '').toLowerCase();
+            if (bnOld === 'air' && bnNew === 'lava' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
+              lavaPlaced++;
+            }
             const getLit = (blk: any): any => {
               const p = typeof blk?.getProperties === 'function' ? blk.getProperties() : (blk?._properties ?? blk?.properties ?? {});
               return p?.lit;
             };
             const isToolModifiedBlock =
-              (bnNew === 'lever' && isBlockPowered(newBlock)) ||
-              bnNew.startsWith('stripped_') ||
-              bnNew === 'dirt_path' ||
-              bnNew === 'farmland' ||
-              bnNew === 'carved_pumpkin' ||
-              bnNew === 'fire' ||
-              bnNew === 'nether_portal' ||
-              bnNew === 'water' ||
-              bnNew === 'lava' ||
-              bnNew === 'campfire' ||
+              (bnNew === 'lever' && isBlockPowered(newBlock) && !isBlockPowered(oldBlock)) ||
+              ((bnOld.endsWith('_log') || bnOld.endsWith('_stem') || bnOld.endsWith('_wood')) && bnNew.startsWith('stripped_')) ||
+              ((bnOld === 'grass_block' || bnOld === 'dirt' || bnOld === 'coarse_dirt') &&
+                (bnNew === 'dirt_path' || bnNew === 'farmland')) ||
+              (bnOld === 'pumpkin' && bnNew === 'carved_pumpkin') ||
+              (bnOld === 'air' && (bnNew === 'fire' || bnNew === 'nether_portal' || bnNew === 'water' || bnNew === 'lava')) ||
               (bnOld === 'tnt' && bnNew === 'air') ||
               (bnOld === 'fire' && bnNew === 'air') ||
-              (bnOld === 'campfire' && bnNew === 'campfire' && getLit(oldBlock) !== getLit(newBlock));
+              ((bnOld === 'campfire' || bnOld === 'soul_campfire') && bnNew === bnOld && getLit(oldBlock) !== getLit(newBlock));
             if (isToolModifiedBlock && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               affordanceActions++;
+            }
+          };
+          const onEntityStatus = (pkt: any) => {
+            if (!testbenchTrackingActive || !pkt || !bot.entity) return;
+            if (pkt.entityId === bot.entity.id && (pkt.entityStatus === 29 || pkt.entityStatus === 30)) {
+              shieldBlocks++;
+            } else if (pkt.entityId !== bot.entity.id && pkt.entityStatus === 30) {
+              shieldDisabled++;
             }
           };
           const onEntityHurt = (ent: any) => {
@@ -1791,6 +1868,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           bot.on('entityDead', onEntityDead);
           bot.on('entityGone', onEntityGone);
           bot._client?.on('explosion', onExplosion);
+          bot._client?.on('entity_status', onEntityStatus);
           bot.on('diggingCompleted', onDiggingCompleted);
           bot.on('blockUpdate', onBlockUpdate);
           bot.on('entityHurt', onEntityHurt);
@@ -1868,6 +1946,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   position: { x: e.position.x, y: e.position.y, z: e.position.z },
                   isValid: e.isValid !== false,
                   metadata: e.metadata,
+                  health: typeof e.health === 'number' ? e.health : undefined,
                 })),
               stats: {
                 blocksPlaced,
@@ -1886,6 +1965,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 mobInteractions,
                 damageDealt,
                 waterPlaced,
+                lavaPlaced,
+                shieldBlocks,
+                shieldDisabled,
                 ironPickaxeDurabilityUsedOnStone,
               },
               multiplayer: task.sparringConfig ? worker.sparringPartner.getSnapshot() : undefined,
@@ -1900,10 +1982,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           goalPlanner.setMacroGoal(task.prompt);
           let activeGoal = task.prompt;
           let lastEffectivePrompt = task.prompt;
+          let lastSpeaker = 'Trainer';
 
           try {
             for (let stepIdx = 0; stepIdx < task.maxSteps; stepIdx++) {
-              if (isShuttingDown || Date.now() - taskT0 > task.maxDurationSeconds * 1000) break;
+              if (isShuttingDown || deaths > 0 || Date.now() - taskT0 > task.maxDurationSeconds * 1000) break;
 
               if (stepIdx === 0 && task.sparringConfig) {
                 worker.sparringPartner.setMode({
@@ -1948,10 +2031,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const continuationGoal = goalPlanner.formatGoalHorizonContext(worldState);
               const isCoop = task.domain === 'MULTIPLAYER_ARENA' && task.id.startsWith('coop_');
               const speaker = isCoop ? worker.sparringPartner.username : 'Trainer';
+              if (stepIdx === 0) lastSpeaker = speaker;
               const decision =
                 stepIdx === 0
                   ? await worker.llm.generateCognitiveDecision(speaker, effectivePrompt, worldState, schemas, [])
                   : await worker.llm.generateGoalContinuationDecision(continuationGoal, stepHistory, worldState, schemas, []);
+
+              if (isShuttingDown || deaths > 0) break;
 
               if (decision.activeGoal) activeGoal = decision.activeGoal;
               if (stepIdx === 0 && (decision.activeGoal || (Array.isArray(decision.planSteps) && decision.planSteps.length > 0))) {
@@ -2103,6 +2189,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               try {
                 const prevYaw = bot.entity?.yaw || 0;
                 const prevPitch = bot.entity?.pitch || 0;
+                testbenchTrackingActive = true;
 
                 const rpcPromise = worker.mcpServer.handleRpcRequest(
                   {
@@ -2201,6 +2288,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 }
 
                 const postSnap = buildSnapshot();
+                testbenchTrackingActive = false;
                 const postGrading = evaluateMinebenchEpisode(shardedTask, postSnap);
                 stepReward = Number((postGrading.rawReward - preGrading.rawReward).toFixed(3));
 
@@ -2223,6 +2311,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   episodeTransitions.push(transitionRecord);
                 }
               } finally {
+                testbenchTrackingActive = false;
                 if (motorSampleInterval) {
                   clearInterval(motorSampleInterval);
                   motorSampleInterval = null;
@@ -2286,10 +2375,12 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               }
             }
           } finally {
+            testbenchTrackingActive = false;
             bot.removeListener('death', onDeath);
             bot.removeListener('entityDead', onEntityDead);
             bot.removeListener('entityGone', onEntityGone);
             bot._client?.removeListener('explosion', onExplosion);
+            bot._client?.removeListener('entity_status', onEntityStatus);
             bot.removeListener('diggingCompleted', onDiggingCompleted);
             bot.removeListener('blockUpdate', onBlockUpdate);
             bot.removeListener('entityHurt', onEntityHurt);
@@ -2355,6 +2446,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               botUsername: worker.botUsername,
               domain: task.domain,
               tier: task.tier,
+              speaker: lastSpeaker,
               prompt: lastEffectivePrompt,
               passed: grading.passed,
               score: grading.score,
@@ -2733,6 +2825,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         milestone: dragonScore !== undefined ? `Dragon Run: ${dragonScore.toFixed(0)}% (${dragonMilestonesCount}/8)` : undefined,
       });
 
+      if (survivalCampaignRes?.goalPassed) {
+        state.activeSurvivalGoalIndex = ((state.activeSurvivalGoalIndex ?? 0) + 1) % SURVIVAL_CAMPAIGN_GOALS.length;
+      }
       saveTrainingState(isNewBest);
 
       const elapsedMinutes = ((Date.now() - iterStartTime) / 60000).toFixed(1);

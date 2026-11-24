@@ -244,9 +244,31 @@ def generate_temporal_action_dataset(
     )
 
 
+MOTOR_TOOL_ALIASES: Dict[str, str] = {
+    "craft_recipe": "craft_item",
+    "smelt_ores": "smelt_item",
+    "manage_chest": "store_items_in_chest",
+    "harvest_resource": "gather_resource",
+    "mine_resource": "gather_resource",
+    "clear_flat_area": "gather_resource",
+    "bridge_cross": "navigate_parkour_or_bridge",
+    "build_simple_house": "construct_modular_structure",
+    "build_shelter": "construct_modular_structure",
+    "place_block": "construct_modular_structure",
+    "interact_block_or_puzzle": "use_tool_on_block",
+}
+
+
+def _resolve_canonical_motor_tool(tool_name: Optional[str]) -> str:
+    raw = str(tool_name or "none").strip()
+    mapped = MOTOR_TOOL_ALIASES.get(raw, raw)
+    return mapped if mapped in TOOL_TO_IDX else "none"
+
+
 def _map_action_idx_to_tool_idx(act_idx: int, tool_name: Optional[str] = None) -> Tuple[int, float]:
-    if tool_name and tool_name in TOOL_TO_IDX:
-        return TOOL_TO_IDX[tool_name], 1.0
+    canon = _resolve_canonical_motor_tool(tool_name)
+    if canon != "none":
+        return TOOL_TO_IDX[canon], 1.0
     if act_idx == 3:
         return TOOL_TO_IDX["engage_combat"], 1.0
     if act_idx == 2:
@@ -463,8 +485,8 @@ def load_real_motor_chunks_dataset(
         tgt_disc[i] = torch.tensor([row[:6] for row in r["discreteTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
         tgt_ext[i] = torch.tensor([row[:2] for row in r["extendedTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
 
-        t_name = str(r.get("toolName") or "none")
-        if t_name in TOOL_TO_IDX and t_name != "none":
+        t_name = _resolve_canonical_motor_tool(r.get("toolName"))
+        if t_name != "none":
             tgt_tools[i] = TOOL_TO_IDX[t_name]
             tgt_gate[i] = 1.0
         else:
@@ -482,7 +504,8 @@ def load_real_motor_chunks_dataset(
         elif st_ok:
             actor_weights[i] = 1.0
         else:
-            actor_weights[i] = 0.25
+            # Failed steps train the Critic V(s) head without imitating bad motor actions
+            actor_weights[i] = 0.0
 
     return (
         latents, proprios, voxels, entities,
@@ -527,11 +550,15 @@ def train_action_transformer(
     total_params = sum(p.numel() for p in model.parameters())
     print(f"[Action Head] Model has {total_params:,} parameters ({total_params * 2 / 1e6:.1f} MB in BF16).")
 
-    real_ds = load_real_transitions_dataset(max_samples=3000, device=str(device))
-    num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
     motor_chunks_ds = load_real_motor_chunks_dataset(max_samples=2000, device=str(device))
     num_motor_chunks = int(motor_chunks_ds[0].shape[0]) if motor_chunks_ds is not None else 0
-    num_synth = max(800, 4000 - num_real - num_motor_chunks)
+    real_limit = 0 if num_motor_chunks >= 1200 else (500 if num_motor_chunks >= 400 else 1500)
+    real_ds = load_real_transitions_dataset(max_samples=real_limit, device=str(device)) if real_limit > 0 else None
+    num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
+    if num_motor_chunks >= 200:
+        num_synth = max(200, 1200 - num_motor_chunks)
+    else:
+        num_synth = max(800, 4000 - num_real - num_motor_chunks)
     print(
         f"[Action Head] Generating {num_synth:,} annealed synthetic + {num_real:,} real Mojang transitions "
         f"+ {num_motor_chunks:,} real 20Hz SLM-latent motor chunks..."

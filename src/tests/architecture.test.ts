@@ -4050,23 +4050,28 @@ test('66. Skills guard crafted items in gather_resource, safely parse interact a
   assert.equal(swordReject.success, false, 'use_tool_on_block must refuse sword weapon attacks');
 
   let lavaActivatedPos: Vec3 | null = null;
+  let lavaDeployed = false;
   const lavaRes = await useTool.handler(
     { tool: 'lava_bucket', targetBlock: 'zombie' },
     {
       bot: {
         entity: { position: new Vec3(0, 64, 0) },
-        inventory: { items: () => [{ name: 'lava_bucket', count: 1 }] },
+        inventory: { items: () => [{ name: lavaDeployed ? 'bucket' : 'lava_bucket', count: 1 }] },
         entities: { '15': { id: 15, name: 'zombie', type: 'hostile', position: new Vec3(2, 64, 0), isValid: true } },
         blockAt: (p: Vec3) => {
           if (Math.floor(p.x) === 2 && Math.floor(p.y) === 63 && Math.floor(p.z) === 0) {
             return { name: 'stone', position: new Vec3(2, 63, 0) };
           }
+          if (lavaDeployed && Math.floor(p.x) === 2 && Math.floor(p.y) === 64 && Math.floor(p.z) === 0) {
+            return { name: 'lava', position: new Vec3(2, 64, 0) };
+          }
           return { name: 'air', position: p };
         },
         activateBlock: async (blk: any) => {
           lavaActivatedPos = blk.position;
+          lavaDeployed = true;
         },
-        activateItem: () => {},
+        activateItem: () => { lavaDeployed = true; },
       },
       kinematics: {
         equipItemHumanized: async () => true,
@@ -4195,6 +4200,9 @@ with tempfile.TemporaryDirectory() as tmp:
         gold_lead = [g for g in grpo_items if g.get("taskId") == "omni_tool_lead_leash_animal" and g.get("provider") == "omniscience_gold"]
         assert len(gold_lead) == 1, f"Expected gold seed preserved without failed overwrite, got {grpo_items}"
         assert gold_lead[0].get("passed") is False
+        assert gold_lead[0].get("domain") == "TOOL_AFFORDANCES"
+        assert 'Player "Trainer" says:' in gold_lead[0]["messages"][1]["content"]
+        assert json.loads(gold_lead[0]["messages"][2]["content"]).get("goalCompleted") is False
         assert not any(g.get("taskId") == "omni_qa_item_apple" for g in grpo_items)
         dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
         assert len(dpo_items) == 0, f"Gold seed must never act as DPO winner, got {dpo_items}"
@@ -4550,6 +4558,451 @@ neg_rollout = {
     ],
 }
 assert filter_valid_tool_trajectory(neg_rollout) is None
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('74. Strict specific tool affordance grading, combat missing-entity 0-score, and Dragon safe respawn origin', () => {
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+  const { resolveSafeRespawnOrigin } = require('../../minebench/dist/minebench/train_loop');
+
+  const mkSnap = (overrides: any = {}) => ({
+    botPosition: { x: 0, y: 100, z: 0 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    ...overrides,
+    stats: {
+      blocksPlaced: 0,
+      blocksMined: 0,
+      mobsKilled: {},
+      creeperBlasts: 0,
+      arrowsFired: 0,
+      endCrystalsDestroyed: 0,
+      enderDragonSlain: false,
+      leversFlipped: 0,
+      wolvesTamed: 0,
+      affordanceActions: 0,
+      damageDealt: 0,
+      waterPlaced: 0,
+      lavaPlaced: 0,
+      shieldBlocks: 0,
+      shieldDisabled: 0,
+      ironPickaxeDurabilityUsedOnStone: 0,
+      ...(overrides.stats || {}),
+    },
+  });
+
+  // Campfire extinguish must NOT pass on noise affordanceActions/blocksPlaced while campfire remains lit=true
+  const campTask = {
+    id: 'omni_tool_shovel_extinguish_campfire',
+    domain: 'TOOL_AFFORDANCES',
+    targetObject: 'iron_shovel',
+    origin: { x: 0, y: 100, z: 0 },
+    evaluatorMilestones: [
+      { name: 'Tool Equipped', maxPoints: 30, condition: 'held_tool_correct' },
+      { name: 'Affordance Executed', maxPoints: 70, condition: 'affordance_action_completed' },
+    ],
+  } as any;
+  const campLitFake = evaluateMinebenchEpisode(
+    campTask,
+    mkSnap({
+      inventory: [{ name: 'iron_shovel', count: 1 }],
+      blockAt: (bx: number, by: number, bz: number) =>
+        bx === 0 && by === 100 && bz === 2 ? { name: 'campfire', getProperties: () => ({ lit: true }) } : { name: 'air' },
+      stats: { blocksPlaced: 1, affordanceActions: 1 },
+    })
+  );
+  assert.equal(campLitFake.score, 0, 'Lit campfire with packet noise must score 0');
+
+  const campExtinguished = evaluateMinebenchEpisode(
+    campTask,
+    mkSnap({
+      inventory: [{ name: 'iron_shovel', count: 1 }],
+      blockAt: (bx: number, by: number, bz: number) =>
+        bx === 0 && by === 100 && bz === 2 ? { name: 'campfire', getProperties: () => ({ lit: false }) } : { name: 'air' },
+    })
+  );
+  assert.equal(campExtinguished.passed, true);
+  assert.equal(campExtinguished.score, 100);
+
+  // Shield block arrows must NOT pass via killing skeleton with shieldBlocks=0
+  const shieldTask = {
+    id: 'omni_tool_shield_block_arrows',
+    domain: 'TOOL_AFFORDANCES',
+    targetObject: 'shield',
+    origin: { x: 0, y: 100, z: 0 },
+    evaluatorMilestones: [
+      { name: 'Tool Equipped', maxPoints: 30, condition: 'held_tool_correct' },
+      { name: 'Affordance Executed', maxPoints: 70, condition: 'affordance_action_completed' },
+    ],
+  } as any;
+  assert.equal(
+    evaluateMinebenchEpisode(shieldTask, mkSnap({ inventory: [{ name: 'shield', count: 1 }], stats: { mobsKilled: { skeleton: 1 }, shieldBlocks: 0 } })).score,
+    0,
+    'Killing skeleton with shieldBlocks=0 must score 0'
+  );
+  assert.equal(
+    evaluateMinebenchEpisode(shieldTask, mkSnap({ inventory: [{ name: 'shield', count: 1 }], stats: { shieldBlocks: 1 } })).score,
+    100
+  );
+
+  // Lava trap mob with deaths=1 & no lava placed scores 0
+  const lavaTrapTask = {
+    id: 'omni_tool_lava_bucket_trap_mob',
+    domain: 'TOOL_AFFORDANCES',
+    targetObject: 'lava_bucket',
+    origin: { x: 0, y: 100, z: 0 },
+    evaluatorMilestones: [
+      { name: 'Tool Equipped', maxPoints: 30, condition: 'held_tool_correct' },
+      { name: 'Affordance Executed', maxPoints: 70, condition: 'affordance_action_completed' },
+    ],
+  } as any;
+  assert.equal(
+    evaluateMinebenchEpisode(lavaTrapTask, mkSnap({ deaths: 1, inventory: [{ name: 'lava_bucket', count: 1 }] })).score,
+    0
+  );
+
+  // Enderman missing/out-of-range with 0 kills & 0 damageDealt scores 0 (no free 50/100!)
+  const enderTask = MINEBENCH_TASKS.find((t: any) => t.id === 'combat_enderman_hunt')!;
+  const missingEnder = evaluateMinebenchEpisode(enderTask, mkSnap({ entities: [], stats: { mobsKilled: {}, damageDealt: 0 } }));
+  assert.equal(missingEnder.score, 0, 'Missing entity with 0 kills and 0 damage must score 0');
+
+  // Dragon safe respawn pad is outside (x, y, z) solid bedrock pillar
+  const dragonTask = MINEBENCH_TASKS.find((t: any) => t.id === 'prog_tier6_ender_dragon')!;
+  const safePos = resolveSafeRespawnOrigin({ ...dragonTask, origin: { x: 4000, y: 64, z: 0 } });
+  assert.deepEqual(safePos, { x: 4000, y: 64, z: -6 });
+});
+
+test('75. use_tool_on_block rejects non-mutating blocks & no-op buckets and all helpers enforce allowAutoPrereqs=false', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+
+  const useTool = registry.getTool('use_tool_on_block')!;
+  const stoneNoop = await useTool.handler(
+    { tool: 'stone_pickaxe', targetBlock: 'stone' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'stone_pickaxe', count: 1 }] },
+        findBlock: () => ({ name: 'stone', position: new Vec3(1, 64, 0) }),
+        blockAt: (p: Vec3) => (p.y === 64 ? { name: 'stone', position: p } : { name: 'air', position: p }),
+        activateBlock: async () => {},
+        lookAt: async () => {},
+      },
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(stoneNoop.success, false, 'Right-clicking stone must not return success=true');
+
+  const waterNoop = await useTool.handler(
+    { tool: 'water_bucket', targetBlock: 'fire' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'water_bucket', count: 1 }] },
+        findBlock: () => ({ name: 'fire', position: new Vec3(1, 64, 0) }),
+        blockAt: (p: Vec3) => (p.x === 1 && p.y === 64 ? { name: 'fire', position: p } : { name: 'stone', position: p }),
+        activateBlock: async () => {},
+        activateItem: () => {},
+      },
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+    } as any
+  );
+  assert.equal(waterNoop.success, false, 'water_bucket no-op must return success=false');
+
+  // Strict allowAutoPrereqs=false on smelt_item, store_items_in_chest, build_simple_house
+  const smeltTool = registry.getTool('smelt_item')!;
+  const smeltNoFurnace = await smeltTool.handler(
+    { inputItem: 'raw_iron', count: 1 },
+    {
+      bot: {
+        version: '1.20.4',
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'raw_iron', count: 2 }, { name: 'cobblestone', count: 16 }, { name: 'coal', count: 4 }] },
+        findBlock: () => null,
+      },
+      kinematics: { pathfindTo: async () => true },
+    } as any
+  );
+  assert.equal(smeltNoFurnace.success, false, 'smelt_item must not auto-craft furnace from cobblestone');
+
+  const chestTool = registry.getTool('store_items_in_chest')!;
+  const chestNoChest = await chestTool.handler(
+    { itemName: 'cobblestone', count: 4 },
+    {
+      bot: {
+        version: '1.20.4',
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'oak_log', count: 4 }, { name: 'oak_planks', count: 12 }, { name: 'cobblestone', count: 8 }] },
+        findBlock: () => null,
+      },
+      kinematics: { pathfindTo: async () => true },
+    } as any
+  );
+  assert.equal(chestNoChest.success, false, 'store_items_in_chest must not auto-craft chest from planks');
+
+  const houseTool = registry.getTool('build_simple_house')!;
+  const houseNoPlanks = await houseTool.handler(
+    { wallBlock: 'oak_planks' },
+    {
+      bot: {
+        version: '1.20.4',
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'oak_log', count: 8 }] },
+      },
+    } as any
+  );
+  assert.equal(houseNoPlanks.success, false, 'build_simple_house must not auto-craft logs into planks');
+});
+
+test('76. botController safeDigBlock digs boundingBox=empty crops, notableBlocks sorts before capping, and vlaClient detects bosses', async () => {
+  const { System1BotController } = require('../system1/botController');
+  const { VLACompanionClient } = require('../system2/vlaClient');
+  const controller = new System1BotController();
+
+  let digCount = 0;
+  let wheatBroken = false;
+  const wheatPos = new Vec3(1, 64, 0);
+  (controller as any).camera = { clearQueue: () => {} };
+  (controller as any).bot = {
+    entity: { id: 1, position: new Vec3(0, 64, 0), onGround: true, yaw: 0, pitch: 0 },
+    heldItem: null,
+    inventory: { items: () => [], slots: [] },
+    pathfinder: { setGoal: () => {} },
+    clearControlStates: () => {},
+    canDigBlock: () => true,
+    lookAt: async () => {},
+    swingArm: () => {},
+    stopDigging: () => {},
+    dig: async () => {
+      digCount++;
+      wheatBroken = true;
+    },
+    blockAt: (p: Vec3) =>
+      p.x === 1 && p.y === 64 && p.z === 0
+        ? (wheatBroken
+            ? { name: 'air', boundingBox: 'empty', position: p, diggable: false }
+            : { name: 'wheat', boundingBox: 'empty', position: p, diggable: true })
+        : { name: 'stone', boundingBox: 'block', position: p, diggable: true },
+    _client: { on: () => {}, removeListener: () => {} },
+  };
+  const dug = await controller.safeDigBlock(wheatPos);
+  assert.equal(dug, true);
+  assert.equal(digCount, 1, 'safeDigBlock must break diggable boundingBox=empty blocks');
+
+  // Surround bot with >30 exposed dirt/sand blocks AND a crafting_table at (2, 64, 2)
+  (controller as any).bot = {
+    entity: { id: 1, position: new Vec3(0, 64, 0), velocity: new Vec3(0, 0, 0), yaw: 0, pitch: 0, onGround: true },
+    health: 20,
+    food: 20,
+    time: { timeOfDay: 1000 },
+    isRaining: false,
+    inventory: { items: () => [], slots: [] },
+    entities: {},
+    blockAt: (p: Vec3) => {
+      if (p.x === 2 && p.y === 64 && p.z === 2) return { name: 'crafting_table', position: p };
+      if (p.x === 3 && p.y === 64 && p.z === 0) return { name: 'campfire', position: p };
+      if (p.y === 63 && Math.abs(p.x) <= 6 && Math.abs(p.z) <= 6) return { name: 'dirt', position: p };
+      return { name: 'air', position: p };
+    },
+    canSeeBlock: () => true,
+  };
+  (controller as any).reflexEngine = { getActiveHazard: () => null };
+  controller.invalidatePerceptionCache();
+  const ws = controller.refreshWorldStateNow(true)!;
+  const notableNames = (ws.nearbyNotableBlocks || []).map((b: any) => b.name);
+  assert.ok(notableNames.includes('crafting_table'), 'crafting_table must not be crowded out by dirt/sand');
+  assert.ok(notableNames.includes('campfire'), 'campfire must be included in NOTABLE_BLOCKS');
+
+  const vla = new VLACompanionClient();
+  const proprio = vla.extractProprioception({
+    entity: { id: 1, position: new Vec3(0, 64, 0), velocity: new Vec3(0, 0, 0), yaw: 0, pitch: 0, onGround: true },
+    health: 20,
+    food: 20,
+    heldItem: null,
+    inventory: { slots: [] },
+    entities: { '2': { id: 2, name: 'blaze', type: 'mob', position: new Vec3(8, 64, 0), isValid: true } },
+  } as any);
+  assert.ok(proprio[12] > 0 && proprio[12] < 0.3, `Expected blaze distance encoded in proprio[12], got ${proprio[12]}`);
+});
+
+test('77. checkSurvivalCampaignGoalCompleted requires real campaign goals and regenerated Omniscience gold uses grounded schema', () => {
+  const { checkSurvivalCampaignGoalCompleted } = require('../../minebench/dist/minebench/train_loop');
+  assert.equal(
+    checkSurvivalCampaignGoalCompleted('ender_dragon', ['oak_log', 'cobblestone', 'iron_ingot', 'wheat', 'crafting_table', 'furnace'], {}, 0, 20),
+    false,
+    'Generic 6-item survival inventory must not pass Ender Dragon campaign goal'
+  );
+  assert.equal(checkSurvivalCampaignGoalCompleted('wither_boss', ['nether_star'], {}, 0, 0), true);
+  assert.equal(checkSurvivalCampaignGoalCompleted('full_beacon', ['beacon'], {}, 0, 0), true);
+  assert.equal(checkSurvivalCampaignGoalCompleted('ocean_sponges', ['wet_sponge'], {}, 0, 0), true);
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasks: any[] = JSON.parse(fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8'));
+  const raids = tasks.filter((t) => String(t.taskId || '').startsWith('omni_structure_'));
+  assert.ok(raids.length >= 15);
+  for (const r of raids) {
+    assert.ok(
+      (r.setupCommands || []).some((c: string) => c.startsWith('summon minecraft:')),
+      `Structure ${r.taskId} must spawn a hazard guardian mob`
+    );
+  }
+
+  const goldLines = fs
+    .readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_gold_dataset.jsonl'), 'utf8')
+    .split('\n')
+    .filter((l: string) => l.trim())
+    .map((l: string) => JSON.parse(l));
+  assert.ok(goldLines.length > 0);
+  assert.equal(goldLines.some((g: any) => String(g.id || '').includes('omni_craft_')), false, 'Single-step omni_craft_ shortcuts must be excluded');
+  for (const g of goldLines.slice(0, 25)) {
+    assert.ok(g.domain, `Gold row ${g.id} missing domain`);
+    assert.equal(String(g.messages[0].content).includes('Use native action tokens'), false);
+    assert.ok(String(g.messages[1].content).startsWith('Player "Trainer" says:'));
+    assert.equal(JSON.parse(g.messages[2].content).goalCompleted, false);
+  }
+});
+
+test('78. rl_trainer preserves coop_* speaker & slm_trainer prioritizes local_gpu over omniscience_gold', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+import minebench.rl_trainer as rt
+from minebench.slm_trainer import stratified_sample_by_domain
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    res_dir = tp / "res"
+    res_dir.mkdir(parents=True, exist_ok=True)
+    # Also ensure legacy craft shortcut in omniscience_gold_dataset.jsonl is skipped
+    (res_dir / "omniscience_gold_dataset.jsonl").write_text(json.dumps({
+        "id": "omni_gold_1_omni_craft_wooden_pickaxe",
+        "messages": [
+            {"role": "system", "content": "Use native action tokens"},
+            {"role": "user", "content": "Craft wooden pickaxe"},
+            {"role": "assistant", "content": json.dumps({"thought": "c", "toolCall": {"name": "craft_item", "arguments": {"itemName": "wooden_pickaxe"}}})}
+        ]
+    }) + "\\n", encoding="utf-8")
+
+    rows = [
+        {
+            "taskId": "coop_bodyguard_protect",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 1,
+            "speaker": "DQN_Opponent_1",
+            "prompt": "Protect me from zombies",
+            "basePrompt": "Protect me from zombies",
+            "passed": True,
+            "score": 100,
+            "rawReward": 100.0,
+            "executedTools": [
+                {"name": "engage_combat", "args": {"targetType": "zombie"}, "success": True, "stepReward": 100.0, "thought": "Defend"},
+            ],
+        },
+        {
+            "taskId": "coop_bodyguard_protect",
+            "domain": "MULTIPLAYER_ARENA",
+            "workerId": 1,
+            "speaker": "DQN_Opponent_1",
+            "prompt": "Protect me from zombies",
+            "basePrompt": "Protect me from zombies",
+            "passed": False,
+            "score": 0,
+            "rawReward": -20.0,
+            "executedTools": [
+                {"name": "follow_player", "args": {"playerName": "DQN_Opponent_1"}, "success": False, "stepReward": -10.0, "thought": "Stand still"},
+            ],
+        },
+    ]
+    replay_p.write_text("\\n".join(json.dumps(x) for x in rows) + "\\n", encoding="utf-8")
+    trans_p.write_text(json.dumps({"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}) + "\\n", encoding="utf-8")
+
+    orig = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = replay_p, trans_p, grpo_p, dpo_p, metrics_p, tp / "ckpt", res_dir
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert not any(g.get("taskId") == "omni_craft_wooden_pickaxe" for g in grpo_items)
+        coop_g = [g for g in grpo_items if g.get("taskId") == "coop_bodyguard_protect"][0]
+        assert 'Player "DQN_Opponent_1" says:' in coop_g["messages"][1]["content"]
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 1
+        assert 'Player "DQN_Opponent_1" says:' in dpo_items[0]["prompt_messages"][1]["content"]
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig
+
+pool = (
+    [{"provider": "local_gpu", "domain": "TOOL", "id": f"live_{i}"} for i in range(40)] +
+    [{"provider": "omniscience_gold", "domain": "TOOL", "id": f"omni_{i}"} for i in range(100)]
+)
+picked = stratified_sample_by_domain(pool, 60)
+live_cnt = sum(1 for x in picked if x["provider"] == "local_gpu")
+assert live_cnt == 40, f"Expected all 40 local_gpu items prioritized first, got {live_cnt}"
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('79. train_action_head canonicalizes aliased motor tools and sets actor_weights=0 on failed steps while keeping Critic active', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+from neural_lab.train_action_head import load_real_motor_chunks_dataset, _resolve_canonical_motor_tool, TOOL_TO_IDX
+
+assert _resolve_canonical_motor_tool("harvest_resource") == "gather_resource"
+assert _resolve_canonical_motor_tool("bridge_cross") == "navigate_parkour_or_bridge"
+assert _resolve_canonical_motor_tool("craft_recipe") == "craft_item"
+
+with tempfile.TemporaryDirectory() as tmp:
+    p = Path(tmp) / "chunks.jsonl"
+    base_chunk = {
+        "latent_h": [0.1] * 1536,
+        "proprio24": [0.0] * 24,
+        "voxels": [0] * 3375,
+        "entities": [],
+        "aimTargets": [[0.0, 0.0]] * 8,
+        "moveTargets": [[0.0, 1.0]] * 8,
+        "discreteTargets": [[0, 0, 0, 0, 0, 0]] * 8,
+        "extendedTargets": [[0, 0]] * 8,
+        "reward": -5.0,
+        "episodeReward": -10.0,
+    }
+    rows = [
+        {**base_chunk, "toolName": "harvest_resource", "stepSuccess": True, "episodePassed": True},
+        {**base_chunk, "toolName": "bridge_cross", "stepSuccess": False, "episodePassed": False},
+    ]
+    p.write_text("\\n".join(json.dumps(r) for r in rows) + "\\n", encoding="utf-8")
+    ds = load_real_motor_chunks_dataset(max_samples=10, device="cpu", chunks_path=p)
+    assert ds is not None
+    tgt_tools, tgt_gate, tgt_val, actor_weights = ds[8], ds[9], ds[10], ds[11]
+    assert int(tgt_tools[0].item()) == TOOL_TO_IDX["gather_resource"]
+    assert float(tgt_gate[0].item()) == 1.0
+    assert float(actor_weights[0].item()) == 1.5
+    assert int(tgt_tools[1].item()) == TOOL_TO_IDX["navigate_parkour_or_bridge"]
+    assert float(actor_weights[1].item()) == 0.0
+    assert 0.0 < float(tgt_val[1].item()) < 0.5
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
