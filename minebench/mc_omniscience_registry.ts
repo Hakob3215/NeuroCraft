@@ -204,10 +204,10 @@ export const TOOL_AFFORDANCES: Record<string, OmniscienceItemAffordance[]> = {
       rewardSignals: ['shield_disabled', 'critical_damage_dealt'],
     },
     {
-      actionVerb: 'carve_pumpkin',
+      actionVerb: 'chop_pumpkin',
       category: 'tool',
-      description: 'Breaking carved pumpkins and beehives faster than hand',
-      targetTypes: ['carved_pumpkin', 'beehive', 'bee_nest'],
+      description: 'Harvesting pumpkins quickly using an axe',
+      targetTypes: ['pumpkin', 'carved_pumpkin'],
       rewardSignals: ['pumpkin_harvested'],
     },
   ],

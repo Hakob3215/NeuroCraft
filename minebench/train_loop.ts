@@ -1594,20 +1594,21 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const isFoodHungerTask =
             task.id.startsWith('omni_food_') &&
             !/(golden|milk|potion|bottle|honey)/i.test(String((task as any).targetObject || ''));
-          const syncTimeoutMs = isFoodHungerTask ? 4500 : 1500;
+          const maxYDelta = task.id.includes('water_clutch') ? 24.0 : 2.5;
+          const syncTimeoutMs = isFoodHungerTask ? 5200 : 1500;
           const syncStart = Date.now();
           while (Date.now() - syncStart < syncTimeoutMs) {
             const pNow = postResetBot?.entity?.position;
             const posOk = Boolean(
               pNow &&
                 Math.hypot(pNow.x - postOriginVec.x, pNow.z - postOriginVec.z) <= 4.0 &&
-                Math.abs(pNow.y - postOriginVec.y) <= 24.0
+                Math.abs(pNow.y - postOriginVec.y) <= maxYDelta
             );
             const floorBlk = postResetBot?.blockAt?.(postOriginVec.offset(0, -1, 0));
             const floorOk = Boolean(floorBlk && floorBlk.name !== 'void_air');
             const needLoadout = Array.isArray(task.initialLoadout) && task.initialLoadout.length > 0;
             const invOk = !needLoadout || (postResetBot?.inventory?.items?.()?.length || 0) > 0;
-            const foodOk = !isFoodHungerTask || (postResetBot?.food ?? 20) < 19;
+            const foodOk = !isFoodHungerTask || ((postResetBot?.food ?? 20) < 19 && Date.now() - syncStart >= 4100);
             const oppOk =
               !task.sparringConfig ||
               Object.values(postResetBot?.entities || {}).some(
@@ -1628,6 +1629,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           worker.sparringPartner.setMode({ mode: 'idle' });
 
           const bot = worker.system1.bot;
+          const initialFood = bot?.food ?? 20;
           const originVec = new Vec3(shardedTask.origin.x, shardedTask.origin.y, shardedTask.origin.z);
           const countEntitiesByName = (targetName: string): number => {
             const maxDist = targetName === 'ender_dragon' ? 512 : 48;
@@ -1664,6 +1666,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let dragonsKilled = 0;
           let foodConsumed = 0;
           let affordanceActions = 0;
+          let mobInteractions = 0;
           let damageDealt = 0;
           let waterPlaced = 0;
           let ironPickaxeDurabilityUsedOnStone = 0;
@@ -1724,7 +1727,19 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             if (newBlock.name === 'water' && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               waterPlaced++;
             }
-            if (newBlock.position?.distanceTo(bot.entity.position) <= 6.0) {
+            const bnNew = String(newBlock.name || '').toLowerCase();
+            const isToolModifiedBlock =
+              (bnNew === 'lever' && isBlockPowered(newBlock)) ||
+              bnNew.startsWith('stripped_') ||
+              bnNew === 'dirt_path' ||
+              bnNew === 'farmland' ||
+              bnNew === 'carved_pumpkin' ||
+              bnNew === 'fire' ||
+              bnNew === 'nether_portal' ||
+              bnNew === 'water' ||
+              bnNew === 'lava' ||
+              bnNew === 'campfire';
+            if (isToolModifiedBlock && newBlock.position?.distanceTo(bot.entity.position) <= 8.0) {
               affordanceActions++;
             }
           };
@@ -1784,6 +1799,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               },
               health: bot.health ?? 20,
               food: bot.food ?? 20,
+              initialFood,
               deaths,
               inventory: invItems,
               equippedArmor: {
@@ -1796,7 +1812,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               blockAt: (x: number, y: number, z: number) => {
                 const b = bot.blockAt(new Vec3(x, y, z));
                 if (!b) return null;
-                return { name: b.name, metadata: b.metadata };
+                const props =
+                  typeof (b as any).getProperties === 'function'
+                    ? (b as any).getProperties()
+                    : ((b as any)._properties ?? (b as any).properties ?? {});
+                return {
+                  name: b.name,
+                  metadata: b.metadata,
+                  properties: props,
+                  getProperties: () => props,
+                };
               },
               entities: Object.values(bot.entities || {})
                 .filter((e: any) => e && e !== bot.entity && e.position)
@@ -1822,6 +1847,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 wolvesTamed,
                 foodConsumed,
                 affordanceActions,
+                mobInteractions,
                 damageDealt,
                 waterPlaced,
                 ironPickaxeDurabilityUsedOnStone,
@@ -1953,7 +1979,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               let motorSampleInterval: ReturnType<typeof setInterval> | null = null;
 
               const flushShadowChunk = () => {
-                if (!activeChunkPre || activeChunkTicks.length < 4 || pendingStepChunks.length >= 2) {
+                if (!activeChunkPre || activeChunkTicks.length < 4 || pendingStepChunks.length >= 6) {
                   activeChunkTicks = [];
                   activeChunkPre = null;
                   return;
@@ -1998,7 +2024,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 };
                 motorSampleInterval = setInterval(() => {
                   try {
-                    if (!bot?.entity || pendingStepChunks.length >= 2) return;
+                    if (!bot?.entity || pendingStepChunks.length >= 6) return;
                     if (!activeChunkPre) {
                       const s = sampleLiveRLTransitionState(worker.system1);
                       if (!s) return;
@@ -2118,7 +2144,16 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   motorSampleInterval = null;
                 }
                 flushShadowChunk();
-                for (const mc of pendingStepChunks) {
+                const hasMotorSignal = (mc: any): boolean =>
+                  Boolean(
+                    mc.discreteTargets?.some((d: number[]) => d[3] > 0 || d[5] > 0) ||
+                    mc.extendedTargets?.some((e: number[]) => e[0] > 0 || e[1] > 0)
+                  );
+                const selectedStepChunks = [
+                  ...pendingStepChunks.filter(hasMotorSignal),
+                  ...pendingStepChunks.filter((mc) => !hasMotorSignal(mc)),
+                ].slice(0, 4);
+                for (const mc of selectedStepChunks) {
                   episodeMotorChunks.push({
                     ...mc,
                     stepSuccess,
@@ -2147,14 +2182,33 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 'tame_animal',
                 'give_item_to_player',
                 'store_items_in_chest',
-                'retrieve_items_from_chest',
+                'manage_chest',
                 'equip_armor_or_item',
                 'smelt_item',
                 'smelt_ores',
-                'eat_food',
               ]);
-              if (stepSuccess && AFFORDANCE_TOOLS.has(toolName)) {
+              const isFoodConsumeTask =
+                task.id.startsWith('omni_food_') ||
+                task.id.includes('cure_poison') ||
+                task.id.includes('bad_omen');
+              if (stepSuccess && (AFFORDANCE_TOOLS.has(toolName) || (toolName === 'eat_food' && isFoodConsumeTask))) {
                 affordanceActions++;
+              }
+              const isNonWeaponToolOnMob =
+                toolName === 'use_tool_on_block' &&
+                !String(toolArgs?.tool || '').toLowerCase().endsWith('_sword') &&
+                /(sheep|cow|pig|wolf|chicken|animal|horse|goat|cat|villager|mob)/i.test(
+                  `${toolArgs?.targetBlock || ''} ${toolArgs?.targetEntity || ''} ${stepSummary}`
+                );
+              const isAnimalInteract =
+                toolName === 'interact_block_or_puzzle' && stepSummary.startsWith('Interacted with ');
+              if (
+                stepSuccess &&
+                (['tame_animal', 'shear_sheep', 'breed_animals', 'give_item_to_player'].includes(toolName) ||
+                  isNonWeaponToolOnMob ||
+                  isAnimalInteract)
+              ) {
+                mobInteractions++;
               }
               executedTools.push({
                 name: toolName,

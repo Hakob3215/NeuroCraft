@@ -1250,28 +1250,28 @@ function countHarvestedDropsInInventory(bot: any, requestedType: string): number
       if (req === 'stone' || req === 'cobblestone') {
         return n === 'cobblestone' || n === 'cobbled_deepslate' || n === 'stone';
       }
-      if (req.includes('diamond')) {
+      if (['diamond', 'diamond_ore', 'deepslate_diamond_ore'].includes(req)) {
         return n === 'diamond' || n.includes('diamond_ore');
       }
-      if (req.includes('iron')) {
+      if (['iron', 'raw_iron', 'iron_ore', 'deepslate_iron_ore'].includes(req)) {
         return n === 'raw_iron' || n === 'iron_ore' || n === 'deepslate_iron_ore';
       }
-      if (req.includes('gold')) {
-        return n === 'raw_gold' || n === 'gold_ore' || n === 'deepslate_gold_ore';
+      if (['gold', 'raw_gold', 'gold_ore', 'deepslate_gold_ore', 'nether_gold_ore'].includes(req)) {
+        return n === 'raw_gold' || n === 'gold_ore' || n === 'deepslate_gold_ore' || n === 'nether_gold_ore';
       }
-      if (req.includes('copper')) {
+      if (['copper', 'raw_copper', 'copper_ore', 'deepslate_copper_ore'].includes(req)) {
         return n === 'raw_copper' || n === 'copper_ore' || n === 'deepslate_copper_ore';
       }
-      if (req.includes('coal')) {
-        return n === 'coal' || n === 'coal_ore';
+      if (['coal', 'coal_ore', 'deepslate_coal_ore'].includes(req)) {
+        return n === 'coal' || n === 'coal_ore' || n === 'deepslate_coal_ore';
       }
-      if (req.includes('redstone')) {
+      if (['redstone', 'redstone_ore', 'deepslate_redstone_ore'].includes(req)) {
         return n === 'redstone' || n === 'redstone_ore' || n === 'deepslate_redstone_ore';
       }
-      if (req.includes('lapis')) {
+      if (['lapis', 'lapis_lazuli', 'lapis_ore', 'deepslate_lapis_ore'].includes(req)) {
         return n === 'lapis_lazuli' || n === 'lapis_ore' || n === 'deepslate_lapis_ore';
       }
-      if (req.includes('emerald')) {
+      if (['emerald', 'emerald_ore', 'deepslate_emerald_ore'].includes(req)) {
         return n === 'emerald' || n === 'emerald_ore' || n === 'deepslate_emerald_ore';
       }
       if (req.includes('clay')) {
@@ -1784,6 +1784,17 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       if (!rawType) {
         return { success: false, summary: 'No blockType specified for gather_resource.' };
       }
+      const NON_MINEABLE_ITEM_RE = /(_helmet|_chestplate|_leggings|_boots|_sword|_pickaxe|_axe|_shovel|_hoe|_ingot|_nugget|_bucket|_horse_armor|_armor|_bow|_shield)$/;
+      const EXACT_NON_MINEABLE = new Set([
+        'stick', 'bread', 'arrow', 'shears', 'flint_and_steel', 'bow', 'shield',
+        'bucket', 'compass', 'clock', 'spyglass', 'brush', 'fishing_rod', 'lead', 'name_tag', 'saddle',
+      ]);
+      if (NON_MINEABLE_ITEM_RE.test(rawType) || EXACT_NON_MINEABLE.has(rawType)) {
+        return {
+          success: false,
+          summary: `"${rawType}" is a crafted item, not a mineable world block. Use craft_item or smelt_item instead.`,
+        };
+      }
       const requestedType =
         rawType === 'hay_bale'
           ? 'hay_block'
@@ -1819,28 +1830,28 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         if (requestedType === 'stone' || requestedType === 'cobblestone') {
           return n === 'stone' || n === 'cobblestone' || n === 'deepslate' || n === 'cobbled_deepslate';
         }
-        if (requestedType.includes('iron')) {
+        if (['iron', 'raw_iron', 'iron_ore', 'deepslate_iron_ore'].includes(requestedType)) {
           return n === 'iron_ore' || n === 'deepslate_iron_ore';
         }
-        if (requestedType.includes('coal')) {
+        if (['coal', 'coal_ore', 'deepslate_coal_ore'].includes(requestedType)) {
           return n === 'coal_ore' || n === 'deepslate_coal_ore';
         }
-        if (requestedType.includes('diamond')) {
+        if (['diamond', 'diamond_ore', 'deepslate_diamond_ore'].includes(requestedType)) {
           return n === 'diamond_ore' || n === 'deepslate_diamond_ore';
         }
-        if (requestedType.includes('gold')) {
-          return n === 'gold_ore' || n === 'deepslate_gold_ore';
+        if (['gold', 'raw_gold', 'gold_ore', 'deepslate_gold_ore', 'nether_gold_ore'].includes(requestedType)) {
+          return n === 'gold_ore' || n === 'deepslate_gold_ore' || n === 'nether_gold_ore';
         }
-        if (requestedType.includes('copper')) {
+        if (['copper', 'raw_copper', 'copper_ore', 'deepslate_copper_ore'].includes(requestedType)) {
           return n === 'copper_ore' || n === 'deepslate_copper_ore';
         }
-        if (requestedType.includes('redstone')) {
+        if (['redstone', 'redstone_ore', 'deepslate_redstone_ore'].includes(requestedType)) {
           return n === 'redstone_ore' || n === 'deepslate_redstone_ore';
         }
-        if (requestedType.includes('lapis')) {
+        if (['lapis', 'lapis_lazuli', 'lapis_ore', 'deepslate_lapis_ore'].includes(requestedType)) {
           return n === 'lapis_ore' || n === 'deepslate_lapis_ore';
         }
-        if (requestedType.includes('emerald')) {
+        if (['emerald', 'emerald_ore', 'deepslate_emerald_ore'].includes(requestedType)) {
           return n === 'emerald_ore' || n === 'deepslate_emerald_ore';
         }
         return n === requestedType || n.includes(requestedType) || n === rawType || n.includes(rawType);
@@ -4795,15 +4806,34 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       tags: ['lever', 'button', 'redstone', 'puzzle', 'bed', 'sleep', 'activate', 'door', 'interact'],
     },
     async (args, ctx) => {
-      const targetName = String(
-        args.blockType ||
-        args.targetBlock ||
-        args.target ||
-        args.targetObject ||
-        args.targetType ||
-        args.block ||
-        'lever'
-      ).toLowerCase().trim();
+      const pickInteractStr = (v: any): string => {
+        if (typeof v === 'string') return v;
+        if (v && typeof v === 'object') {
+          return String(v.name || v.block || v.blockName || v.animalType || v.type || v.target || '');
+        }
+        return '';
+      };
+      const targetFields = [
+        args.blockType,
+        args.targetBlock,
+        args.animalType,
+        args.targetEntity,
+        args.entity,
+        args.mobType,
+        args.target,
+        args.targetObject,
+        args.targetType,
+        args.block,
+      ];
+      const extracted = targetFields.map(pickInteractStr).find((s) => s.trim().length > 0) || '';
+      const hasAnyTargetArg = targetFields.some((v) => v !== undefined && v !== null);
+      if (hasAnyTargetArg && !extracted.trim()) {
+        return {
+          success: false,
+          summary: 'No valid blockType or target specified for interact_block_or_puzzle.',
+        };
+      }
+      const targetName = (extracted || 'lever').toLowerCase().trim();
 
       // 1. Entity Interaction (e.g. shearing sheep, leading animal)
       if (
@@ -5742,11 +5772,18 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       }
 
-      await ctx.kinematics.equipItemHumanized(resolvedTool, 'hand');
-      await new Promise((r) => setTimeout(r, 100));
-
       const entityTargets = ['sheep', 'cow', 'pig', 'wolf', 'chicken', 'animal', 'horse', 'goat', 'cat', 'villager'];
       const isEntityTarget = entityTargets.some((k) => target.includes(k) || effectiveRawTarget.includes(k));
+
+      if (resolvedTool.endsWith('_sword')) {
+        return {
+          success: false,
+          summary: `Use engage_combat for sword attacks instead of use_tool_on_block.`,
+        };
+      }
+
+      await ctx.kinematics.equipItemHumanized(resolvedTool, 'hand');
+      await new Promise((r) => setTimeout(r, 100));
 
       // Specialized Handler 2: Fishing rod cast into water pool
       if (resolvedTool === 'fishing_rod' && !isEntityTarget) {
@@ -5807,6 +5844,69 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             return { success: true, summary: `Deployed water_bucket on ${targetSurface.name}!` };
           } catch (e: any) {
             return { success: false, summary: `Could not deploy water_bucket: ${e.message}` };
+          }
+        }
+      }
+
+      // Specialized Handler 4: Lava bucket deployment (place lava beneath/adjacent to target mob or surface)
+      if (resolvedTool === 'lava_bucket') {
+        const botPos = ctx.bot.entity?.position;
+        const matchedMob: any = Object.values(ctx.bot.entities || {})
+          .filter((e: any) => {
+            if (!e || e === ctx.bot.entity || !e.position || e.isValid === false) return false;
+            const en = String(e.name || e.displayName || '').toLowerCase();
+            if (target === 'lava' || target === 'mob' || target === 'hostile') {
+              const et = String(e.type || '').toLowerCase();
+              return et === 'hostile' || et === 'mob';
+            }
+            return en === target || en.includes(target) || en === effectiveRawTarget;
+          })
+          .sort((a: any, b: any) =>
+            botPos ? a.position.distanceTo(botPos) - b.position.distanceTo(botPos) : 0
+          )[0];
+
+        let floorSurface: any = null;
+        if (matchedMob?.position && typeof ctx.bot.blockAt === 'function') {
+          const mp = matchedMob.position.floored();
+          const offsets = [
+            new Vec3(0, -1, 0),
+            new Vec3(1, -1, 0),
+            new Vec3(-1, -1, 0),
+            new Vec3(0, -1, 1),
+            new Vec3(0, -1, -1),
+          ];
+          for (const off of offsets) {
+            const cand = ctx.bot.blockAt(mp.plus(off));
+            const above = ctx.bot.blockAt(mp.plus(off).offset(0, 1, 0));
+            if (
+              cand &&
+              cand.name !== 'air' &&
+              cand.name !== 'lava' &&
+              cand.name !== 'water' &&
+              (!above || above.name === 'air')
+            ) {
+              floorSurface = cand;
+              break;
+            }
+          }
+        }
+        if (!floorSurface && botPos && typeof ctx.bot.blockAt === 'function') {
+          floorSurface =
+            ctx.bot.blockAt(botPos.floored().offset(0, -1, 2)) ||
+            ctx.bot.blockAt(botPos.floored().offset(0, -1, 0));
+        }
+        if (floorSurface && floorSurface.name !== 'air') {
+          if (botPos && botPos.distanceTo(floorSurface.position) > 3.2) {
+            await ctx.kinematics.pathfindTo(floorSurface.position, 2.5);
+          }
+          await ctx.kinematics.lookAtSmooth?.(floorSurface.position.offset(0.5, 1.0, 0.5), 100);
+          try {
+            await ctx.bot.activateBlock(floorSurface, new Vec3(0, 1, 0)).catch(() => {});
+            ctx.bot.activateItem?.();
+            await new Promise((r) => setTimeout(r, 250));
+            return { success: true, summary: `Deployed lava_bucket near ${matchedMob?.name || target}!` };
+          } catch (e: any) {
+            return { success: false, summary: `Could not deploy lava_bucket: ${e.message}` };
           }
         }
       }

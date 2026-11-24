@@ -237,9 +237,11 @@ export class HeadlessMinecraftServerManager {
 
     const { x, y, z } = task.origin;
 
-    // Ensure chunks are loaded across the local arena bounding box BEFORE cleanup & entity resets
+    // Ensure chunks are loaded and spawn floor pad exists BEFORE teleporting & entity cleanup
     this.sendCommand(`forceload remove ${x - 48} ${z - 48} ${x + 48} ${z + 48}`);
     this.sendCommand(`forceload add ${x - 24} ${z - 24} ${x + 24} ${z + 24}`);
+    this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
+    await new Promise((r) => setTimeout(r, 100));
     this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
     await new Promise((r) => setTimeout(r, 150));
 
@@ -257,15 +259,20 @@ export class HeadlessMinecraftServerManager {
     if (!task.id.startsWith('omni_food_')) {
       this.sendCommand(`effect give ${botUsername} minecraft:saturation 1 10 true`);
     }
-    this.sendCommand(`fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`);
 
     // Execute the task's procedural 1.20.4 arena commands
     const cmds = task.buildArenaCommands(task.origin);
+    const hasExplicitBotTp = cmds.some(
+      (c) => /^\s*tp\s+/i.test(c) && (/\bNeuroAgent\b/i.test(c) || /@p\b/i.test(c) || c.includes(botUsername))
+    );
     for (let cmd of cmds) {
       cmd = cmd.replace(/\bNeuroAgent\b/g, botUsername).replace(/@p\b/g, botUsername);
       this.sendCommand(cmd);
     }
     await new Promise((r) => setTimeout(r, 150));
+    if (!hasExplicitBotTp) {
+      this.sendCommand(`tp ${botUsername} ${x} ${y} ${z} 0 0`);
+    }
 
     // Give initial loadout items
     for (const item of task.initialLoadout) {
@@ -274,7 +281,7 @@ export class HeadlessMinecraftServerManager {
 
     this.sendCommand(`gamemode survival ${botUsername}`);
     if (task.id.startsWith('omni_food_')) {
-      this.sendCommand(`effect give ${botUsername} minecraft:hunger 5 255 true`);
+      this.sendCommand(`effect give ${botUsername} minecraft:hunger 4 255 true`);
     }
 
     if (sparringConfig) {

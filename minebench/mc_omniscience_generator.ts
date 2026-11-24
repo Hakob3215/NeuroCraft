@@ -223,7 +223,7 @@ export class MinecraftOmniscienceGenerator {
             setupCmds = ['summon zombie ~ ~ ~4', 'tp @p ~ ~ ~ 0 0'];
             prompt = 'Trap and incinerate the pursuing zombie using your lava bucket.';
             expectedTool = 'use_tool_on_block';
-            expectedArgs = { tool: 'lava_bucket', targetBlock: 'lava' };
+            expectedArgs = { tool: 'lava_bucket', targetBlock: 'zombie' };
             expectedToken = '<|act:place_block|> <|item:lava_bucket|>';
             break;
 
@@ -434,6 +434,24 @@ export class MinecraftOmniscienceGenerator {
             expectedToken = '<|act:consume|> <|item:milk_bucket|>';
             break;
 
+          case 'chop_pumpkin':
+            loadout = [{ name: 'iron_axe', count: 1 }];
+            setupCmds = ['setblock ~ ~1 ~2 pumpkin', 'tp @p ~ ~1 ~ 0 0'];
+            prompt = 'Harvest the pumpkin quickly using your iron axe.';
+            expectedTool = 'gather_resource';
+            expectedArgs = { blockType: 'pumpkin', count: 1 };
+            expectedToken = '<|act:mine_block|> <|item:pumpkin|>';
+            break;
+
+          case 'leash_animal':
+            loadout = [{ name: 'lead', count: 1 }];
+            setupCmds = ['summon cow ~ ~ ~3', 'tp @p ~ ~ ~ 0 0'];
+            prompt = 'Attach your lead to the cow in front of you.';
+            expectedTool = 'use_tool_on_block';
+            expectedArgs = { tool: 'lead', targetBlock: 'cow' };
+            expectedToken = '<|act:use_item|> <|target:cow|>';
+            break;
+
           default: {
             let defaultToolName = toolGroup;
             if (toolGroup === 'bonemeal') {
@@ -511,7 +529,7 @@ export class MinecraftOmniscienceGenerator {
           `Consume ${food.displayName || food.name} to heal up.`,
         ],
         initialLoadout: [{ name: food.name, count: 4 }],
-        setupCommands: ['effect give @p hunger 5 255 true', 'tp @p ~ ~ ~ 0 0'],
+        setupCommands: ['tp @p ~ ~ ~ 0 0'],
         expectedActionTokens: ['<|act:consume|>', `<|item:${food.name}|>`],
         expectedTool: 'eat_food',
         expectedToolArgs: { foodName: food.name },
@@ -826,6 +844,11 @@ export class MinecraftOmniscienceGenerator {
       };
 
       const isFlyingMob = ['allay', 'bat', 'bee', 'parrot', 'phantom', 'vex'].includes(mob.name);
+      const isAquaticMob = [
+        'cod', 'salmon', 'pufferfish', 'tropical_fish',
+        'squid', 'glow_squid', 'tadpole', 'dolphin',
+        'axolotl', 'guardian', 'elder_guardian', 'turtle',
+      ].includes(mob.name);
       let initialLoadout = [
         { name: 'diamond_sword', count: 1 },
         { name: 'shield', count: 1, slot: 45 },
@@ -868,6 +891,13 @@ export class MinecraftOmniscienceGenerator {
           { name: 'shield', count: 1, slot: 45 },
         ];
         setupCommands = [`summon warden ~ ~ ~8`, 'tp @p ~ ~ ~ 0 0'];
+      } else if (isAquaticMob) {
+        setupCommands = [
+          'fill ~-3 ~-2 ~1 ~3 ~0 ~7 glass outline',
+          'fill ~-2 ~-1 ~2 ~2 ~0 ~6 water',
+          `summon ${mob.name} ~ ~ ~4`,
+          'tp @p ~ ~ ~ 0 0',
+        ];
       } else if (isFlyingMob) {
         setupCommands = [
           `fill ~-3 ~ ~-3 ~3 ~3 ~3 glass outline`,

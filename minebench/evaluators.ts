@@ -5,6 +5,7 @@ export interface MinebenchEvaluationSnapshot {
   botPosition: { x: number; y: number; z: number };
   health: number;
   food: number;
+  initialFood?: number;
   deaths: number;
   inventory: Array<{ name: string; count: number; durability?: number; maxDurability?: number }>;
   equippedArmor: {
@@ -14,7 +15,16 @@ export interface MinebenchEvaluationSnapshot {
     feet: string | null;
     offHand: string | null;
   };
-  blockAt: (x: number, y: number, z: number) => { name: string; metadata?: number } | null;
+  blockAt: (
+    x: number,
+    y: number,
+    z: number
+  ) => {
+    name: string;
+    metadata?: number;
+    properties?: Record<string, any>;
+    getProperties?: () => Record<string, any>;
+  } | null;
   entities: Array<{
     id: number;
     name: string;
@@ -36,6 +46,7 @@ export interface MinebenchEvaluationSnapshot {
     wolvesTamed: number;
     foodConsumed?: number;
     affordanceActions?: number;
+    mobInteractions?: number;
     damageDealt?: number;
     waterPlaced?: number;
     ironPickaxeDurabilityUsedOnStone: number;
@@ -248,8 +259,13 @@ export function evaluateOmniscienceMilestones(
       }
     } else if (cond === 'held_item_food' || cond === 'food_level_restored') {
       const didConsume = ((snap.stats as any).foodConsumed || 0) > 0;
+      const initialFood = snap.initialFood ?? 20;
+      const isAlwaysConsumable = /(golden_apple|milk|potion|bottle|honey|chorus_fruit|suspicious_stew)/i.test(
+        String(task.targetObject || '')
+      );
+      const hungerRestored = snap.food > initialFood || snap.food >= 18 || isAlwaysConsumable;
       if (cond === 'food_level_restored') {
-        if (didConsume && snap.food >= 18) earned = m.maxPoints;
+        if (didConsume && hungerRestored) earned = m.maxPoints;
       } else if (didConsume) {
         earned = m.maxPoints;
       }
@@ -264,24 +280,17 @@ export function evaluateOmniscienceMilestones(
         'polar_bear', 'wandering_trader', 'cod', 'salmon', 'pufferfish', 'tropical_fish', 'tadpole',
       ];
       const isPeacefulTarget = peacefulMobs.includes((task.targetObject || '').toLowerCase());
-      const hasInteracted =
-        tamed ||
-        sheared ||
-        snap.stats.blocksMined > 0 ||
-        snap.stats.blocksPlaced > 0 ||
-        (snap.stats.foodConsumed || 0) > 0 ||
-        ((snap.stats as any).affordanceActions || 0) > 0;
-
       const dealtDamage = Boolean(((snap.stats as any)?.damageDealt || 0) > 0 || (snap.stats.arrowsFired || 0) > 0);
-      const validKill = totalKills > 0 && (dealtDamage || isPeacefulTarget);
+      const validKill = totalKills > 0 && dealtDamage;
+      const mobInteracted = tamed || sheared || ((snap.stats as any).mobInteractions || 0) > 0;
 
       if (cond === 'target_engaged') {
-        if (validKill || hasInteracted) {
+        if (validKill || dealtDamage || (isPeacefulTarget && mobInteracted)) {
           earned = m.maxPoints;
         }
       } else if (cond === 'target_resolved') {
         if (isPeacefulTarget) {
-          if (validKill || tamed || sheared || (snap.deaths === 0 && hasInteracted)) {
+          if (validKill || tamed || sheared || (snap.deaths === 0 && mobInteracted)) {
             earned = m.maxPoints;
           }
         } else if (validKill) {
@@ -297,11 +306,14 @@ export function evaluateOmniscienceMilestones(
         earned = m.maxPoints;
       }
     } else if (cond === 'zero_hazard_deaths') {
-      // Must survive without deaths while navigating structure
+      // Must survive without deaths while traveling > 2.0m or acquiring genuine structure loot
+      const initialItemNames = new Set((task.initialLoadout || []).map((i: any) => i.name.toLowerCase()));
+      const arenaCommonBlocks = new Set(['stone', 'cobblestone', 'dirt', 'bedrock']);
+      const collectedNewLoot = invNames.some((n) => !initialItemNames.has(n) && !arenaCommonBlocks.has(n));
       const startPos = task.origin || { x: 500, y: 100, z: 500 };
       const botP = snap.botPosition || { x: 500, y: 100, z: 500 };
       const distTraveled = Math.sqrt((botP.x - startPos.x) ** 2 + (botP.z - startPos.z) ** 2);
-      if (snap.deaths === 0 && (distTraveled > 2.0 || snap.stats.blocksMined > 0 || ((snap.stats as any).affordanceActions || 0) > 0)) {
+      if (snap.deaths === 0 && (distTraveled > 2.0 || collectedNewLoot)) {
         earned = m.maxPoints;
       }
     } else {

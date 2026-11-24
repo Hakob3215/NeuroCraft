@@ -401,10 +401,14 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
                 if line.strip():
                     try:
                         d = json.loads(line)
-                        tid = d.get("taskId")
+                        raw_tid = d.get("taskId") or d.get("id")
+                        tid = re.sub(r"^omni_gold_\d+_", "", str(raw_tid or "")).strip()
                         step = int(d.get("step", 0))
                         u_msg, t_name = _extract_tool_and_prompt(d)
                         if tid and is_valid_tool_for_task(tid, u_msg, t_name):
+                            d["taskId"] = tid
+                            d["provider"] = d.get("provider") or "omniscience_gold"
+                            d["passed"] = False
                             key = (tid, step)
                             if key not in task_gold_bank:
                                 task_gold_bank[key] = d
@@ -562,11 +566,16 @@ def run_minebench_rl_update(epochs: int = 8, is_best: bool = False, loop_idx: in
             }
 
             key = (tid, step_idx)
-            # Stratified Gold Bank: Keep best PASSED trajectory per (taskId, step) over partial failures
+            # Stratified Gold Bank: Keep best PASSED trajectory per (taskId, step); never let partial fails overwrite gold anchors
             prev_best = task_gold_bank.get(key)
             prev_passed = bool(prev_best.get("passed", False)) if prev_best else False
+            prev_is_gold = bool(prev_best and prev_best.get("provider") in ("gold_curriculum", "gold_continuation", "omniscience_gold"))
             prev_raw = float(prev_best.get("rawReward", 0.0)) if prev_best else -1e9
-            if prev_best is None or (is_passed and not prev_passed) or (is_passed == prev_passed and raw_r >= prev_raw):
+            if (
+                prev_best is None
+                or (is_passed and not prev_passed)
+                or (not prev_is_gold and is_passed == prev_passed and raw_r >= prev_raw)
+            ):
                 task_gold_bank[key] = sample
 
             if is_recent:

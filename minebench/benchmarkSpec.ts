@@ -408,7 +408,8 @@ export const MINEBENCH_TASKS: MinebenchTaskSpec[] = [
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 6} ${y - 3} ${z - 6} ${x + 8} ${y - 2} ${z + 6} minecraft:bedrock`,
       `fill ${x - 6} ${y - 1} ${z - 6} ${x + 8} ${y - 1} ${z + 6} minecraft:stone`,
-      `fill ${x - 6} ${y} ${z - 6} ${x + 8} ${y + 5} ${z + 6} minecraft:air`,
+      `fill ${x - 6} ${y} ${z - 6} ${x + 8} ${y + 1} ${z + 6} minecraft:glass outline`,
+      `fill ${x - 5} ${y} ${z - 5} ${x + 7} ${y + 5} ${z + 5} minecraft:air`,
       `fill ${x + 2} ${y} ${z - 1} ${x + 3} ${y + 1} ${z + 1} minecraft:sand`,
       `fill ${x + 5} ${y} ${z - 1} ${x + 6} ${y + 1} ${z + 1} minecraft:stone`,
       `tp NeuroAgent ${x} ${y} ${z} 0 0`,

@@ -3508,7 +3508,7 @@ test('60. Evaluators grade agility height tolerance, live lever powered property
         equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
         blockAt: () => ({ name: 'air' }),
         entities: [],
-        stats: baseStats,
+        stats: { ...baseStats, mobInteractions: 1 },
       } as any
     );
     assert.equal(mobRes.passed, true, `Peaceful mob ${animal} interaction must pass without killing`);
@@ -3834,6 +3834,372 @@ with tempfile.TemporaryDirectory() as tmp:
         assert rej_tool == {"name": "engage_combat", "arguments": {"targetType": "skeleton"}}, rej_tool
     finally:
         rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig_paths
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
+test('64. Arena reset builds floor before teleport, issues post-build tp, applies single survival hunger, and encloses mining puzzle', async () => {
+  const { HeadlessMinecraftServerManager } = require('../../minebench/dist/minebench/headlessServer');
+  const { MINEBENCH_TASKS, MULTIPLAYER_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const mgr = new HeadlessMinecraftServerManager();
+  const sent: string[] = [];
+  (mgr as any).sendCommand = (cmd: string) => sent.push(cmd);
+
+  const mpTask = MULTIPLAYER_TASKS.find((t: any) => t.id === 'mp_pvp_dqn_axe_shield');
+  assert.ok(mpTask);
+  await mgr.resetArenaOnLiveServer(mpTask, 'NeuroAgent_2', undefined, true);
+
+  const stonePadIdx = sent.findIndex((c) => c.includes('minecraft:stone') && c.startsWith('fill '));
+  const tpIdxs = sent.map((c, idx) => (c.startsWith('tp NeuroAgent_2 ') ? idx : -1)).filter((i) => i >= 0);
+  const survIdx = sent.findIndex((c) => c === 'gamemode survival NeuroAgent_2');
+  assert.ok(stonePadIdx >= 0 && tpIdxs.length >= 2 && survIdx > tpIdxs[1], `Unexpected cmd order: ${JSON.stringify(sent)}`);
+  assert.ok(stonePadIdx < tpIdxs[0], 'Spawn stone pad must be filled BEFORE initial teleport');
+  assert.ok(tpIdxs[1] < survIdx, 'Post-build safety teleport must run BEFORE switching to survival');
+
+  sent.length = 0;
+  await mgr.resetArenaOnLiveServer(
+    {
+      id: 'omni_food_apple',
+      origin: { x: 100, y: 64, z: 100 },
+      initialLoadout: [{ name: 'apple', count: 4 }],
+      buildArenaCommands: () => ['tp @p 100 64 100 0 0'],
+    } as any,
+    'NeuroAgent_1',
+    undefined,
+    true
+  );
+  assert.equal(sent.some((c) => c.includes('minecraft:saturation')), false, 'Food task must skip saturation');
+  const hungerCmds = sent.map((c, idx) => (c.includes('minecraft:hunger') ? idx : -1)).filter((i) => i >= 0);
+  const foodSurvIdx = sent.findIndex((c) => c === 'gamemode survival NeuroAgent_1');
+  assert.equal(hungerCmds.length, 1, 'Hunger effect must be applied exactly once');
+  assert.ok(hungerCmds[0] > foodSurvIdx, 'Hunger effect must run AFTER switching to survival mode');
+
+  const minePuzzle = MINEBENCH_TASKS.find((t: any) => t.id === 'puzzle_tool_preservation_mining');
+  assert.ok(minePuzzle);
+  const mineCmds = minePuzzle.buildArenaCommands({ x: 750, y: 64, z: 100 });
+  assert.ok(
+    mineCmds.some((c: string) => c.includes('minecraft:glass outline')),
+    'puzzle_tool_preservation_mining must include glass perimeter border'
+  );
+});
+
+test('65. Evaluators grade initialFood deltas objectively and block dry-land aquatic suffocation or ambient exploits', () => {
+  const { evaluateMinebenchEpisode } = require('../../minebench/dist/minebench/evaluators');
+
+  const fishTask: any = {
+    id: 'omni_food_tropical_fish',
+    domain: 'NUTRITION',
+    targetObject: 'tropical_fish',
+    origin: { x: 0, y: 64, z: 0 },
+    initialLoadout: [{ name: 'tropical_fish', count: 4 }],
+    evaluatorMilestones: [
+      { name: 'Item Selected', maxPoints: 30, condition: 'held_item_food' },
+      { name: 'Hunger Restored', maxPoints: 70, condition: 'food_level_restored' },
+    ],
+  };
+  const fishSnapBase: any = {
+    botPosition: { x: 0, y: 64, z: 0 },
+    health: 20,
+    initialFood: 14,
+    food: 15,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: {
+      blocksPlaced: 0, blocksMined: 0, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0,
+      endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0,
+      foodConsumed: 1, affordanceActions: 1, ironPickaxeDurabilityUsedOnStone: 0,
+    },
+  };
+  const fishPass = evaluateMinebenchEpisode(fishTask, fishSnapBase);
+  assert.equal(fishPass.passed, true, 'Eating tropical_fish restoring 14->15 food must pass');
+  assert.equal(fishPass.score, 100);
+
+  const fishNoGain = evaluateMinebenchEpisode(fishTask, { ...fishSnapBase, food: 14 });
+  assert.equal(fishNoGain.passed, false, 'Food without hunger gain above initialFood must fail');
+
+  const codTask: any = {
+    id: 'omni_mob_cod',
+    domain: 'MOB_INTERACTION',
+    targetObject: 'cod',
+    origin: { x: 0, y: 64, z: 0 },
+    initialLoadout: [],
+    evaluatorMilestones: [
+      { name: 'Target Engaged', maxPoints: 40, condition: 'target_engaged' },
+      { name: 'Target Resolved', maxPoints: 60, condition: 'target_resolved' },
+    ],
+  };
+  const codSuffocate = evaluateMinebenchEpisode(codTask, {
+    ...fishSnapBase,
+    stats: {
+      ...fishSnapBase.stats,
+      mobsKilled: { cod: 1 },
+      blocksMined: 1,
+      damageDealt: 0,
+      mobInteractions: 0,
+    },
+  });
+  assert.equal(codSuffocate.passed, false);
+  assert.equal(codSuffocate.score, 0, 'Dry-land suffocation + unrelated digging/eating must score 0');
+
+  const codKilled = evaluateMinebenchEpisode(codTask, {
+    ...fishSnapBase,
+    stats: { ...fishSnapBase.stats, mobsKilled: { cod: 1 }, damageDealt: 4, mobInteractions: 0 },
+  });
+  assert.equal(codKilled.passed, true);
+
+  const raidTask: any = {
+    id: 'omni_structure_end_city',
+    domain: 'STRUCTURE_RAID',
+    targetObject: 'end_city',
+    origin: { x: 0, y: 64, z: 0 },
+    initialLoadout: [],
+    evaluatorMilestones: [
+      { name: 'Hazards Avoided', maxPoints: 40, condition: 'zero_hazard_deaths' },
+      { name: 'Key Loot Secured', maxPoints: 60, condition: 'loot_collected' },
+    ],
+  };
+  const digOnlyRaid = evaluateMinebenchEpisode(raidTask, {
+    ...fishSnapBase,
+    stats: { ...fishSnapBase.stats, blocksMined: 5, foodConsumed: 0, affordanceActions: 0 },
+  });
+  assert.equal(digOnlyRaid.score, 0, 'Digging in place without moving >2m or collecting loot must score 0');
+});
+
+test('66. Skills guard crafted items in gather_resource, safely parse interact args, reject swords and support lava_bucket in use_tool_on_block', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+
+  const gatherTool = registry.getTool('gather_resource')!;
+  const craftedRes = await gatherTool.handler(
+    { blockType: 'iron_helmet', count: 1 },
+    { bot: { inventory: { items: () => [] } } } as any
+  );
+  assert.equal(craftedRes.success, false, 'gather_resource must reject crafted armor/items like iron_helmet');
+
+  let barsMatcher: ((b: any) => boolean) | null = null;
+  await gatherTool.handler(
+    { blockType: 'iron_bars', count: 1 },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        version: '1.20.4',
+        heldItem: null,
+        recipesFor: () => [],
+        inventory: { items: () => [] },
+        findBlocks: (opts: any) => {
+          barsMatcher = opts.matching;
+          return [];
+        },
+        findBlock: (opts: any) => {
+          barsMatcher = barsMatcher || opts.matching;
+          return null;
+        },
+        blockAt: () => ({ name: 'air', boundingBox: 'empty' }),
+      },
+      kinematics: { equipItemHumanized: async () => false },
+      worldState: () => ({ visibleEntities: [] }),
+      reportProgress: () => {},
+    } as any
+  );
+  const matcherFn = barsMatcher as ((b: any) => boolean) | null;
+  assert.ok(matcherFn);
+  assert.equal(matcherFn({ name: 'iron_bars' }), true);
+  assert.equal(matcherFn({ name: 'iron_ore' }), false, 'iron_bars must not match iron_ore');
+
+  const interactTool = registry.getTool('interact_block_or_puzzle')!;
+  const objInteract = await interactTool.handler(
+    { targetBlock: {} },
+    { bot: { entity: { position: new Vec3(0, 64, 0) }, inventory: { items: () => [] } } } as any
+  );
+  assert.equal(objInteract.success, false, 'Empty object targetBlock must fail cleanly without [object object]');
+
+  let activatedAnimal = '';
+  const cowEnt = { id: 9, name: 'cow', type: 'animal', position: new Vec3(2, 64, 0), isValid: true };
+  const cowInteract = await interactTool.handler(
+    { animalType: 'cow', itemName: 'lead' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'lead', count: 1 }] },
+        entities: { '9': cowEnt },
+        activateEntity: (ent: any) => {
+          activatedAnimal = ent.name;
+        },
+      },
+      kinematics: {
+        equipItemHumanized: async () => true,
+        pathfindTo: async () => true,
+        lookAtSmooth: async () => {},
+      },
+    } as any
+  );
+  assert.equal(cowInteract.success, true);
+  assert.equal(activatedAnimal, 'cow');
+
+  const useTool = registry.getTool('use_tool_on_block')!;
+  const swordReject = await useTool.handler(
+    { tool: 'diamond_sword', targetBlock: 'ocelot' },
+    { bot: { entity: { position: new Vec3(0, 64, 0) }, inventory: { items: () => [{ name: 'diamond_sword', count: 1 }] } } } as any
+  );
+  assert.equal(swordReject.success, false, 'use_tool_on_block must refuse sword weapon attacks');
+
+  let lavaActivatedPos: Vec3 | null = null;
+  const lavaRes = await useTool.handler(
+    { tool: 'lava_bucket', targetBlock: 'zombie' },
+    {
+      bot: {
+        entity: { position: new Vec3(0, 64, 0) },
+        inventory: { items: () => [{ name: 'lava_bucket', count: 1 }] },
+        entities: { '15': { id: 15, name: 'zombie', type: 'hostile', position: new Vec3(2, 64, 0), isValid: true } },
+        blockAt: (p: Vec3) => {
+          if (Math.floor(p.x) === 2 && Math.floor(p.y) === 63 && Math.floor(p.z) === 0) {
+            return { name: 'stone', position: new Vec3(2, 63, 0) };
+          }
+          return { name: 'air', position: p };
+        },
+        activateBlock: async (blk: any) => {
+          lavaActivatedPos = blk.position;
+        },
+        activateItem: () => {},
+      },
+      kinematics: {
+        equipItemHumanized: async () => true,
+        pathfindTo: async () => true,
+        lookAtSmooth: async () => {},
+      },
+    } as any
+  );
+  assert.equal(lavaRes.success, true);
+  assert.ok(lavaActivatedPos && (lavaActivatedPos as Vec3).x === 2 && (lavaActivatedPos as Vec3).y === 63);
+});
+
+test('67. Regenerated Omniscience suite adds aquatic pools, fixes leash/lava/pumpkin tasks, and drops duplicate nutrition hunger', () => {
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const tasks: any[] = JSON.parse(
+    fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8')
+  );
+
+  assert.equal(tasks.some((t) => t.taskId === 'omni_tool_axe_carve_pumpkin'), false);
+  const chopTask = tasks.find((t) => t.taskId === 'omni_tool_axe_chop_pumpkin');
+  assert.ok(chopTask && chopTask.expectedTool === 'gather_resource');
+
+  const leashTask = tasks.find((t) => t.taskId === 'omni_tool_lead_leash_animal');
+  assert.ok(leashTask);
+  assert.equal(leashTask.expectedTool, 'use_tool_on_block');
+  assert.equal(leashTask.expectedToolArgs.tool, 'lead');
+  assert.equal(leashTask.expectedToolArgs.targetBlock, 'cow');
+
+  const lavaTask = tasks.find((t) => t.taskId === 'omni_tool_lava_bucket_trap_mob');
+  assert.ok(lavaTask);
+  assert.equal(lavaTask.expectedToolArgs.tool, 'lava_bucket');
+  assert.equal(lavaTask.expectedToolArgs.targetBlock, 'zombie');
+
+  for (const t of tasks.filter((x) => x.taskId?.startsWith('omni_food_'))) {
+    assert.equal(
+      (t.setupCommands || []).some((c: string) => c.includes('effect give') && c.includes('hunger')),
+      false,
+      `${t.taskId} must not duplicate hunger command inside setupCommands`
+    );
+  }
+
+  for (const aq of ['cod', 'squid', 'axolotl', 'guardian']) {
+    const t = tasks.find((x) => x.taskId === `omni_mob_${aq}`);
+    assert.ok(t, `Missing omni_mob_${aq}`);
+    assert.ok(
+      (t.setupCommands || []).some((c: string) => c.includes('water')),
+      `omni_mob_${aq} must build a water pool arena`
+    );
+  }
+});
+
+test('68. rl_trainer seeds omniscience_gold_dataset.jsonl via id, normalizes taskId & passed=False, and blocks failed overwrites', () => {
+  const { execFileSync } = require('child_process');
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import json, sys, tempfile
+from pathlib import Path
+sys.path.insert(0, r'${rootDir.replace(/\\/g, '\\\\')}')
+import minebench.rl_trainer as rt
+
+with tempfile.TemporaryDirectory() as tmp:
+    tp = Path(tmp)
+    replay_p = tp / "replay.jsonl"
+    trans_p = tp / "trans.jsonl"
+    grpo_p = tp / "grpo.jsonl"
+    dpo_p = tp / "dpo.jsonl"
+    metrics_p = tp / "metrics.json"
+    res_dir = tp / "res"
+    res_dir.mkdir(parents=True, exist_ok=True)
+
+    omni_rows = [
+        {
+            "id": "omni_gold_0_omni_tool_lead_leash_animal",
+            "category": "tool_affordance",
+            "targetObject": "lead",
+            "advantage": 1.0,
+            "reward": 100.0,
+            "messages": [
+                {"role": "system", "content": "sys"},
+                {"role": "user", "content": "Attach your lead to the cow in front of you."},
+                {"role": "assistant", "content": json.dumps({"thought": "Leash cow", "toolCall": {"name": "use_tool_on_block", "arguments": {"tool": "lead", "targetBlock": "cow"}}})}
+            ],
+        },
+        {
+            "id": "omni_qa_item_apple",
+            "category": "world_knowledge",
+            "messages": [
+                {"role": "system", "content": "sys"},
+                {"role": "user", "content": "What is apple?"},
+                {"role": "assistant", "content": "<|intent:chat|> Apple stacks to 64."}
+            ],
+        },
+    ]
+    (res_dir / "omniscience_gold_dataset.jsonl").write_text("\\n".join(json.dumps(x) for x in omni_rows) + "\\n", encoding="utf-8")
+
+    replay_rows = [
+        {
+            "taskId": "omni_tool_lead_leash_animal",
+            "domain": "TOOL",
+            "workerId": 0,
+            "prompt": "Attach your lead to the cow in front of you.",
+            "passed": False,
+            "score": 30,
+            "rawReward": 25.0,
+            "executedTools": [
+                {"name": "interact_block_or_puzzle", "args": {"blockType": "lever"}, "success": True, "stepReward": 20.0, "thought": "Random lever"},
+            ],
+        }
+    ]
+    replay_p.write_text("\\n".join(json.dumps(x) for x in replay_rows) + "\\n", encoding="utf-8")
+    trans_p.write_text(json.dumps({"voxels": [0] * 3375, "entities": [[0.0] * 12] * 16, "botState": [0.0] * 10, "actionIdx": 0, "aimDelta": [0.0, 0.0], "reward": 1.0}) + "\\n", encoding="utf-8")
+
+    orig = (rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR)
+    try:
+        rt.REPLAY_BUFFER_PATH = replay_p
+        rt.REAL_TRANSITIONS_PATH = trans_p
+        rt.GRPO_DATASET_PATH = grpo_p
+        rt.DPO_PAIRS_PATH = dpo_p
+        rt.RL_METRICS_PATH = metrics_p
+        rt.CHECKPOINT_DIR = tp / "ckpt"
+        rt.CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+        rt.RESULTS_DIR = res_dir
+        rt.run_minebench_rl_update(epochs=0, is_best=False)
+        grpo_items = [json.loads(l) for l in grpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        gold_lead = [g for g in grpo_items if g.get("taskId") == "omni_tool_lead_leash_animal" and g.get("provider") == "omniscience_gold"]
+        assert len(gold_lead) == 1, f"Expected gold seed preserved without failed overwrite, got {grpo_items}"
+        assert gold_lead[0].get("passed") is False
+        assert not any(g.get("taskId") == "omni_qa_item_apple" for g in grpo_items)
+        dpo_items = [json.loads(l) for l in dpo_p.read_text(encoding="utf-8").splitlines() if l.strip()]
+        assert len(dpo_items) == 0, f"Gold seed must never act as DPO winner, got {dpo_items}"
+    finally:
+        rt.REPLAY_BUFFER_PATH, rt.REAL_TRANSITIONS_PATH, rt.GRPO_DATASET_PATH, rt.DPO_PAIRS_PATH, rt.RL_METRICS_PATH, rt.CHECKPOINT_DIR, rt.RESULTS_DIR = orig
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
