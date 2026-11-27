@@ -580,7 +580,7 @@ def train_slm_qlora(
                     rej_lbls = rej_lbls.to(device)
                     rej_mask = rej_mask.to(device)
 
-                    # Reference log-probs with adapter disabled (0 extra VRAM copy)
+                    # Reference log-probs & exact DPO chain-rule coefficient with zero activation graphs in VRAM
                     with torch.no_grad():
                         with model.disable_adapter():
                             ref_w_logp, _ = compute_masked_logp_and_nll(
@@ -589,35 +589,54 @@ def train_slm_qlora(
                             ref_l_logp, _ = compute_masked_logp_and_nll(
                                 model, rej_ids, rej_mask, rej_lbls, label_smoothing=0.0
                             )
-                    if ref_w_logp is None or ref_l_logp is None:
-                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask, ref_w_logp, ref_l_logp
+                        pi_w_val, _ = compute_masked_logp_and_nll(
+                            model, ch_ids, ch_mask, ch_lbls, label_smoothing=label_smoothing
+                        )
+                        pi_l_val, _ = compute_masked_logp_and_nll(
+                            model, rej_ids, rej_mask, rej_lbls, label_smoothing=0.0
+                        )
+                    if ref_w_logp is None or ref_l_logp is None or pi_w_val is None or pi_l_val is None:
+                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
+                        del ref_w_logp, ref_l_logp, pi_w_val, pi_l_val
                         continue
 
+                    logits_diff_val = (pi_w_val - ref_w_logp) - (pi_l_val - ref_l_logp)
+                    dpo_loss_val = -torch.nn.functional.logsigmoid(dpo_beta * logits_diff_val)
+                    dpo_coeff = float((-dpo_beta * torch.sigmoid(-dpo_beta * logits_diff_val)).item())
+                    dpo_loss_scalar = float(dpo_loss_val.item())
+                    if not (math.isfinite(dpo_coeff) and math.isfinite(dpo_loss_scalar)):
+                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
+                        del ref_w_logp, ref_l_logp, pi_w_val, pi_l_val, logits_diff_val, dpo_loss_val
+                        continue
+
+                    # Pass 1 (chosen graph only -> halved peak VRAM)
                     pi_w_logp, chosen_nll = compute_masked_logp_and_nll(
                         model, ch_ids, ch_mask, ch_lbls, label_smoothing=label_smoothing
                     )
+                    if pi_w_logp is None or chosen_nll is None or torch.isnan(pi_w_logp) or torch.isnan(chosen_nll) or torch.isinf(chosen_nll):
+                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
+                        del ref_w_logp, ref_l_logp, pi_w_val, pi_l_val, logits_diff_val, dpo_loss_val, pi_w_logp, chosen_nll
+                        continue
+                    b_loss = dpo_loss_scalar + nll_weight * float(chosen_nll.item())
+                    if not math.isfinite(b_loss):
+                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
+                        del ref_w_logp, ref_l_logp, pi_w_val, pi_l_val, logits_diff_val, dpo_loss_val, pi_w_logp, chosen_nll
+                        continue
+                    loss_w = (dpo_coeff * pi_w_logp + nll_weight * chosen_nll) / gradient_accumulation_steps
+                    loss_w.backward()
+                    del ch_ids, ch_lbls, ch_mask, pi_w_logp, chosen_nll, loss_w
+
+                    # Pass 2 (rejected graph only -> peak VRAM never holds both graphs simultaneously)
                     pi_l_logp, _ = compute_masked_logp_and_nll(
                         model, rej_ids, rej_mask, rej_lbls, label_smoothing=0.0
                     )
-                    if pi_w_logp is None or chosen_nll is None or pi_l_logp is None:
-                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
-                        del ref_w_logp, ref_l_logp, pi_w_logp, chosen_nll, pi_l_logp
-                        continue
-
-                    logits_diff = (pi_w_logp - ref_w_logp) - (pi_l_logp - ref_l_logp)
-                    dpo_loss = -torch.nn.functional.logsigmoid(dpo_beta * logits_diff)
-                    raw_loss = dpo_loss + nll_weight * chosen_nll
-                    if torch.isnan(raw_loss) or torch.isinf(raw_loss):
-                        del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
-                        del ref_w_logp, ref_l_logp, pi_w_logp, chosen_nll, pi_l_logp, logits_diff, dpo_loss, raw_loss
-                        continue
-
-                    b_loss = float(raw_loss.item())
+                    if pi_l_logp is not None and not torch.isnan(pi_l_logp) and not torch.isinf(pi_l_logp):
+                        loss_l = ((-dpo_coeff) * pi_l_logp) / gradient_accumulation_steps
+                        loss_l.backward()
+                        del loss_l
                     dpo_losses.append(b_loss)
-                    loss = raw_loss / gradient_accumulation_steps
-                    loss.backward()
-                    del ch_ids, ch_lbls, ch_mask, rej_ids, rej_lbls, rej_mask
-                    del ref_w_logp, ref_l_logp, pi_w_logp, chosen_nll, pi_l_logp, logits_diff, dpo_loss, raw_loss, loss
+                    del rej_ids, rej_lbls, rej_mask
+                    del ref_w_logp, ref_l_logp, pi_w_val, pi_l_val, logits_diff_val, dpo_loss_val, pi_l_logp
                 else:
                     b_inps, b_lbls, b_mask, b_weights = payload  # type: ignore[misc]
                     b_inps = b_inps.to(device)
@@ -666,14 +685,40 @@ def train_slm_qlora(
             batch_losses.append(b_loss)
 
             if grad_pending >= gradient_accumulation_steps or b_idx == len(schedule_items) - 1:
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
+                try:
+                    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.step()
+                except (RuntimeError, Exception) as step_err:
+                    err_m = str(step_err).lower()
+                    if "cublas" in err_m or "out of memory" in err_m or "acceleratorerror" in type(step_err).__name__.lower():
+                        print(f"  [SLM Trainer Warning] Transient CUDA error during optimizer.step() batch {b_idx}: {step_err}. Recovering cache.")
+                        gc.collect()
+                        try:
+                            if torch.cuda.is_available():
+                                torch.cuda.empty_cache()
+                        except Exception:
+                            pass
+                    else:
+                        raise step_err
                 optimizer.zero_grad(set_to_none=True)
                 grad_pending = 0
 
         if grad_pending > 0:
-            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-            optimizer.step()
+            try:
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                optimizer.step()
+            except (RuntimeError, Exception) as tail_err:
+                err_m = str(tail_err).lower()
+                if "cublas" in err_m or "out of memory" in err_m or "acceleratorerror" in type(tail_err).__name__.lower():
+                    print(f"  [SLM Trainer Warning] Transient CUDA error during tail optimizer.step(): {tail_err}. Recovering cache.")
+                    gc.collect()
+                    try:
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
+                    except Exception:
+                        pass
+                else:
+                    raise tail_err
             optimizer.zero_grad(set_to_none=True)
 
         avg_loss = epoch_loss / max(1, batches)
@@ -695,7 +740,15 @@ def train_slm_qlora(
         )
 
     if torch.cuda.is_available():
-        torch.cuda.synchronize()
+        try:
+            torch.cuda.synchronize()
+        except (RuntimeError, Exception) as sync_err:
+            print(f"  [SLM Trainer Warning] Non-fatal cuda.synchronize() warning: {sync_err}")
+            gc.collect()
+            try:
+                torch.cuda.empty_cache()
+            except Exception:
+                pass
 
     train_duration = time.perf_counter() - t0
     peak_vram = (

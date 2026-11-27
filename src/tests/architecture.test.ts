@@ -2847,6 +2847,34 @@ model.zero_grad(set_to_none=True)
 _, unpaired_nll = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
 assert unpaired_nll is not None and torch.isfinite(unpaired_nll)
 unpaired_nll.backward()
+
+# Exact chain-rule split DPO gradient equivalence check (with eval() so dropout is off)
+model.eval()
+model.zero_grad(set_to_none=True)
+with torch.no_grad():
+    with model.disable_adapter():
+        ref_w, _ = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.0)
+        ref_l, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+pi_w_j, nll_j = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
+pi_l_j, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+loss_j = -F.logsigmoid(0.1 * ((pi_w_j - ref_w) - (pi_l_j - ref_l))) + 0.3 * nll_j
+loss_j.backward()
+joint_grads = [p.grad.detach().clone() for n, p in model.named_parameters() if "lora_" in n and p.requires_grad and p.grad is not None]
+
+model.zero_grad(set_to_none=True)
+with torch.no_grad():
+    pi_w_v, _ = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
+    pi_l_v, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+    z_v = (pi_w_v - ref_w) - (pi_l_v - ref_l)
+    coeff = float((-0.1 * torch.sigmoid(-0.1 * z_v)).item())
+pi_w_s, nll_s = compute_masked_logp_and_nll(model, ch_ids, mask, lbl_w, label_smoothing=0.04)
+(coeff * pi_w_s + 0.3 * nll_s).backward()
+pi_l_s, _ = compute_masked_logp_and_nll(model, rej_ids, mask, lbl_l, label_smoothing=0.0)
+((-coeff) * pi_l_s).backward()
+split_grads = [p.grad.detach().clone() for n, p in model.named_parameters() if "lora_" in n and p.requires_grad and p.grad is not None]
+assert len(joint_grads) == len(split_grads) > 0
+for jg, sg in zip(joint_grads, split_grads):
+    assert torch.allclose(jg, sg, atol=1e-4, rtol=1e-3)
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');

@@ -3000,8 +3000,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       if (fs.existsSync(slmMetricsPath)) {
         try {
           const m = JSON.parse(fs.readFileSync(slmMetricsPath, 'utf-8'));
-          slmInitLoss = m.initialLoss;
-          slmFinLoss = m.finalLoss;
+          if (m.loopIdx === iter && m.status === 'success') {
+            slmInitLoss = m.initialLoss;
+            slmFinLoss = m.finalLoss;
+          }
         } catch {}
       }
       if (actAimErrorDeg === undefined) {
@@ -3009,8 +3011,10 @@ export async function runContinuousTrainingLoop(): Promise<void> {
         if (fs.existsSync(actMetricsPath)) {
           try {
             const am = JSON.parse(fs.readFileSync(actMetricsPath, 'utf-8'));
-            actAimErrorDeg = am.aim_error_deg;
-            actDiscreteAccPct = am.discrete_accuracy_pct;
+            if (am.loopIdx === iter && am.status === 'success') {
+              actAimErrorDeg = am.aim_error_deg;
+              actDiscreteAccPct = am.discrete_accuracy_pct;
+            }
           } catch {}
         }
       }
