@@ -3027,6 +3027,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           const combatStart = Date.now();
           const lastTargetPos = targetEntity.position.clone();
 
+          const useNeuralMotor =
+            process.env.NEURAL_MOTOR_CONTROL !== 'false' &&
+            typeof ctx.kinematics.executeNeuralMotorStep === 'function';
+
           while (
             targetEntity.isValid &&
             Date.now() - combatStart < 14000 &&
@@ -3042,6 +3046,33 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
               );
             }
             const dist = ctx.bot.entity.position.distanceTo(targetEntity.position);
+
+            if (useNeuralMotor) {
+              ctx.kinematics.setActiveMotorTarget?.(targetEntity.position);
+              const res = await ctx.kinematics.executeNeuralMotorStep!(
+                `Engage and combat ${targetEntity.name || 'hostile'} at ${dist.toFixed(1)}m`,
+                targetEntity.position,
+                8,
+                {
+                  allowAttack: true,
+                  allowUseItem: true,
+                  allowDig: false,
+                  allowItemDrop: false,
+                  neuralAimOnly: true,
+                  combatTarget: targetEntity,
+                  abortSignal: ctx.abortSignal,
+                }
+              );
+              if (res.executed) {
+                strikesOnTarget += res.strikes;
+                totalStrikes += res.strikes;
+                const overallProgress =
+                  (targetIdx + Math.min(0.95, (Date.now() - combatStart) / 8000)) / targetCount;
+                ctx.reportProgress(Math.min(0.95, overallProgress));
+                continue;
+              }
+            }
+
             const isFuseLit =
               isCreeper &&
               (targetEntity.metadata?.[16] === 1 || targetEntity.metadata?.[18] === true);
@@ -3058,15 +3089,6 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
               await new Promise((r) => setTimeout(r, 280));
               ctx.bot.setControlState('back', false);
               continue;
-            }
-
-            // 211.4M Multi-Modal Action Transformer: fast lock-free /act/chunk aiming, sprint-strikes, and dodging
-            if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function' && dist <= 12.0) {
-              await ctx.kinematics.executeNeuralMotorChunk(
-                `Engage and attack ${targetEntity.name || 'hostile mob'} in combat`,
-                targetEntity.position,
-                2
-              );
             }
 
             if (dist > 3.1) {
@@ -3092,6 +3114,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
             ctx.reportProgress(Math.min(0.95, overallProgress));
           }
 
+          ctx.kinematics.setActiveMotorTarget?.(null);
           ctx.bot.pathfinder.setGoal(null);
           ctx.bot.setControlState('back', false);
 
@@ -3122,6 +3145,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           }
         }
       } finally {
+        ctx.kinematics.setActiveMotorTarget?.(null);
         ctx.bot.removeListener?.('death', onBotDeath);
         ctx.bot.pathfinder.setGoal(null);
         ctx.bot.setControlState('back', false);
@@ -4548,53 +4572,96 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       }
 
       let fired = 0;
-      for (let i = 0; i < maxShots; i++) {
-        if (ctx.abortSignal?.aborted) break;
-        const target: any = Object.values(ctx.bot.entities || {})
-          .filter((e: any) => {
-            if (!e || e === ctx.bot.entity || e.isValid === false || !e.position) return false;
-            const n = String(e.name || e.displayName || '').toLowerCase();
-            const u = String(e.username || '').toLowerCase();
-            if (u && u === ctx.bot.username?.toLowerCase()) return false;
-            if (targetType === 'hostile') {
-              return ['creeper', 'skeleton', 'blaze', 'ghast', 'witch', 'spider', 'zombie', 'ender_dragon', 'end_crystal'].includes(n) || e.type === 'player';
+      const useNeuralMotor =
+        process.env.NEURAL_MOTOR_CONTROL !== 'false' &&
+        typeof ctx.kinematics.executeNeuralMotorStep === 'function';
+
+      try {
+        for (let i = 0; i < maxShots; i++) {
+          if (ctx.abortSignal?.aborted) break;
+          const target: any = Object.values(ctx.bot.entities || {})
+            .filter((e: any) => {
+              if (!e || e === ctx.bot.entity || e.isValid === false || !e.position) return false;
+              const n = String(e.name || e.displayName || '').toLowerCase();
+              const u = String(e.username || '').toLowerCase();
+              if (u && u === ctx.bot.username?.toLowerCase()) return false;
+              if (targetType === 'hostile') {
+                return ['creeper', 'skeleton', 'blaze', 'ghast', 'witch', 'spider', 'zombie', 'ender_dragon', 'end_crystal'].includes(n) || e.type === 'player';
+              }
+              return (
+                n.includes(targetType) ||
+                u.includes(targetType) ||
+                (e.type === 'player' && (
+                  targetType.includes('player') ||
+                  targetType.includes('opponent') ||
+                  targetType.includes('rival') ||
+                  targetType.includes('dqn') ||
+                  targetType.includes('spar') ||
+                  targetType.includes('mirror') ||
+                  targetType.includes('agent')
+                ))
+              );
+            })
+            .sort(
+              (a: any, b: any) =>
+                a.position.distanceTo(ctx.bot.entity.position) -
+                b.position.distanceTo(ctx.bot.entity.position)
+            )[0];
+
+          if (!target) break;
+
+          if (useNeuralMotor) {
+            ctx.kinematics.setActiveMotorTarget?.(target.position);
+            let shotExecuted = false;
+            let shotReleased = false;
+            for (let chunkIdx = 0; chunkIdx < 5; chunkIdx++) {
+              if (ctx.abortSignal?.aborted || target.isValid === false) break;
+              const res = await ctx.kinematics.executeNeuralMotorStep!(
+                `Aim and shoot bow at ${targetType}`,
+                target.position,
+                8,
+                {
+                  allowUseItem: true,
+                  allowAttack: false,
+                  allowDig: false,
+                  allowItemDrop: false,
+                  neuralAimOnly: true,
+                  abortSignal: ctx.abortSignal,
+                }
+              );
+              if (!res.executed) break;
+              shotExecuted = true;
+              if (res.bowReleases > 0) {
+                fired += res.bowReleases;
+                shotReleased = true;
+                break;
+              }
             }
-            return (
-              n.includes(targetType) ||
-              u.includes(targetType) ||
-              (e.type === 'player' && (
-                targetType.includes('player') ||
-                targetType.includes('opponent') ||
-                targetType.includes('rival') ||
-                targetType.includes('dqn') ||
-                targetType.includes('spar') ||
-                targetType.includes('mirror') ||
-                targetType.includes('agent')
-              ))
-            );
-          })
-          .sort(
-            (a: any, b: any) =>
-              a.position.distanceTo(ctx.bot.entity.position) -
-              b.position.distanceTo(ctx.bot.entity.position)
-          )[0];
+            if (shotExecuted) {
+              if (!shotReleased) fired += 0;
+              ctx.reportProgress((i + 1) / maxShots);
+              await new Promise((r) => setTimeout(r, 150));
+              continue;
+            }
+          }
 
-        if (!target) break;
-
-        const horizDist = Math.hypot(
-          target.position.x - ctx.bot.entity.position.x,
-          target.position.z - ctx.bot.entity.position.z
-        );
-        // Ballistic gravity arc compensation (+0.11m per horizontal block)
-        const aimPoint = target.position.offset(0, (target.height || 1.6) * 0.65 + horizDist * 0.11, 0);
-        await ctx.kinematics.lookAtSmooth(aimPoint, 160);
-        ctx.bot.activateItem();
-        await new Promise((r) => setTimeout(r, 1050));
-        await ctx.kinematics.lookAtSmooth(aimPoint, 80);
-        ctx.bot.deactivateItem();
-        fired++;
-        ctx.reportProgress((i + 1) / maxShots);
-        await new Promise((r) => setTimeout(r, 250));
+          const horizDist = Math.hypot(
+            target.position.x - ctx.bot.entity.position.x,
+            target.position.z - ctx.bot.entity.position.z
+          );
+          // Offline fallback ballistic gravity arc compensation (+0.11m per horizontal block)
+          const aimPoint = target.position.offset(0, (target.height || 1.6) * 0.65 + horizDist * 0.11, 0);
+          await ctx.kinematics.lookAtSmooth(aimPoint, 160);
+          ctx.bot.activateItem();
+          await new Promise((r) => setTimeout(r, 1050));
+          await ctx.kinematics.lookAtSmooth(aimPoint, 80);
+          ctx.bot.deactivateItem();
+          fired++;
+          ctx.reportProgress((i + 1) / maxShots);
+          await new Promise((r) => setTimeout(r, 250));
+        }
+      } finally {
+        ctx.kinematics.setActiveMotorTarget?.(null);
       }
 
       ctx.reportProgress(1.0);
@@ -4972,41 +5039,73 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         return { success: false, summary: `No ${goalBlockName} goal marker found within 48m.` };
       }
 
-      // 1. Engage 211.4M Multi-Modal Action Transformer for target-oriented neural parkour motor chunks
-      if (typeof ctx.kinematics.executeNeuralMotorChunk === 'function') {
-        for (let chunkIdx = 0; chunkIdx < 3; chunkIdx++) {
-          if (ctx.bot.entity.position.distanceTo(goalPos) <= 2.2) break;
-          try {
-            await ctx.bot.lookAt(goalPos.offset(0, 1, 0), true);
-          } catch {}
-          await ctx.kinematics.executeNeuralMotorChunk(
-            `Sprint jump across parkour blocks towards ${goalBlockName}`,
-            goalPos,
-            2
-          );
-        }
-        try {
-          ctx.bot.clearControlStates?.();
-        } catch {}
-        const isAtGoalPlatform = (horizTol = 2.5) => {
-          const p = ctx.bot.entity.position;
-          return p.y >= goalPos.y - 0.5 && Math.hypot(p.x - goalPos.x, p.z - goalPos.z) <= horizTol;
-        };
-        if (isAtGoalPlatform(2.5)) {
-          return {
-            success: true,
-            summary: `Successfully navigated parkour course via 211.4M Multi-Modal Action Transformer to ${goalBlockName}!`,
-          };
-        }
-      }
-
       const isAtGoalPlatform = (horizTol = 2.5) => {
         const p = ctx.bot.entity.position;
         return p.y >= goalPos.y - 0.5 && Math.hypot(p.x - goalPos.x, p.z - goalPos.z) <= horizTol;
       };
 
+      const bridgeMaterials = ['cobblestone', 'stone', 'oak_planks', 'spruce_planks', 'birch_planks', 'dirt', 'sandstone', 'netherrack'];
+      if (allowBridge && typeof ctx.kinematics?.equipItemHumanized === 'function') {
+        for (const m of bridgeMaterials) {
+          if ((ctx.bot.inventory?.items() || []).some((it: any) => it.name === m && it.count > 0)) {
+            await ctx.kinematics.equipItemHumanized(m, 'hand');
+            break;
+          }
+        }
+      }
+
+      // 1. Engage 211.4M Multi-Modal Action Transformer for full live 20Hz parkour / bridge motor control
+      const useNeuralMotor =
+        process.env.NEURAL_MOTOR_CONTROL !== 'false' &&
+        typeof ctx.kinematics.executeNeuralMotorStep === 'function';
+      if (useNeuralMotor) {
+        let neuralChunksExecuted = 0;
+        const motorTarget = goalPos.offset(0, 1, 0);
+        ctx.kinematics.setActiveMotorTarget?.(motorTarget);
+        try {
+          for (let chunkIdx = 0; chunkIdx < 45; chunkIdx++) {
+            if (ctx.abortSignal?.aborted || isAtGoalPlatform(2.5) || ctx.bot.entity.position.y < goalPos.y - 6) {
+              break;
+            }
+            const res = await ctx.kinematics.executeNeuralMotorStep!(
+              `Sprint jump or bridge towards ${goalBlockName}`,
+              motorTarget,
+              8,
+              {
+                allowUseItem: allowBridge,
+                allowPlaceBlock: allowBridge,
+                allowAttack: false,
+                allowDig: false,
+                allowItemDrop: false,
+                neuralAimOnly: true,
+                stopWhenNearPos: { pos: motorTarget, range: 2.2 },
+                abortSignal: ctx.abortSignal,
+              }
+            );
+            if (!res.executed) break;
+            neuralChunksExecuted++;
+            ctx.reportProgress(Math.min(0.95, (chunkIdx + 1) / 45));
+          }
+        } finally {
+          ctx.kinematics.setActiveMotorTarget?.(null);
+          try {
+            ctx.bot.clearControlStates?.();
+          } catch {}
+        }
+
+        if (neuralChunksExecuted > 0) {
+          const reachedGoal = isAtGoalPlatform(2.5);
+          ctx.reportProgress(1.0);
+          return {
+            success: reachedGoal,
+            summary: reachedGoal
+              ? `Successfully navigated parkour/bridge course via 211.4M Multi-Modal Action Transformer to ${goalBlockName}!`
+              : `Executed ${neuralChunksExecuted} neural 20Hz motor chunks toward ${goalBlockName} without reaching goal platform.`,
+          };
+        }
+      }
+
       // Pre-check ahead for a multi-block ravine/chasm when bridging is allowed so we don't burn 25s blind-pathfinding
-      const bridgeMaterials = ['cobblestone', 'stone', 'oak_planks', 'dirt', 'sandstone', 'netherrack'];
       const hasBridgeMaterial = bridgeMaterials.some((m) =>
         (ctx.bot.inventory?.items() || []).some((it: any) => it.name === m && it.count > 0)
       );

@@ -262,7 +262,16 @@ export class VLACompanionClient {
       }
     }
 
-    if (nearestHostile) {
+    if (targetPos) {
+      const dx = targetPos.x - bot.entity.position.x;
+      const dy = targetPos.y - bot.entity.position.y;
+      const dz = targetPos.z - bot.entity.position.z;
+      const dist = bot.entity.position.distanceTo(targetPos);
+      v[9] = Math.max(-1, Math.min(1, dx / 16.0));
+      v[10] = Math.max(-1, Math.min(1, dy / 8.0));
+      v[11] = Math.max(-1, Math.min(1, dz / 16.0));
+      v[12] = Math.min(1.0, dist / 32.0);
+    } else if (nearestHostile) {
       const dx = nearestHostile.position.x - bot.entity.position.x;
       const dy = nearestHostile.position.y - bot.entity.position.y;
       const dz = nearestHostile.position.z - bot.entity.position.z;
@@ -272,18 +281,9 @@ export class VLACompanionClient {
       v[11] = Math.max(-1, Math.min(1, dz / 16.0));
       // 12: Distance
       v[12] = Math.min(1.0, minDist / 32.0);
-      // 13: Creeper fuse active
-      v[13] = nearestHostile.name === 'creeper' && minDist < 4.5 ? 1.0 : 0.0;
-    } else if (targetPos) {
-      const dx = targetPos.x - bot.entity.position.x;
-      const dy = targetPos.y - bot.entity.position.y;
-      const dz = targetPos.z - bot.entity.position.z;
-      const dist = bot.entity.position.distanceTo(targetPos);
-      v[9] = Math.max(-1, Math.min(1, dx / 16.0));
-      v[10] = Math.max(-1, Math.min(1, dy / 8.0));
-      v[11] = Math.max(-1, Math.min(1, dz / 16.0));
-      v[12] = Math.min(1.0, dist / 32.0);
     }
+    // 13: Creeper fuse active
+    v[13] = nearestHostile && nearestHostile.name === 'creeper' && minDist < 4.5 ? 1.0 : 0.0;
 
     // 14: Equipped item in mainhand is sword
     const mainHand = bot.heldItem;
@@ -398,12 +398,14 @@ export class VLACompanionClient {
   public async predictActionChunk(
     intent: string,
     bot: Bot,
-    targetPos?: Vec3
+    targetPos?: Vec3,
+    explore?: boolean
   ): Promise<VLAMotorControls | null> {
     if (!bot?.entity) return null;
     const proprioception = this.extractProprioception(bot, targetPos);
     const voxels = this.extractLocalVoxels(bot);
     const entities = this.extractEntityRadar(bot);
+    const shouldExplore = explore ?? (process.env.NEURAL_MOTOR_EXPLORE === 'true');
 
     try {
       const controller = new AbortController();
@@ -418,6 +420,7 @@ export class VLACompanionClient {
           proprioception,
           voxels,
           entities,
+          explore: shouldExplore,
         }),
       });
       clearTimeout(timeout);
@@ -554,13 +557,32 @@ export class VLACompanionClient {
     chunk?: VLAMotorControls['action_chunk'],
     targetPos?: Vec3,
     maxTicks = 4,
-    options?: { allowItemDrop?: boolean; allowDig?: boolean }
-  ): Promise<void> {
-    if (!chunk || chunk.length === 0 || !bot?.entity) return;
+    options?: {
+      allowItemDrop?: boolean;
+      allowDig?: boolean;
+      allowAttack?: boolean;
+      allowUseItem?: boolean;
+      allowPlaceBlock?: boolean;
+      combatTarget?: any;
+      stopWhenNearPos?: { pos: Vec3; range: number };
+      abortSignal?: AbortSignal;
+      neuralAimOnly?: boolean;
+      onStrike?: () => void;
+      onBowRelease?: () => void;
+    }
+  ): Promise<{
+    executedTicks: number;
+    strikes: number;
+    bowReleases: number;
+    reachedTarget: boolean;
+  }> {
+    const emptyResult = { executedTicks: 0, strikes: 0, bowReleases: 0, reachedTarget: false };
+    if (!chunk || chunk.length === 0 || !bot?.entity) return emptyResult;
 
-    let baseYaw = bot.entity.yaw;
-    let basePitch = bot.entity.pitch;
-    if (targetPos) {
+    const useNeuralAimOnly = options?.neuralAimOnly ?? (process.env.NEURAL_MOTOR_CONTROL !== 'false');
+    let baseYaw = bot.entity.yaw || 0;
+    let basePitch = bot.entity.pitch || 0;
+    if (!useNeuralAimOnly && targetPos) {
       const dx = targetPos.x - bot.entity.position.x;
       const dy = targetPos.y + 1.0 - (bot.entity.position.y + 1.62);
       const dz = targetPos.z - bot.entity.position.z;
@@ -573,17 +595,42 @@ export class VLACompanionClient {
 
     const allowDig = options?.allowDig !== false;
     const allowItemDrop = options?.allowItemDrop === true;
+    const allowAttack = options?.allowAttack !== false;
+    const allowUseItem = options?.allowUseItem !== false;
+    const allowPlaceBlock = options?.allowPlaceBlock === true;
     let itemActivated = false;
+    let useTicks = 0;
+    let lastPlaceAt = 0;
+    let executedTicks = 0;
+    let strikes = 0;
+    let bowReleases = 0;
+    let reachedTarget = false;
 
     const slice = chunk.slice(0, Math.max(1, maxTicks));
     try {
       for (const step of slice) {
-        if (!bot.entity) break;
+        if (!bot.entity || options?.abortSignal?.aborted) break;
 
-        // 1. Aim adjustment (continuous camera aim relative to target-aligned orientation)
-        if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || targetPos) {
-          const clampedDyaw = Math.max(-25, Math.min(25, step.delta_yaw || 0));
-          const clampedDpitch = Math.max(-20, Math.min(20, step.delta_pitch || 0));
+        if (options?.stopWhenNearPos && bot.entity.position) {
+          const sp = options.stopWhenNearPos;
+          const hDist = Math.hypot(sp.pos.x - bot.entity.position.x, sp.pos.z - bot.entity.position.z);
+          const vDist = Math.abs(sp.pos.y - bot.entity.position.y);
+          if (hDist <= sp.range && vDist <= Math.max(1.8, sp.range)) {
+            reachedTarget = true;
+            break;
+          }
+        }
+
+        // 1. Aim adjustment relative to tick-0 camera frame under Phase B (or target frame under legacy mode)
+        if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || (!useNeuralAimOnly && targetPos)) {
+          const rawDyaw = Number.isFinite(step.delta_yaw) ? step.delta_yaw : 0;
+          const rawDpitch = Number.isFinite(step.delta_pitch) ? step.delta_pitch : 0;
+          const clampedDyaw = useNeuralAimOnly
+            ? Math.max(-180, Math.min(180, rawDyaw))
+            : Math.max(-25, Math.min(25, rawDyaw));
+          const clampedDpitch = useNeuralAimOnly
+            ? Math.max(-90, Math.min(90, rawDpitch))
+            : Math.max(-20, Math.min(20, rawDpitch));
           const targetYaw = baseYaw + (clampedDyaw * Math.PI) / 180;
           const targetPitch = Math.max(
             -Math.PI / 2,
@@ -608,34 +655,85 @@ export class VLACompanionClient {
         bot.setControlState('sneak', step.sneak);
 
         // 3. Discrete motor actions
-        if (step.attack) {
+        if (allowAttack && step.attack) {
           try {
-            bot.swingArm('right');
-            const target = bot.nearestEntity(
-              (e: any) =>
-                e &&
-                e !== bot.entity &&
-                (e.type === 'hostile' || e.type === 'mob' || (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
-            );
-            if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
-              (bot as any)._lastAttackAt = Date.now();
-              bot.attack(target);
+            const nowMs = Date.now();
+            if (nowMs - ((bot as any)._lastAttackAt || 0) >= 450) {
+              bot.swingArm?.('right');
+              const preferred = options?.combatTarget;
+              const preferredValid =
+                preferred &&
+                preferred !== bot.entity &&
+                preferred.isValid !== false &&
+                preferred.position &&
+                bot.entity.position.distanceTo(preferred.position) < 3.5;
+              const target = preferredValid
+                ? preferred
+                : bot.nearestEntity?.(
+                    (e: any) =>
+                      e &&
+                      e !== bot.entity &&
+                      e.isValid !== false &&
+                      (e.type === 'hostile' ||
+                        e.type === 'mob' ||
+                        (e.type === 'player' && /opponent|dqn|rival|mirror/i.test(e.username || '')))
+                  );
+              if (target && bot.entity.position.distanceTo(target.position) < 3.5) {
+                if (itemActivated) {
+                  try {
+                    bot.deactivateItem?.();
+                  } catch {}
+                  itemActivated = false;
+                  useTicks = 0;
+                }
+                (bot as any)._lastAttackAt = nowMs;
+                bot.attack?.(target);
+                strikes++;
+                options?.onStrike?.();
+              }
             }
           } catch {}
         }
 
-        if (step.use_item) {
-          if (!itemActivated) {
+        if (allowUseItem && step.use_item) {
+          useTicks++;
+          const heldName = String(bot.heldItem?.name || '').toLowerCase();
+          const isBridgeBlock = /^(cobblestone|stone|oak_planks|spruce_planks|birch_planks|jungle_planks|acacia_planks|dark_oak_planks|dirt|sandstone|netherrack)$/.test(heldName);
+          if (allowPlaceBlock && isBridgeBlock && typeof (bot as any).blockAtCursor === 'function' && typeof (bot as any).placeBlock === 'function') {
+            const nowMs = Date.now();
+            if (nowMs - lastPlaceAt >= 200) {
+              try {
+                const refBlock = (bot as any).blockAtCursor(4.5);
+                if (refBlock && refBlock.name !== 'air' && refBlock.boundingBox === 'block') {
+                  lastPlaceAt = nowMs;
+                  void (bot as any).placeBlock(refBlock, new Vec3(0, 1, 0)).catch(() => {});
+                }
+              } catch {}
+            }
+          } else if (!itemActivated) {
             try {
-              bot.activateItem();
+              const offHand = (bot.inventory as any)?.slots?.[45];
+              const useOffHandShield = Boolean(
+                offHand?.name?.includes('shield') &&
+                  !/(bow|sword|apple|beef|bread|carrot|potion|milk|bucket)/i.test(heldName)
+              );
+              bot.activateItem?.(useOffHandShield);
               itemActivated = true;
             } catch {}
           }
         } else if (itemActivated) {
+          const heldName = String(bot.heldItem?.name || '').toLowerCase();
           try {
-            bot.deactivateItem();
+            bot.deactivateItem?.();
           } catch {}
+          if (heldName.includes('bow') && useTicks >= 3) {
+            bowReleases++;
+            options?.onBowRelease?.();
+          }
           itemActivated = false;
+          useTicks = 0;
+        } else {
+          useTicks = 0;
         }
 
         if (allowDig && step.dig_block) {
@@ -660,20 +758,22 @@ export class VLACompanionClient {
           } catch {}
         }
 
+        executedTicks++;
         // 20Hz tick timing (50ms)
         await new Promise((r) => setTimeout(r, 50));
       }
     } finally {
       if (itemActivated) {
         try {
-          bot.deactivateItem();
+          bot.deactivateItem?.();
         } catch {}
       }
       if (!targetPos) {
         try {
-          bot.clearControlStates();
+          bot.clearControlStates?.();
         } catch {}
       }
     }
+    return { executedTicks, strikes, bowReleases, reachedTarget };
   }
 }

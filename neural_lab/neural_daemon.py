@@ -819,16 +819,23 @@ class NeuralStackServer:
             else:
                 latent_h[:, 224:256] += 1.0
 
-        proprio_tensor = torch.tensor(proprio_list, dtype=torch.float32, device=self.device)
+        proprio_tensor = torch.nan_to_num(
+            torch.tensor(proprio_list, dtype=torch.float32, device=self.device),
+            nan=0.0, posinf=1.0, neginf=-1.0,
+        )
         voxel_tensor = None
         if isinstance(voxels_list, list) and len(voxels_list) == 3375:
             voxel_tensor = torch.tensor(voxels_list, dtype=torch.long, device=self.device).view(1, 15, 15, 15)
         entity_tensor = None
         if isinstance(entities_list, list) and len(entities_list) == 16:
-            entity_tensor = torch.tensor(entities_list, dtype=torch.float32, device=self.device).view(1, 16, 12)
+            entity_tensor = torch.nan_to_num(
+                torch.tensor(entities_list, dtype=torch.float32, device=self.device).view(1, 16, 12),
+                nan=0.0, posinf=1.0, neginf=-1.0,
+            )
 
+        explore = bool(data.get("explore", os.environ.get("NEURAL_MOTOR_EXPLORE", "false").lower() == "true"))
         motor_controls = self.action_head.predict_action_dict(
-            latent_h, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor
+            latent_h, proprio_tensor, voxels=voxel_tensor, entities=entity_tensor, explore=explore
         )
         dt_ms = (time.perf_counter() - t0) * 1000.0
 

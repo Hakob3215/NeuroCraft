@@ -555,23 +555,37 @@ def train_action_transformer(
     real_limit = 0 if num_motor_chunks >= 1200 else (500 if num_motor_chunks >= 400 else 1500)
     real_ds = load_real_transitions_dataset(max_samples=real_limit, device=str(device)) if real_limit > 0 else None
     num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
-    if num_motor_chunks >= 200:
+    if num_motor_chunks >= 1000:
+        num_synth = 0
+    elif num_motor_chunks >= 200:
         num_synth = max(200, 1200 - num_motor_chunks)
     else:
         num_synth = max(800, 4000 - num_real - num_motor_chunks)
     print(
-        f"[Action Head] Generating {num_synth:,} annealed synthetic + {num_real:,} real Mojang transitions "
+        f"[Action Head] Loading {num_synth:,} annealed synthetic + {num_real:,} real Mojang transitions "
         f"+ {num_motor_chunks:,} real 20Hz SLM-latent motor chunks..."
     )
-    ds = list(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)))
+    if num_synth > 0:
+        ds = list(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)))
+    else:
+        ds = None
     if real_ds is not None:
         print(f"[Action Head] Appended {num_real} reward-weighted real server transition trajectories!")
-        for idx in range(len(ds)):
-            ds[idx] = torch.cat([ds[idx], real_ds[idx]], dim=0)
+        if ds is None:
+            ds = list(real_ds)
+        else:
+            for idx in range(len(ds)):
+                ds[idx] = torch.cat([ds[idx], real_ds[idx]], dim=0)
     if motor_chunks_ds is not None:
         print(f"[Action Head] Appended {num_motor_chunks} real-latent 20Hz motor chunks (real_motor_chunks.jsonl)!")
-        for idx in range(len(ds)):
-            ds[idx] = torch.cat([ds[idx], motor_chunks_ds[idx]], dim=0)
+        if ds is None:
+            ds = list(motor_chunks_ds)
+        else:
+            for idx in range(len(ds)):
+                ds[idx] = torch.cat([ds[idx], motor_chunks_ds[idx]], dim=0)
+    if ds is None:
+        ds = list(generate_temporal_action_dataset(num_samples=800, device=str(device)))
+        num_synth = 800
 
     dataset = TensorDataset(*ds)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
@@ -617,8 +631,15 @@ def train_action_transformer(
             pred_gate_logit = out["tool_gate_logit"]
             pred_val = out["value"]
 
-            w_actor = b_w.to(dtype=dtype)
-            w_actor_f32 = b_w.float()
+            # Advantage-Weighted Regression (AWR) using detached Critic baseline V(s)
+            adv = (b_val.float() - pred_val.detach().float()).clamp(-1.0, 2.0)
+            awr_mult = torch.exp(adv * 1.5).clamp(0.25, 3.0)
+            w_actor_f32 = b_w.float() * awr_mult
+            pos_mask = w_actor_f32 > 0
+            if pos_mask.any():
+                w_actor_f32 = w_actor_f32 / w_actor_f32[pos_mask].mean().clamp(min=1e-4)
+            w_actor = w_actor_f32.to(dtype=dtype)
+
             loss_aim = (F.mse_loss(pred_aim, b_aim.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 0.001
             loss_move = (F.mse_loss(pred_move, b_move.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.0
             loss_disc = (F.binary_cross_entropy_with_logits(pred_discrete_logits, b_disc.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.5
@@ -626,8 +647,13 @@ def train_action_transformer(
             loss_tool = (F.cross_entropy(pred_tool_logits.float(), b_tool, reduction="none") * w_actor_f32).mean() * 0.75
             loss_gate = (F.binary_cross_entropy_with_logits(pred_gate_logit, b_gate.to(dtype), reduction="none") * w_actor).mean() * 0.5
             loss_val = criterion_mse(pred_val, b_val.to(dtype)) * 0.5
+            disc_p = torch.sigmoid(pred_discrete_logits.float()).clamp(1e-5, 1.0 - 1e-5)
+            disc_ent = -(disc_p * torch.log(disc_p) + (1.0 - disc_p) * torch.log(1.0 - disc_p)).mean()
+            loss_ent = (-0.01 * disc_ent).to(dtype=loss_disc.dtype)
 
-            total_loss = loss_aim + loss_move + loss_disc + loss_ext + loss_tool + loss_gate + loss_val
+            total_loss = loss_aim + loss_move + loss_disc + loss_ext + loss_tool + loss_gate + loss_val + loss_ent
+            if not torch.isfinite(total_loss):
+                continue
             total_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
@@ -684,6 +710,8 @@ def train_action_transformer(
         "aim_error_deg": round(avg_aim_deg, 2),
         "realTransitionsLoaded": num_real,
         "realMotorChunksLoaded": num_motor_chunks,
+        "synthSamplesUsed": num_synth,
+        "awr_rl_enabled": True,
         "peak_vram_mb": round(peak_vram, 1),
         "training_time_s": round(total_time, 2),
         "checkpoint_path": str(ckpt_path),

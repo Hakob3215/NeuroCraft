@@ -2142,8 +2142,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               if (stepLatentH && preRlState) {
                 const startYaw = bot.entity?.yaw || 0;
                 const startPitch = bot.entity?.pitch || 0;
+                const activeTargetInit = worker.system1.getActiveMotorTarget?.() || undefined;
                 const initProprio24 =
-                  worker.system1.vlaClient?.extractProprioception?.(bot) || new Array(24).fill(0);
+                  worker.system1.vlaClient?.extractProprioception?.(bot, activeTargetInit) || new Array(24).fill(0);
                 activeChunkPre = {
                   voxels: preRlState.voxels,
                   entities: preRlState.entities,
@@ -2163,7 +2164,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                     if (!activeChunkPre) {
                       const s = sampleLiveRLTransitionState(worker.system1);
                       if (!s) return;
-                      const p24 = worker.system1.vlaClient?.extractProprioception?.(bot) || new Array(24).fill(0);
+                      const activeTargetTick = worker.system1.getActiveMotorTarget?.() || undefined;
+                      const p24 = worker.system1.vlaClient?.extractProprioception?.(bot, activeTargetTick) || new Array(24).fill(0);
                       activeChunkPre = {
                         voxels: s.voxels,
                         entities: s.entities,

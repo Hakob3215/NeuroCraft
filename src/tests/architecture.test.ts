@@ -5218,6 +5218,109 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('83. Phase B neural motor control uses tick-0 aim frame, prioritizes targetPos in proprio24, supports explore & AWR RL cleanly', async () => {
+  const { execFileSync } = require('child_process');
+  const { VLACompanionClient } = require('../system2/vlaClient');
+  const client = new VLACompanionClient('http://127.0.0.1:8765');
+
+  const lookAngles: Array<{ yaw: number; pitch: number }> = [];
+  let strikeCount = 0;
+  let bowReleaseCount = 0;
+  let deactivateCalls = 0;
+  const mockHostile: any = {
+    name: 'zombie',
+    type: 'hostile',
+    isValid: true,
+    position: new Vec3(2, 64, 0),
+  };
+  const mockBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 1.0, pitch: 0.2, onGround: true, velocity: new Vec3(0, 0, 0) },
+    heldItem: { type: 261, name: 'bow', count: 1 },
+    inventory: { slots: {} },
+    entities: { e1: mockHostile },
+    look: async (yaw: number, pitch: number) => {
+      lookAngles.push({ yaw, pitch });
+    },
+    setControlState: () => {},
+    clearControlStates: () => {},
+    swingArm: () => {},
+    attack: () => {},
+    activateItem: () => {},
+    deactivateItem: () => {
+      deactivateCalls++;
+    },
+  };
+
+  // Even when a hostile is closer, targetPos takes precedence in proprioception slots 9..12
+  const targetPos = new Vec3(0, 64, 16);
+  const prop = client.extractProprioception(mockBot, targetPos);
+  assert.ok(Math.abs(prop[9]) < 1e-6 && Math.abs(prop[11] - 1.0) < 1e-6 && Math.abs(prop[12] - 0.5) < 1e-6, 'targetPos must populate proprio24[9..12]');
+
+  // neuralAimOnly=true applies delta_yaw relative to tick-0 yaw (1.0 rad), NOT atan2 toward targetPos (0 rad)
+  const bowRes = await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 18, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 18, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: false, swap_slot: false },
+    ],
+    targetPos,
+    4,
+    { neuralAimOnly: true, onBowRelease: () => { bowReleaseCount++; } }
+  );
+  assert.equal(bowRes.bowReleases, 1);
+  assert.equal(bowReleaseCount, 1);
+  assert.ok(Math.abs(lookAngles[1].yaw - (1.0 + (18 * Math.PI) / 180)) < 0.02, 'neuralAimOnly must offset from tick-0 yaw');
+
+  // Attack + stopWhenNearPos early exit
+  mockBot.heldItem = { type: 267, name: 'iron_sword', count: 1 };
+  const atkRes = await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: false, sprint: true, sneak: false, attack: true, use_item: false, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: false, sprint: true, sneak: false, attack: true, use_item: false, swap_slot: false },
+    ],
+    targetPos,
+    2,
+    {
+      neuralAimOnly: true,
+      combatTarget: mockHostile,
+      stopWhenNearPos: { pos: new Vec3(0, 64, 0.5), range: 1.0 },
+      onStrike: () => { strikeCount++; },
+    }
+  );
+  assert.equal(atkRes.reachedTarget, true, 'stopWhenNearPos must exit early on arrival');
+  assert.equal(strikeCount, 0);
+  assert.ok(deactivateCalls >= 1);
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import math, sys, torch
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+from neural_lab.action_head import MinecraftActionHead
+import neural_lab.train_action_head as tah
+
+head = MinecraftActionHead(hidden_dim=64, num_layers=1, num_heads=4)
+h = torch.zeros(1, 1536)
+p = torch.zeros(1, 24)
+d1 = head.predict_action_dict(h, p, explore=True)
+d2 = head.predict_action_dict(h, p, explore=True)
+assert math.isfinite(d1["delta_yaw"]) and math.isfinite(d1["vx"]) and len(d1["action_chunk"]) == 8
+assert any(d1["action_chunk"][k]["delta_yaw"] != d2["action_chunk"][k]["delta_yaw"] for k in range(8))
+
+b_val = torch.tensor([0.9, 0.1])
+pred_val = torch.tensor([0.3, 0.5])
+b_w = torch.tensor([1.5, 0.0])
+adv = (b_val - pred_val).clamp(-1.0, 2.0)
+w = b_w * torch.exp(adv * 1.5).clamp(0.25, 3.0)
+assert torch.isfinite(w).all() and w[1].item() == 0.0 and w[0].item() > 0.0
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 

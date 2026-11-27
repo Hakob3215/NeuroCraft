@@ -174,6 +174,19 @@ export interface MCPToolExecutionContext {
     strikeTarget: (entity: any) => Promise<boolean>;
     equipItemHumanized: (itemName: string, destination?: 'hand' | 'off-hand' | 'head' | 'torso' | 'legs' | 'feet') => Promise<boolean>;
     executeNeuralMotorChunk?: (prompt: string, targetPos?: Vec3, maxTicks?: number) => Promise<boolean>;
+    setActiveMotorTarget?: (targetPos: Vec3 | null) => void;
+    executeNeuralMotorStep?: (
+      prompt: string,
+      targetPos?: Vec3,
+      maxTicks?: number,
+      options?: any
+    ) => Promise<{
+      executed: boolean;
+      executedTicks: number;
+      strikes: number;
+      bowReleases: number;
+      reachedTarget: boolean;
+    }>;
   };
   world?: {
     getGroundHeight: (x: number, z: number, startY?: number) => number;

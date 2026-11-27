@@ -256,7 +256,16 @@ export class System1BotController {
   private cachedTerrainContext: TerrainContext | undefined = undefined;
   private lastBlockScanTick = -100;
   private lastBlockScanPos: Vec3 | null = null;
+  private activeMotorTargetPos: Vec3 | null = null;
   private disconnectHandlers: Array<(reason: string) => void> = [];
+
+  public setActiveMotorTarget(targetPos: Vec3 | null): void {
+    this.activeMotorTargetPos = targetPos ? targetPos.clone() : null;
+  }
+
+  public getActiveMotorTarget(): Vec3 | null {
+    return this.activeMotorTargetPos;
+  }
 
   public invalidatePerceptionCache(): void {
     this.lastBlockScanTick = -999;
@@ -986,6 +995,10 @@ export class System1BotController {
           this.inventory.equipItemHumanized(itemName, dest),
         executeNeuralMotorChunk: (prompt: string, targetPos?: Vec3, maxTicks?: number) =>
           this.executeNeuralMotorChunk(prompt, targetPos, maxTicks),
+        setActiveMotorTarget: (targetPos: Vec3 | null) =>
+          this.setActiveMotorTarget(targetPos),
+        executeNeuralMotorStep: (prompt: string, targetPos?: Vec3, maxTicks?: number, options?: any) =>
+          this.executeNeuralMotorStep(prompt, targetPos, maxTicks, options),
       },
       world: {
         getGroundHeight: (x: number, z: number, startY?: number) =>
@@ -1022,108 +1035,163 @@ export class System1BotController {
 
     // Ensure pathfinder goal is cleared so pathfinder does not hijack control
     this.bot.pathfinder?.setGoal(null);
+    this.setActiveMotorTarget(target);
 
     const start = Date.now();
     let lastPos = this.bot.entity.position.clone();
     let lastActiveTime = Date.now();
-    let lastChunkTime = 0;
     let stuckTicks = 0;
     let reached = false;
+    const useNeuralMotor = process.env.NEURAL_MOTOR_CONTROL !== 'false';
 
-    while (Date.now() - start < timeoutMs) {
-      if (abortSignal?.aborted || !this.bot?.entity?.position) break;
+    try {
+      while (Date.now() - start < timeoutMs) {
+        if (abortSignal?.aborted || !this.bot?.entity?.position) break;
 
-      const botPos = this.bot.entity.position;
-      const dx = target.x - botPos.x;
-      const dy = target.y - botPos.y;
-      const dz = target.z - botPos.z;
-      const horizontalDist = Math.hypot(dx, dz);
+        const botPos = this.bot.entity.position;
+        const dx = target.x - botPos.x;
+        const dy = target.y - botPos.y;
+        const dz = target.z - botPos.z;
+        const horizontalDist = Math.hypot(dx, dz);
 
-      // Arrival condition: within target range horizontally and vertically
-      if (horizontalDist <= range && Math.abs(dy) <= Math.max(1.8, range)) {
-        reached = true;
-        break;
-      }
-
-      // 1. Camera Aim Deltas & Crosshair Locking (System 1 20Hz continuous look)
-      const targetYaw = Math.atan2(-dx, -dz);
-      const targetPitch = Math.atan2(dy, Math.max(0.1, horizontalDist));
-      try {
-        await this.bot.look(targetYaw, targetPitch, true);
-      } catch {}
-
-      // 2. Continuous Planar Velocity (vx, vz)
-      this.bot.setControlState('forward', horizontalDist > 0.4);
-      this.bot.setControlState('sprint', horizontalDist > 3.0);
-
-      // 3. Obstacle Hop, Parkour Gap Jump & Sprint-Jumping (System 1 Sub-Tick Voxel Reflex)
-      const forwardDir = new Vec3(-Math.sin(targetYaw), 0, -Math.cos(targetYaw));
-      const frontFootPos = botPos.plus(forwardDir.scaled(0.85)).floored();
-      const blockAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos) : null;
-      const blockAbove = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, 1, 0)) : null;
-      const blockBelowAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -1, 0)) : null;
-      const blockBelowAhead2 = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -2, 0)) : null;
-      const hasObstacleAhead =
-        (blockAhead && blockAhead.boundingBox === 'block' && (!blockAbove || blockAbove.boundingBox !== 'block')) ||
-        Boolean(this.bot.entity.isCollidedHorizontally);
-      const isGapAhead =
-        (!blockAhead || blockAhead.boundingBox !== 'block') &&
-        (!blockBelowAhead || blockBelowAhead.boundingBox !== 'block') &&
-        (!blockBelowAhead2 || blockBelowAhead2.boundingBox !== 'block') &&
-        target.y >= botPos.y - 1.2 &&
-        horizontalDist > 1.2;
-
-      if (isGapAhead && this.bot.entity.onGround) {
-        this.bot.setControlState('sprint', true);
-        this.bot.setControlState('jump', true);
-      } else if (hasObstacleAhead && this.bot.entity.onGround) {
-        this.bot.setControlState('jump', true);
-      } else {
-        this.bot.setControlState('jump', false);
-      }
-
-      // 4. Action Chunk Execution via 80.8M Temporal Action Chunking Transformer
-      // Query lock-free /act/chunk every >= 400ms (8 ticks) to tighten continuous motor trajectory
-      if (this.vlaClient && Date.now() - lastChunkTime >= 400 && horizontalDist > 1.5) {
-        lastChunkTime = Date.now();
-        try {
-          await this.executeNeuralMotorChunk(
-            `Navigate towards target at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
-            target,
-            2,
-            { allowItemDrop: false, allowDig: false }
-          );
-        } catch {}
-      }
-
-      // Check movement progress to prevent infinite loops
-      const distFromLast = this.bot.entity.position.distanceTo(lastPos);
-      if (distFromLast > 0.08) {
-        lastActiveTime = Date.now();
-        lastPos = this.bot.entity.position.clone();
-        stuckTicks = 0;
-      } else {
-        stuckTicks++;
-        if (stuckTicks > 4 && this.bot.entity.onGround) {
-          this.bot.setControlState('jump', true);
-        }
-        if (Date.now() - lastActiveTime > 2500) {
+        // Arrival condition: within target range horizontally and vertically
+        if (horizontalDist <= range && Math.abs(dy) <= Math.max(1.8, range)) {
+          reached = true;
           break;
         }
+
+        if (useNeuralMotor && this.vlaClient) {
+          const res = await this.executeNeuralMotorStep(
+            `Navigate towards target at (${target.x.toFixed(1)}, ${target.y.toFixed(1)}, ${target.z.toFixed(1)})`,
+            target,
+            8,
+            {
+              allowItemDrop: false,
+              allowDig: false,
+              allowAttack: false,
+              allowUseItem: false,
+              neuralAimOnly: true,
+              stopWhenNearPos: { pos: target, range },
+              abortSignal,
+            }
+          );
+          if (res.executed) {
+            if (res.reachedTarget) {
+              reached = true;
+              break;
+            }
+            const distFromLast = this.bot.entity?.position ? this.bot.entity.position.distanceTo(lastPos) : 0;
+            if (distFromLast > 0.08) {
+              lastActiveTime = Date.now();
+              lastPos = this.bot.entity.position.clone();
+              stuckTicks = 0;
+            } else if (Date.now() - lastActiveTime > 3000) {
+              break;
+            }
+            continue;
+          }
+        }
+
+        // Offline / unit-test fallback steering when Neural Daemon is unavailable
+        const targetYaw = Math.atan2(-dx, -dz);
+        const targetPitch = Math.atan2(dy, Math.max(0.1, horizontalDist));
+        try {
+          await this.bot.look(targetYaw, targetPitch, true);
+        } catch {}
+
+        this.bot.setControlState('forward', horizontalDist > 0.4);
+        this.bot.setControlState('sprint', horizontalDist > 3.0);
+
+        const forwardDir = new Vec3(-Math.sin(targetYaw), 0, -Math.cos(targetYaw));
+        const frontFootPos = botPos.plus(forwardDir.scaled(0.85)).floored();
+        const blockAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos) : null;
+        const blockAbove = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, 1, 0)) : null;
+        const blockBelowAhead = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -1, 0)) : null;
+        const blockBelowAhead2 = this.bot.blockAt ? this.bot.blockAt(frontFootPos.offset(0, -2, 0)) : null;
+        const hasObstacleAhead =
+          (blockAhead && blockAhead.boundingBox === 'block' && (!blockAbove || blockAbove.boundingBox !== 'block')) ||
+          Boolean(this.bot.entity.isCollidedHorizontally);
+        const isGapAhead =
+          (!blockAhead || blockAhead.boundingBox !== 'block') &&
+          (!blockBelowAhead || blockBelowAhead.boundingBox !== 'block') &&
+          (!blockBelowAhead2 || blockBelowAhead2.boundingBox !== 'block') &&
+          target.y >= botPos.y - 1.2 &&
+          horizontalDist > 1.2;
+
+        if (isGapAhead && this.bot.entity.onGround) {
+          this.bot.setControlState('sprint', true);
+          this.bot.setControlState('jump', true);
+        } else if (hasObstacleAhead && this.bot.entity.onGround) {
+          this.bot.setControlState('jump', true);
+        } else {
+          this.bot.setControlState('jump', false);
+        }
+
+        const distFromLast = this.bot.entity.position.distanceTo(lastPos);
+        if (distFromLast > 0.08) {
+          lastActiveTime = Date.now();
+          lastPos = this.bot.entity.position.clone();
+          stuckTicks = 0;
+        } else {
+          stuckTicks++;
+          if (stuckTicks > 4 && this.bot.entity.onGround) {
+            this.bot.setControlState('jump', true);
+          }
+          if (Date.now() - lastActiveTime > 2500) {
+            break;
+          }
+        }
+
+        // 20Hz server physics tick rate (50ms)
+        await new Promise((r) => setTimeout(r, 50));
       }
-
-      // 20Hz server physics tick rate (50ms)
-      await new Promise((r) => setTimeout(r, 50));
+    } finally {
+      this.setActiveMotorTarget(null);
+      this.bot.pathfinder?.setGoal(null);
+      this.bot.clearControlStates?.();
     }
-
-    // Clean up motor controls on completion
-    this.bot.pathfinder?.setGoal(null);
-    this.bot.clearControlStates?.();
 
     if (!this.bot?.entity?.position) return reached;
     const finalHoriz = Math.hypot(target.x - this.bot.entity.position.x, target.z - this.bot.entity.position.z);
     const finalDy = Math.abs(target.y - this.bot.entity.position.y);
     return reached || (finalHoriz <= range + 0.8 && finalDy <= Math.max(2.0, range + 0.8));
+  }
+
+  /**
+   * Executes up to `maxTicks` from the 211.4M Multi-Modal Action Transformer via /act/chunk
+   * and returns whether the neural daemon executed the chunk plus motor outcome counters.
+   */
+  public async executeNeuralMotorStep(
+    prompt: string,
+    targetPos?: Vec3,
+    maxTicks = 8,
+    options?: any
+  ): Promise<{
+    executed: boolean;
+    executedTicks: number;
+    strikes: number;
+    bowReleases: number;
+    reachedTarget: boolean;
+  }> {
+    if (!this.bot?.entity || !this.vlaClient) {
+      return { executed: false, executedTicks: 0, strikes: 0, bowReleases: 0, reachedTarget: false };
+    }
+    try {
+      const motorControls = await this.vlaClient.predictActionChunk(prompt, this.bot, targetPos);
+      if (motorControls?.action_chunk && motorControls.action_chunk.length > 0) {
+        const res = await this.vlaClient.executeMotorActionChunk(
+          this.bot,
+          motorControls.action_chunk,
+          targetPos,
+          maxTicks,
+          options
+        );
+        return { executed: true, ...res };
+      }
+      return { executed: false, executedTicks: 0, strikes: 0, bowReleases: 0, reachedTarget: false };
+    } catch {
+      return { executed: false, executedTicks: 0, strikes: 0, bowReleases: 0, reachedTarget: false };
+    }
   }
 
   /**
@@ -1136,23 +1204,8 @@ export class System1BotController {
     maxTicks = 2,
     options?: { allowItemDrop?: boolean; allowDig?: boolean }
   ): Promise<boolean> {
-    if (!this.bot?.entity) return false;
-    try {
-      const motorControls = await this.vlaClient.predictActionChunk(prompt, this.bot, targetPos);
-      if (motorControls?.action_chunk && motorControls.action_chunk.length > 0) {
-        await this.vlaClient.executeMotorActionChunk(
-          this.bot,
-          motorControls.action_chunk,
-          targetPos,
-          maxTicks,
-          options
-        );
-        return true;
-      }
-      return false;
-    } catch {
-      return false;
-    }
+    const res = await this.executeNeuralMotorStep(prompt, targetPos, maxTicks, options);
+    return res.executed;
   }
 
   /**

@@ -328,6 +328,9 @@ class MinecraftActionHead(nn.Module):
         voxels: Optional[torch.Tensor] = None,
         entities: Optional[torch.Tensor] = None,
         threshold: float = 0.5,
+        explore: bool = False,
+        aim_noise_std: float = 2.5,
+        move_noise_std: float = 0.08,
     ) -> Dict[str, Any]:
         """
         Inference helper returning clean Python primitives ready for Mineflayer bot,
@@ -336,58 +339,74 @@ class MinecraftActionHead(nn.Module):
         self.eval()
         with torch.no_grad():
             out = self.forward(latent_h, proprioception, voxels=voxels, entities=entities)
-            probs = out["discrete_probs"][0].tolist()
-            ext_probs_seq = out["trajectory_extended_probs"][0].tolist()
+            traj_aim_t = torch.nan_to_num(out["trajectory_aim"][0].float(), nan=0.0, posinf=0.0, neginf=0.0)
+            traj_move_t = torch.nan_to_num(out["trajectory_movement"][0].float(), nan=0.0, posinf=0.0, neginf=0.0)
+            traj_probs_t = torch.nan_to_num(out["trajectory_discrete_probs"][0].float(), nan=0.5, posinf=1.0, neginf=0.0)
+            ext_probs_t = torch.nan_to_num(out["trajectory_extended_probs"][0].float(), nan=0.0, posinf=1.0, neginf=0.0)
 
-            traj_aim = out["trajectory_aim"][0].tolist()
-            traj_move = out["trajectory_movement"][0].tolist()
-            traj_probs = out["trajectory_discrete_probs"][0].tolist()
+            if explore:
+                traj_aim_t = traj_aim_t + torch.randn_like(traj_aim_t) * aim_noise_std
+                traj_aim_t[:, 0] = traj_aim_t[:, 0].clamp(-180.0, 180.0)
+                traj_aim_t[:, 1] = traj_aim_t[:, 1].clamp(-90.0, 90.0)
+                traj_move_t = (traj_move_t + torch.randn_like(traj_move_t) * move_noise_std).clamp(-1.0, 1.0)
+                disc_sampled = torch.bernoulli(traj_probs_t.clamp(0.02, 0.98)) >= 0.5
+                ext_sampled = torch.bernoulli(ext_probs_t.clamp(0.02, 0.98)) >= 0.5
+            else:
+                disc_sampled = traj_probs_t >= threshold
+                ext_sampled = ext_probs_t >= threshold
+
+            traj_aim = traj_aim_t.tolist()
+            traj_move = traj_move_t.tolist()
+            disc_bools = disc_sampled.tolist()
+            ext_bools = ext_sampled.tolist()
 
             action_chunk: List[Dict[str, Any]] = []
             for k in range(self.chunk_size):
-                p_k = traj_probs[k]
-                ep_k = ext_probs_seq[k]
+                d_k = disc_bools[k]
+                e_k = ext_bools[k]
                 action_chunk.append({
                     "tick": k,
                     "delta_yaw": round(traj_aim[k][0], 2),
                     "delta_pitch": round(traj_aim[k][1], 2),
                     "vx": round(traj_move[k][0], 3),
                     "vz": round(traj_move[k][1], 3),
-                    "jump": bool(p_k[0] >= threshold),
-                    "sprint": bool(p_k[1] >= threshold),
-                    "sneak": bool(p_k[2] >= threshold),
-                    "attack": bool(p_k[3] >= threshold),
-                    "use_item": bool(p_k[4] >= threshold),
-                    "swap_slot": bool(p_k[5] >= threshold),
-                    "dig_block": bool(ep_k[0] >= threshold),
-                    "drop_item": bool(ep_k[1] >= threshold),
+                    "jump": bool(d_k[0]),
+                    "sprint": bool(d_k[1]),
+                    "sneak": bool(d_k[2]),
+                    "attack": bool(d_k[3]),
+                    "use_item": bool(d_k[4]),
+                    "swap_slot": bool(d_k[5]),
+                    "dig_block": bool(e_k[0]),
+                    "drop_item": bool(e_k[1]),
                 })
 
-            tool_probs = out["tool_probs"][0]
+            tool_probs = torch.nan_to_num(out["tool_probs"][0].float(), nan=0.0, posinf=0.0, neginf=0.0)
             top_tool_idx = int(torch.argmax(tool_probs).item())
             top_tool_name = CANONICAL_MOTOR_TOOLS[top_tool_idx] if top_tool_idx < len(CANONICAL_MOTOR_TOOLS) else "none"
             top_tool_conf = float(tool_probs[top_tool_idx].item())
-            tool_gate_prob = float(out["tool_gate_prob"][0].item())
-            subgoal_probs = out["subgoal_probs"][0].tolist()
+            tool_gate_prob = float(torch.nan_to_num(out["tool_gate_prob"][0].float(), nan=0.0).item())
+            subgoal_probs = torch.nan_to_num(out["subgoal_probs"][0].float(), nan=0.0).tolist()
+            state_value = float(torch.nan_to_num(out["value"][0].float(), nan=0.0).item())
+            t0_chunk = action_chunk[0]
 
             return {
-                "delta_yaw": round(float(out["delta_yaw"][0].item()), 2),
-                "delta_pitch": round(float(out["delta_pitch"][0].item()), 2),
-                "vx": round(float(out["vx"][0].item()), 3),
-                "vz": round(float(out["vz"][0].item()), 3),
-                "jump": bool(probs[0] >= threshold),
-                "sprint": bool(probs[1] >= threshold),
-                "sneak": bool(probs[2] >= threshold),
-                "attack": bool(probs[3] >= threshold),
-                "use_item": bool(probs[4] >= threshold),
-                "swap_slot": bool(probs[5] >= threshold),
-                "dig_block": bool(ext_probs_seq[0][0] >= threshold),
-                "drop_item": bool(ext_probs_seq[0][1] >= threshold),
+                "delta_yaw": t0_chunk["delta_yaw"],
+                "delta_pitch": t0_chunk["delta_pitch"],
+                "vx": t0_chunk["vx"],
+                "vz": t0_chunk["vz"],
+                "jump": t0_chunk["jump"],
+                "sprint": t0_chunk["sprint"],
+                "sneak": t0_chunk["sneak"],
+                "attack": t0_chunk["attack"],
+                "use_item": t0_chunk["use_item"],
+                "swap_slot": t0_chunk["swap_slot"],
+                "dig_block": t0_chunk["dig_block"],
+                "drop_item": t0_chunk["drop_item"],
                 "recommended_tool": top_tool_name,
                 "recommended_tool_confidence": round(top_tool_conf, 3),
                 "should_invoke_tool": bool(tool_gate_prob >= threshold and top_tool_name != "none"),
                 "subgoal_completed": bool(subgoal_probs[0] >= threshold),
                 "should_replan": bool(subgoal_probs[1] >= threshold),
-                "state_value": round(float(out["value"][0].item()), 3),
+                "state_value": round(state_value, 3),
                 "action_chunk": action_chunk,
             }

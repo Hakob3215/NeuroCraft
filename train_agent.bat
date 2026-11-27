@@ -29,6 +29,8 @@ rem Enable stochastic temperature sampling for active reinforcement learning exp
 if not defined SLM_TEMPERATURE set SLM_TEMPERATURE=0.7
 if not defined SLM_TOP_P set SLM_TOP_P=0.9
 if not defined SLM_DO_SAMPLE set SLM_DO_SAMPLE=true
+if not defined NEURAL_MOTOR_CONTROL set NEURAL_MOTOR_CONTROL=true
+if not defined NEURAL_MOTOR_EXPLORE set NEURAL_MOTOR_EXPLORE=true
 
 set "CONCURRENCY_ARG="
 if defined CONCURRENCY (
