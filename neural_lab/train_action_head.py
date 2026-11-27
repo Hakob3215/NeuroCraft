@@ -680,7 +680,7 @@ def train_action_transformer(
         try:
             model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True), strict=False)
             model.to(device=device, dtype=dtype)
-            effective_lr = min(lr, 1e-4)
+            effective_lr = min(lr, 5e-5)
             print(f"[Action Head] Resumed existing weights from {ckpt_path} (fine-tune lr={effective_lr:.1e})")
         except Exception as e:
             print(f"[Action Head] Could not resume checkpoint ({e}); starting from scratch.")

@@ -760,6 +760,7 @@ export class VLACompanionClient {
           } catch {}
           if (heldName.includes('bow') && useTicks >= 3) {
             bowReleases++;
+            (bot as any)._bowReleaseCount = Number((bot as any)._bowReleaseCount || 0) + 1;
             options?.onBowRelease?.();
           }
           itemActivated = false;

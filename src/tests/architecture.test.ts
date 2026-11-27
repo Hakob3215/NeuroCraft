@@ -5476,12 +5476,14 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
-test('84. Universal 400ms physics chunk reward, stratified motor gold bank, and signed Clipped PPO on MinecraftActionHead', () => {
+test('84. Universal 400ms physics chunk reward, stratified motor gold bank, and signed Clipped PPO on MinecraftActionHead', async () => {
   const { execFileSync } = require('child_process');
   const os = require('os');
+  const { VLACompanionClient } = require('../system2/vlaClient');
   const {
     computeUniversalChunkReward,
     assignDiscountedChunkReturns,
+    selectStepChunksChronologically,
     updateStratifiedMotorGoldBank,
   } = require('../../minebench/dist/minebench/train_loop');
 
@@ -5535,10 +5537,50 @@ test('84. Universal 400ms physics chunk reward, stratified motor gold bank, and 
   );
   assert.ok(rBowAlign > 0.8, `shoot_bow aim+fire must give positive reward, got ${rBowAlign}`);
 
-  // 2. Discounted chunk returns propagate backward with gamma=0.95
+  // 2. Discounted chunk returns propagate backward with gamma=0.95 & chronological selection preserves order
+  const pendingChrono = [
+    { id: 0, discreteTargets: [[0, 0, 0, 0, 0, 0]], chunkReward: 0.1 },
+    { id: 1, discreteTargets: [[0, 0, 0, 0, 0, 0]], chunkReward: 0.2 },
+    { id: 2, discreteTargets: [[0, 0, 0, 1, 0, 0]], chunkReward: 1.5 },
+    { id: 3, discreteTargets: [[0, 0, 0, 0, 1, 0]], chunkReward: 1.2 },
+    { id: 4, discreteTargets: [[0, 0, 0, 0, 0, 0]], chunkReward: 0.0 },
+  ];
+  const pickedChrono = selectStepChunksChronologically(pendingChrono, 4);
+  assert.deepEqual(
+    pickedChrono.map((c: any) => c.id),
+    [0, 1, 2, 3],
+    'selectStepChunksChronologically must keep selected chunks in ascending chronological order'
+  );
   const stepChunks: any[] = [{ chunkReward: 1.0 }, { chunkReward: 0.5 }];
   assignDiscountedChunkReturns(stepChunks, 20, 40, true, true, 0.95);
   assert.ok(stepChunks[0].chunkReturn > stepChunks[1].chunkReturn * 0.9, 'Earlier chunk must inherit discounted return');
+
+  // Verify live _bowReleaseCount counter increments mid-step during bow release in executeMotorActionChunk
+  const bowClient = new VLACompanionClient();
+  const mockBowBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 0, pitch: 0, onGround: true, velocity: new Vec3(0, 0, 0) },
+    heldItem: { type: 261, name: 'bow', count: 1 },
+    inventory: { slots: {} },
+    look: async () => {},
+    setControlState: () => {},
+    clearControlStates: () => {},
+    activateItem: () => {},
+    deactivateItem: () => {},
+    _bowReleaseCount: 0,
+  };
+  await bowClient.executeMotorActionChunk(
+    mockBowBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: false, swap_slot: false },
+    ],
+    new Vec3(0, 64, -10),
+    4,
+    { neuralAimOnly: true }
+  );
+  assert.equal(mockBowBot._bowReleaseCount, 1, 'executeMotorActionChunk must increment live _bowReleaseCount on bow fire');
 
   // 3. Stratified motor gold reservoir caps eat_food without evicting engage_combat or shoot_bow
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-gold-'));

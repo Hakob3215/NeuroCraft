@@ -82,6 +82,23 @@ export function assignDiscountedChunkReturns(
   return chunks;
 }
 
+export function selectStepChunksChronologically(pendingChunks: any[], maxChunks: number = 4): any[] {
+  if (!pendingChunks || pendingChunks.length === 0) return [];
+  const hasMotorSignal = (mc: any): boolean =>
+    Boolean(
+      mc?.discreteTargets?.some((d: number[]) => d[3] > 0 || d[4] > 0 || d[5] > 0) ||
+        mc?.extendedTargets?.some((e: number[]) => e[0] > 0 || e[1] > 0) ||
+        Math.abs(Number(mc?.chunkReward ?? 0)) >= 0.4
+    );
+  const indexed = pendingChunks.map((mc, origIdx) => ({ mc, origIdx }));
+  const picked = [
+    ...indexed.filter((x) => hasMotorSignal(x.mc)),
+    ...indexed.filter((x) => !hasMotorSignal(x.mc)),
+  ].slice(0, Math.max(1, maxChunks));
+  picked.sort((a, b) => a.origIdx - b.origIdx);
+  return picked.map((x) => x.mc);
+}
+
 export function updateStratifiedMotorGoldBank(
   goldPath: string,
   candidateChunks: any[],
@@ -1891,6 +1908,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           let blocksPlaced = 0;
           let blocksMined = 0;
           let arrowsFired = 0;
+          (bot as any)._bowReleaseCount = 0;
           let leversFlipped = 0;
           let wolvesTamed = 0;
           let dragonsKilled = 0;
@@ -2253,7 +2271,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   targetPos: t ? { x: Number(t.x || 0), y: Number(t.y || 0), z: Number(t.z || 0) } : null,
                   health: Number(bot.health ?? 20),
                   damageDealt,
-                  arrowsFired,
+                  arrowsFired: Math.max(arrowsFired, Number((bot as any)._bowReleaseCount || 0)),
                   blocksMined,
                   blocksPlaced,
                   invCount: getTotalInvCount(),
@@ -2271,7 +2289,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               let motorSampleInterval: ReturnType<typeof setInterval> | null = null;
 
               const flushShadowChunk = () => {
-                if (!activeChunkPre || activeChunkTicks.length < 4 || pendingStepChunks.length >= 6) {
+                if (!activeChunkPre || activeChunkTicks.length < 4 || pendingStepChunks.length >= 10) {
                   activeChunkTicks = [];
                   activeChunkPre = null;
                   return;
@@ -2322,7 +2340,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 };
                 motorSampleInterval = setInterval(() => {
                   try {
-                    if (!bot?.entity || pendingStepChunks.length >= 6) return;
+                    if (!bot?.entity || pendingStepChunks.length >= 10) return;
                     if (!activeChunkPre) {
                       const s = sampleLiveRLTransitionState(worker.system1);
                       if (!s) return;
@@ -2495,15 +2513,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   motorSampleInterval = null;
                 }
                 flushShadowChunk();
-                const hasMotorSignal = (mc: any): boolean =>
-                  Boolean(
-                    mc.discreteTargets?.some((d: number[]) => d[3] > 0 || d[5] > 0) ||
-                    mc.extendedTargets?.some((e: number[]) => e[0] > 0 || e[1] > 0)
-                  );
-                const selectedStepChunks = [
-                  ...pendingStepChunks.filter(hasMotorSignal),
-                  ...pendingStepChunks.filter((mc) => !hasMotorSignal(mc)),
-                ].slice(0, 4);
+                const selectedStepChunks = selectStepChunksChronologically(pendingStepChunks, 4);
                 for (const mc of selectedStepChunks) {
                   episodeMotorChunks.push({
                     ...mc,
