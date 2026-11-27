@@ -943,7 +943,7 @@ export function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Mi
             maxTpDy = Math.max(maxTpDy, Math.ceil(parseFloat(m[1])));
           }
         }
-        const airTop = orig.y + Math.max(10, maxTpDy + 10);
+        const airTop = orig.y + Math.max(24, maxTpDy + 10);
         const finalTp = customTpCmd
           ? resolveMinecraftCoordinates(customTpCmd, orig).replace(/@p\b/g, 'NeuroAgent')
           : `tp NeuroAgent ${orig.x} ${orig.y} ${orig.z} 0 0`;
@@ -1683,7 +1683,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           const postOriginVec = new Vec3(shardedTask.origin.x, shardedTask.origin.y, shardedTask.origin.z);
           const isFoodHungerTask =
             task.id.startsWith('omni_food_') &&
-            !/(golden|milk|potion|bottle|honey)/i.test(String((task as any).targetObject || ''));
+            !/(golden_apple|milk|potion|bottle|honey|chorus_fruit|suspicious_stew)/i.test(String((task as any).targetObject || ''));
           const maxYDelta = task.id.includes('water_clutch') ? 24.0 : 3.0;
           const syncTimeoutMs = isFoodHungerTask ? 5200 : 1500;
           const syncStart = Date.now();
