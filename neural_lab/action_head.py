@@ -19,7 +19,7 @@ Key Architectural Capabilities:
 """
 
 import math
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional, Any, List, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -33,6 +33,10 @@ CHUNK_SIZE = 8           # 8 future ticks (400ms at 20Hz)
 VOXEL_VOCAB_SIZE = 32    # 32 semantic block categories (0=air..31=interactive)
 NUM_ENTITIES = 16        # Top 16 nearest entities in 360-degree radar
 ENTITY_FEAT_DIM = 12     # Per-entity spatial, velocity, type, and fuse features
+AIM_STD_MIN = 3.5        # Minimum continuous aim std (deg) to prevent mode collapse
+AIM_STD_MAX = 45.0
+MOVE_STD_MIN = 0.08
+MOVE_STD_MAX = 0.65
 
 CANONICAL_MOTOR_TOOLS: List[str] = [
     "none",
@@ -203,6 +207,10 @@ class MinecraftActionHead(nn.Module):
             nn.Linear(256, 1),
         )
 
+        # 7h. Learnable continuous PPO exploration stds (aim [deg], move [norm])
+        self.aim_log_std = nn.Parameter(torch.tensor([math.log(12.0), math.log(6.0)], dtype=torch.float32))
+        self.move_log_std = nn.Parameter(torch.tensor([math.log(0.25), math.log(0.25)], dtype=torch.float32))
+
         self._init_weights()
 
     def _init_weights(self):
@@ -321,6 +329,51 @@ class MinecraftActionHead(nn.Module):
             "subgoal_probs": torch.sigmoid(subgoal_logits),
         }
 
+    def get_action_stds(self) -> Tuple[torch.Tensor, torch.Tensor]:
+        """Returns bounded float32 continuous Gaussian std tensors ([2] aim deg, [2] move)."""
+        aim_std = self.aim_log_std.float().clamp(math.log(AIM_STD_MIN), math.log(AIM_STD_MAX)).exp()
+        move_std = self.move_log_std.float().clamp(math.log(MOVE_STD_MIN), math.log(MOVE_STD_MAX)).exp()
+        return aim_std, move_std
+
+    def evaluate_action_chunk(
+        self,
+        out: Dict[str, torch.Tensor],
+        aim_actions: torch.Tensor,
+        move_actions: torch.Tensor,
+        disc_actions: torch.Tensor,
+        ext_actions: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Evaluates joint Gaussian+Bernoulli log-probability, scale-balanced entropy,
+        and Critic V(s) in float32 for clipped PPO updates.
+        """
+        aim_mu = out["trajectory_aim"].float()
+        move_mu = out["trajectory_movement"].float()
+        aim_std, move_std = self.get_action_stds()
+
+        aim_dist = torch.distributions.Normal(aim_mu, aim_std.view(1, 1, 2))
+        move_dist = torch.distributions.Normal(move_mu, move_std.view(1, 1, 2))
+        disc_dist = torch.distributions.Bernoulli(
+            logits=out["trajectory_discrete_logits"].float().clamp(-10.0, 10.0)
+        )
+        ext_dist = torch.distributions.Bernoulli(
+            logits=out["trajectory_extended_logits"].float().clamp(-10.0, 10.0)
+        )
+
+        lp_aim = aim_dist.log_prob(aim_actions.float()).mean(dim=(1, 2))
+        lp_move = move_dist.log_prob(move_actions.float()).mean(dim=(1, 2))
+        lp_disc = disc_dist.log_prob(disc_actions.float().clamp(0.0, 1.0)).mean(dim=(1, 2))
+        lp_ext = ext_dist.log_prob(ext_actions.float().clamp(0.0, 1.0)).mean(dim=(1, 2))
+        joint_log_prob = 0.35 * lp_aim + 0.35 * lp_move + 0.25 * lp_disc + 0.05 * lp_ext
+
+        ent_aim = (0.5 * (1.0 + math.log(2.0 * math.pi)) + torch.log((aim_std / 180.0).clamp(min=1e-4))).mean()
+        ent_move = move_dist.entropy().mean(dim=(1, 2))
+        ent_disc = disc_dist.entropy().mean(dim=(1, 2))
+        ent_ext = ext_dist.entropy().mean(dim=(1, 2))
+        joint_entropy = 0.25 * ent_aim + 0.25 * ent_move + 0.40 * ent_disc + 0.10 * ent_ext
+
+        return joint_log_prob, joint_entropy, out["value"].float()
+
     def predict_action_dict(
         self,
         latent_h: torch.Tensor,
@@ -329,8 +382,8 @@ class MinecraftActionHead(nn.Module):
         entities: Optional[torch.Tensor] = None,
         threshold: float = 0.5,
         explore: bool = False,
-        aim_noise_std: float = 2.5,
-        move_noise_std: float = 0.08,
+        aim_noise_std: Optional[float] = None,
+        move_noise_std: Optional[float] = None,
     ) -> Dict[str, Any]:
         """
         Inference helper returning clean Python primitives ready for Mineflayer bot,
@@ -345,10 +398,13 @@ class MinecraftActionHead(nn.Module):
             ext_probs_t = torch.nan_to_num(out["trajectory_extended_probs"][0].float(), nan=0.0, posinf=1.0, neginf=0.0)
 
             if explore:
-                traj_aim_t = traj_aim_t + torch.randn_like(traj_aim_t) * aim_noise_std
+                learned_aim_std, learned_move_std = self.get_action_stds()
+                eff_aim_std = aim_noise_std if aim_noise_std is not None else learned_aim_std.to(traj_aim_t.device).unsqueeze(0)
+                eff_move_std = move_noise_std if move_noise_std is not None else learned_move_std.to(traj_move_t.device).unsqueeze(0)
+                traj_aim_t = traj_aim_t + torch.randn_like(traj_aim_t) * eff_aim_std
                 traj_aim_t[:, 0] = traj_aim_t[:, 0].clamp(-180.0, 180.0)
                 traj_aim_t[:, 1] = traj_aim_t[:, 1].clamp(-90.0, 90.0)
-                traj_move_t = (traj_move_t + torch.randn_like(traj_move_t) * move_noise_std).clamp(-1.0, 1.0)
+                traj_move_t = (traj_move_t + torch.randn_like(traj_move_t) * eff_move_std).clamp(-1.0, 1.0)
                 disc_sampled = torch.bernoulli(traj_probs_t.clamp(0.02, 0.98)) >= 0.5
                 ext_sampled = torch.bernoulli(ext_probs_t.clamp(0.02, 0.98)) >= 0.5
             else:

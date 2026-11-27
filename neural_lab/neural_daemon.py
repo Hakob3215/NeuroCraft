@@ -318,7 +318,7 @@ class NeuralStackServer:
             head_ckpt = os.path.join(os.path.dirname(__file__), "checkpoints", "action_head_latest.pt")
             if os.path.exists(head_ckpt):
                 try:
-                    self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
+                    self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True), strict=False)
                     self.action_head.to(device=self.device, dtype=act_dtype)
                     print(f"[System 2 VLA] Loaded trained MinecraftActionHead (211M Multi-Modal ACT) from {head_ckpt}")
                 except Exception as he:
@@ -924,7 +924,7 @@ class NeuralStackServer:
                 act_dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
                 try:
                     if os.path.exists(head_ckpt):
-                        self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True))
+                        self.action_head.load_state_dict(torch.load(head_ckpt, map_location=self.device, weights_only=True), strict=False)
                         print(f"[System 1] Hot-reloaded ActionHead (211M Multi-Modal ACT) from {head_ckpt}", flush=True)
                 except Exception as he:
                     print(f"[System 1] Warning: Failed to hot-reload ActionHead: {he}", flush=True)

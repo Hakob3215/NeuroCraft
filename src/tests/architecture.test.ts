@@ -5476,6 +5476,164 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('84. Universal 400ms physics chunk reward, stratified motor gold bank, and signed Clipped PPO on MinecraftActionHead', () => {
+  const { execFileSync } = require('child_process');
+  const os = require('os');
+  const {
+    computeUniversalChunkReward,
+    assignDiscountedChunkReturns,
+    updateStratifiedMotorGoldBank,
+  } = require('../../minebench/dist/minebench/train_loop');
+
+  // 1. Universal 400ms physics reward: closing distance + aligning aim + dealing damage > turning away & taking damage
+  const preGood = {
+    pos: { x: 0, y: 64, z: 0 },
+    yaw: 0,
+    pitch: 0,
+    targetPos: { x: 0, y: 64, z: -6 },
+    health: 20,
+    damageDealt: 0,
+    arrowsFired: 0,
+    blocksMined: 0,
+    blocksPlaced: 0,
+    invCount: 1,
+  };
+  const postGood = {
+    pos: { x: 0, y: 64, z: -2.5 },
+    yaw: 0,
+    pitch: 0,
+    targetPos: { x: 0, y: 64, z: -6 },
+    health: 20,
+    damageDealt: 4,
+    arrowsFired: 0,
+    blocksMined: 0,
+    blocksPlaced: 0,
+    invCount: 1,
+  };
+  const postBad = {
+    pos: { x: 0, y: 64, z: 2.0 },
+    yaw: Math.PI,
+    pitch: 0,
+    targetPos: { x: 0, y: 64, z: -6 },
+    health: 12,
+    damageDealt: 0,
+    arrowsFired: 0,
+    blocksMined: 0,
+    blocksPlaced: 0,
+    invCount: 1,
+  };
+  const rGood = computeUniversalChunkReward(preGood, postGood, 'engage_combat');
+  const rBad = computeUniversalChunkReward(preGood, postBad, 'engage_combat');
+  assert.ok(rGood > 1.5, `Expected positive universal physics reward, got ${rGood}`);
+  assert.ok(rBad < -2.0, `Expected negative universal physics reward on retreat+damage, got ${rBad}`);
+
+  // shoot_bow must reward aim alignment without forcing melee approach
+  const rBowAlign = computeUniversalChunkReward(
+    { ...preGood, yaw: Math.PI * 0.5 },
+    { ...preGood, yaw: 0, arrowsFired: 1 },
+    'shoot_bow'
+  );
+  assert.ok(rBowAlign > 0.8, `shoot_bow aim+fire must give positive reward, got ${rBowAlign}`);
+
+  // 2. Discounted chunk returns propagate backward with gamma=0.95
+  const stepChunks: any[] = [{ chunkReward: 1.0 }, { chunkReward: 0.5 }];
+  assignDiscountedChunkReturns(stepChunks, 20, 40, true, true, 0.95);
+  assert.ok(stepChunks[0].chunkReturn > stepChunks[1].chunkReturn * 0.9, 'Earlier chunk must inherit discounted return');
+
+  // 3. Stratified motor gold reservoir caps eat_food without evicting engage_combat or shoot_bow
+  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-gold-'));
+  try {
+    const goldFile = path.join(tmpDir, 'real_motor_gold.jsonl');
+    const cands: any[] = [];
+    for (let i = 0; i < 15; i++) {
+      cands.push({
+        taskId: 't_eat',
+        toolName: 'eat_food',
+        latent_h: new Array(1536).fill(0),
+        episodePassed: true,
+        stepSuccess: true,
+        chunkReturn: 2.0 + i * 0.01,
+      });
+    }
+    cands.push({
+      taskId: 't_combat',
+      toolName: 'engage_combat',
+      latent_h: new Array(1536).fill(0),
+      episodePassed: true,
+      stepSuccess: true,
+      chunkReturn: 3.5,
+    });
+    cands.push({
+      taskId: 't_bow',
+      toolName: 'shoot_bow',
+      latent_h: new Array(1536).fill(0),
+      episodePassed: true,
+      stepSuccess: true,
+      chunkReturn: 3.2,
+    });
+    const stats = updateStratifiedMotorGoldBank(goldFile, cands, 4);
+    assert.equal(stats.perTool.eat_food, 4, 'eat_food must be capped at maxPerTool=4');
+    assert.equal(stats.perTool.engage_combat, 1, 'engage_combat must be preserved in stratified gold bank');
+    assert.equal(stats.perTool.shoot_bow, 1, 'shoot_bow must be preserved in stratified gold bank');
+  } finally {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  }
+
+  // 4. Python Clipped PPO verification: strict=False resume, evaluate_action_chunk, signed negative advantage push-away, & std floor
+  const rootDir = path.resolve(__dirname, '..', '..');
+  const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
+  const pyCheck = `
+import math, sys, torch
+sys.path.insert(0, ${JSON.stringify(rootDir)})
+from neural_lab.action_head import MinecraftActionHead, AIM_STD_MIN, AIM_STD_MAX
+
+torch.manual_seed(7)
+head = MinecraftActionHead(hidden_dim=64, num_layers=1, num_heads=4)
+# Simulate loading legacy checkpoint missing aim_log_std & move_log_std
+legacy_sd = {k: v.clone() for k, v in head.state_dict().items() if "log_std" not in k}
+missing, unexpected = head.load_state_dict(legacy_sd, strict=False)
+assert "aim_log_std" in missing and "move_log_std" in missing and len(unexpected) == 0
+
+h = torch.zeros(1, 1536)
+p = torch.zeros(1, 24)
+# Enforce floor check even if log_std tried to shrink below AIM_STD_MIN
+with torch.no_grad():
+    head.aim_log_std.fill_(-10.0)
+aim_std, _ = head.get_action_stds()
+assert abs(float(aim_std[0].item()) - AIM_STD_MIN) < 1e-4
+
+# Reset to clean std and verify negative advantage pushes predicted yaw AWAY from bad yaw_target=+20.0
+with torch.no_grad():
+    head.aim_log_std.fill_(math.log(12.0))
+bad_aim = torch.full((1, 8, 2), 20.0)
+zero_mov = torch.zeros((1, 8, 2))
+zero_disc = torch.zeros((1, 8, 6))
+zero_ext = torch.zeros((1, 8, 2))
+with torch.no_grad():
+    out0 = head(h, p)
+    pre_dist = abs(float(out0["trajectory_aim"][0, 0, 0].item()) - 20.0)
+    old_lp, ent0, val0 = head.evaluate_action_chunk(out0, bad_aim, zero_mov, zero_disc, zero_ext)
+assert torch.isfinite(old_lp).all() and torch.isfinite(ent0).all() and torch.isfinite(val0).all()
+
+opt = torch.optim.Adam(head.parameters(), lr=5e-3)
+for _ in range(4):
+    opt.zero_grad()
+    out = head(h, p)
+    new_lp, ent, _ = head.evaluate_action_chunk(out, bad_aim, zero_mov, zero_disc, zero_ext)
+    ratio = torch.exp((new_lp - old_lp).clamp(-4.0, 4.0))
+    adv = torch.tensor([-2.0])
+    loss = -torch.min(ratio * adv, torch.clamp(ratio, 0.8, 1.2) * adv).mean()
+    loss.backward()
+    opt.step()
+with torch.no_grad():
+    out1 = head(h, p)
+    post_dist = abs(float(out1["trajectory_aim"][0, 0, 0].item()) - 20.0)
+assert post_dist > pre_dist, f"Negative advantage PPO must push yaw away from bad action (pre={pre_dist}, post={post_dist})"
+print("OK")
+`;
+  assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
+});
+
 
 
 

@@ -34,6 +34,10 @@ from neural_lab.action_head import (
     CHUNK_SIZE,
     NUM_ENTITIES,
     ENTITY_FEAT_DIM,
+    AIM_STD_MIN,
+    AIM_STD_MAX,
+    MOVE_STD_MIN,
+    MOVE_STD_MAX,
 )
 
 CHECKPOINT_DIR = ROOT_DIR / "neural_lab" / "checkpoints"
@@ -514,6 +518,139 @@ def load_real_motor_chunks_dataset(
     )
 
 
+def load_motor_chunks_with_returns(
+    chunks_path: Path,
+    max_samples: int = 2000,
+    device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
+    balance_by_tool: bool = False,
+    is_gold_flag: float = 0.0,
+) -> Optional[Tuple[Tuple[torch.Tensor, ...], float]]:
+    """
+    Loads motor chunk records with dense physics returns and optional per-tool balancing
+    for clipped PPO (fresh chunks) + stratified gold-anchor training (gold reservoir).
+    Returns ((14 tensors...), mean_chunk_return).
+    """
+    if not chunks_path.exists():
+        return None
+
+    raw_records = []
+    scan_limit = max_samples * 4 if balance_by_tool else max_samples
+    try:
+        for line in read_jsonl_tail(chunks_path, max_lines=scan_limit):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                rec = json.loads(line)
+                if (
+                    isinstance(rec.get("latent_h"), list) and len(rec["latent_h"]) == LATENT_DIM
+                    and isinstance(rec.get("proprio24"), list) and len(rec["proprio24"]) == PROPRIOCEPTION_DIM
+                    and isinstance(rec.get("voxels"), list) and len(rec["voxels"]) == 3375
+                    and isinstance(rec.get("aimTargets"), list) and len(rec["aimTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("moveTargets"), list) and len(rec["moveTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("discreteTargets"), list) and len(rec["discreteTargets"]) == CHUNK_SIZE
+                    and isinstance(rec.get("extendedTargets"), list) and len(rec["extendedTargets"]) == CHUNK_SIZE
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["aimTargets"])
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["moveTargets"])
+                    and all(isinstance(row, list) and len(row) >= 6 for row in rec["discreteTargets"])
+                    and all(isinstance(row, list) and len(row) >= 2 for row in rec["extendedTargets"])
+                ):
+                    raw_records.append(rec)
+            except Exception:
+                pass
+    except Exception:
+        return None
+
+    if not raw_records:
+        return None
+
+    if balance_by_tool and len(raw_records) > max_samples:
+        by_tool: Dict[str, List[dict]] = {}
+        for rec in raw_records:
+            t_key = _resolve_canonical_motor_tool(rec.get("toolName"))
+            by_tool.setdefault(t_key, []).append(rec)
+        num_buckets = max(1, len(by_tool))
+        quota = max(1, max_samples // num_buckets)
+        balanced: List[dict] = []
+        leftover: List[dict] = []
+        for t_recs in by_tool.values():
+            balanced.extend(t_recs[-quota:])
+            if len(t_recs) > quota:
+                leftover.extend(t_recs[:-quota])
+        if len(balanced) < max_samples and leftover:
+            balanced.extend(leftover[-(max_samples - len(balanced)):])
+        records = balanced[:max_samples]
+    else:
+        records = raw_records[-max_samples:]
+
+    n = len(records)
+    latents = torch.zeros(n, LATENT_DIM, dtype=torch.float32, device=device)
+    proprios = torch.zeros(n, PROPRIOCEPTION_DIM, dtype=torch.float32, device=device)
+    voxels = torch.zeros(n, 15, 15, 15, dtype=torch.long, device=device)
+    entities = torch.zeros(n, NUM_ENTITIES, ENTITY_FEAT_DIM, dtype=torch.float32, device=device)
+
+    tgt_aim = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_move = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_disc = torch.zeros(n, CHUNK_SIZE, 6, dtype=torch.float32, device=device)
+    tgt_ext = torch.zeros(n, CHUNK_SIZE, 2, dtype=torch.float32, device=device)
+    tgt_tools = torch.zeros(n, dtype=torch.long, device=device)
+    tgt_gate = torch.zeros(n, dtype=torch.float32, device=device)
+    tgt_val = torch.zeros(n, dtype=torch.float32, device=device)
+    actor_weights = torch.ones(n, dtype=torch.float32, device=device)
+    is_gold_t = torch.full((n,), float(is_gold_flag), dtype=torch.float32, device=device)
+    returns_t = torch.zeros(n, dtype=torch.float32, device=device)
+
+    for i, r in enumerate(records):
+        lat_vec = torch.tensor(r["latent_h"], dtype=torch.float32, device=device)
+        latents[i] = (lat_vec * 0.1).clamp(-10.0, 10.0)
+        proprios[i] = torch.tensor(r["proprio24"], dtype=torch.float32, device=device)
+        voxels[i] = torch.tensor(r["voxels"], dtype=torch.long, device=device).view(15, 15, 15).clamp(0, 31)
+
+        ents = r.get("entities", [])
+        for ei in range(min(NUM_ENTITIES, len(ents))):
+            if isinstance(ents[ei], list) and len(ents[ei]) == ENTITY_FEAT_DIM:
+                entities[i, ei] = torch.tensor(ents[ei], dtype=torch.float32, device=device)
+
+        aim_t = torch.tensor([row[:2] for row in r["aimTargets"]], dtype=torch.float32, device=device)
+        aim_t[:, 0] = aim_t[:, 0].clamp(-180.0, 180.0)
+        aim_t[:, 1] = aim_t[:, 1].clamp(-90.0, 90.0)
+        tgt_aim[i] = aim_t
+
+        tgt_move[i] = torch.tensor([row[:2] for row in r["moveTargets"]], dtype=torch.float32, device=device).clamp(-1.0, 1.0)
+        tgt_disc[i] = torch.tensor([row[:6] for row in r["discreteTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
+        tgt_ext[i] = torch.tensor([row[:2] for row in r["extendedTargets"]], dtype=torch.float32, device=device).clamp(0.0, 1.0)
+
+        t_name = _resolve_canonical_motor_tool(r.get("toolName"))
+        if t_name != "none":
+            tgt_tools[i] = TOOL_TO_IDX[t_name]
+            tgt_gate[i] = 1.0
+        else:
+            tgt_tools[i] = TOOL_TO_IDX["none"]
+            tgt_gate[i] = 0.0
+
+        st_rew = float(r.get("reward", 0.0))
+        ep_rew = float(r.get("episodeReward", 0.0))
+        fallback_ret = (0.5 * st_rew + 0.5 * ep_rew) / 25.0
+        c_ret = float(r["chunkReturn"]) if r.get("chunkReturn") is not None else fallback_ret
+        returns_t[i] = max(-6.0, min(8.0, c_ret))
+        tgt_val[i] = 1.0 / (1.0 + math.exp(-max(-5.0, min(5.0, c_ret / 2.5))))
+
+        ep_passed = bool(r.get("episodePassed", False))
+        st_ok = bool(r.get("stepSuccess", False))
+        if ep_passed and st_ok:
+            actor_weights[i] = 1.5
+        elif st_ok:
+            actor_weights[i] = 1.0
+        else:
+            actor_weights[i] = 0.5 if c_ret > 0.5 else 0.0
+
+    mean_ret = float(returns_t.mean().item())
+    return (
+        (latents, proprios, voxels, entities, tgt_aim, tgt_move, tgt_disc, tgt_ext, tgt_tools, tgt_gate, tgt_val, actor_weights, is_gold_t, returns_t),
+        mean_ret,
+    )
+
+
 def train_action_transformer(
     epochs: int = 4,
     batch_size: int = 64,
@@ -528,7 +665,7 @@ def train_action_transformer(
     gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else "CPU"
 
     print("=" * 74)
-    print("  NEUROCRAFT 211M MULTI-MODAL TEMPORAL ACTION TRANSFORMER TRAINER")
+    print("  NEUROCRAFT 211M MULTI-MODAL TEMPORAL ACTION TRANSFORMER PPO TRAINER")
     print("  Architecture: MinecraftActionHead (12 Layers, 16 Heads, 85-Token Context)")
     print(f"  Device: {gpu_name} | Epochs: {epochs} | Batch Size: {batch_size}")
     print("=" * 74)
@@ -541,79 +678,141 @@ def train_action_transformer(
     effective_lr = lr
     if ckpt_path.exists():
         try:
-            model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True))
+            model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True), strict=False)
             model.to(device=device, dtype=dtype)
             effective_lr = min(lr, 1e-4)
             print(f"[Action Head] Resumed existing weights from {ckpt_path} (fine-tune lr={effective_lr:.1e})")
         except Exception as e:
             print(f"[Action Head] Could not resume checkpoint ({e}); starting from scratch.")
+    # Ensure learnable log_stds remain float32 on device
+    model.aim_log_std.data = model.aim_log_std.data.to(device=device, dtype=torch.float32)
+    model.move_log_std.data = model.move_log_std.data.to(device=device, dtype=torch.float32)
     total_params = sum(p.numel() for p in model.parameters())
     print(f"[Action Head] Model has {total_params:,} parameters ({total_params * 2 / 1e6:.1f} MB in BF16).")
 
-    motor_chunks_ds = load_real_motor_chunks_dataset(max_samples=2000, device=str(device))
-    num_motor_chunks = int(motor_chunks_ds[0].shape[0]) if motor_chunks_ds is not None else 0
-    real_limit = 0 if num_motor_chunks >= 1200 else (500 if num_motor_chunks >= 400 else 1500)
+    fresh_path = ROOT_DIR / "minebench" / "results" / "real_motor_chunks.jsonl"
+    gold_path = ROOT_DIR / "minebench" / "results" / "real_motor_gold.jsonl"
+    fresh_res = load_motor_chunks_with_returns(fresh_path, max_samples=2000, device=str(device), balance_by_tool=False, is_gold_flag=0.0)
+    gold_res = load_motor_chunks_with_returns(gold_path, max_samples=1200, device=str(device), balance_by_tool=True, is_gold_flag=1.0)
+
+    num_fresh = int(fresh_res[0][0].shape[0]) if fresh_res is not None else 0
+    num_gold = int(gold_res[0][0].shape[0]) if gold_res is not None else 0
+    mean_chunk_return = fresh_res[1] if fresh_res is not None else 0.0
+
+    real_limit = 0 if (num_fresh + num_gold) >= 1200 else (500 if (num_fresh + num_gold) >= 400 else 1500)
     real_ds = load_real_transitions_dataset(max_samples=real_limit, device=str(device)) if real_limit > 0 else None
     num_real = int(real_ds[0].shape[0]) if real_ds is not None else 0
-    if num_motor_chunks >= 1000:
+
+    if (num_fresh + num_gold) >= 1000:
         num_synth = 0
-    elif num_motor_chunks >= 200:
-        num_synth = max(200, 1200 - num_motor_chunks)
+    elif (num_fresh + num_gold) >= 200:
+        num_synth = max(200, 1200 - num_fresh - num_gold)
     else:
-        num_synth = max(800, 4000 - num_real - num_motor_chunks)
+        num_synth = max(800, 4000 - num_real - num_fresh - num_gold)
+
     print(
-        f"[Action Head] Loading {num_synth:,} annealed synthetic + {num_real:,} real Mojang transitions "
-        f"+ {num_motor_chunks:,} real 20Hz SLM-latent motor chunks..."
+        f"[Action Head] Loading {num_synth:,} synth + {num_real:,} RL transitions + "
+        f"{num_fresh:,} fresh PPO chunks + {num_gold:,} stratified gold chunks (mean_ret={mean_chunk_return:.2f})..."
     )
+
+    combined: Optional[List[torch.Tensor]] = None
+    def _append_14(parts: Tuple[torch.Tensor, ...]):
+        nonlocal combined
+        if combined is None:
+            combined = list(parts)
+        else:
+            for idx in range(len(combined)):
+                combined[idx] = torch.cat([combined[idx], parts[idx]], dim=0)
+
+    def _lift_12_to_14(parts12: Tuple[torch.Tensor, ...], is_gold_val: float):
+        n_items = parts12[0].shape[0]
+        g_t = torch.full((n_items,), is_gold_val, dtype=torch.float32, device=device)
+        r_t = torch.zeros(n_items, dtype=torch.float32, device=device)
+        return tuple(parts12) + (g_t, r_t)
+
     if num_synth > 0:
-        ds = list(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)))
-    else:
-        ds = None
+        _append_14(_lift_12_to_14(generate_temporal_action_dataset(num_samples=num_synth, device=str(device)), 1.0))
     if real_ds is not None:
-        print(f"[Action Head] Appended {num_real} reward-weighted real server transition trajectories!")
-        if ds is None:
-            ds = list(real_ds)
-        else:
-            for idx in range(len(ds)):
-                ds[idx] = torch.cat([ds[idx], real_ds[idx]], dim=0)
-    if motor_chunks_ds is not None:
-        print(f"[Action Head] Appended {num_motor_chunks} real-latent 20Hz motor chunks (real_motor_chunks.jsonl)!")
-        if ds is None:
-            ds = list(motor_chunks_ds)
-        else:
-            for idx in range(len(ds)):
-                ds[idx] = torch.cat([ds[idx], motor_chunks_ds[idx]], dim=0)
-    if ds is None:
-        ds = list(generate_temporal_action_dataset(num_samples=800, device=str(device)))
+        _append_14(_lift_12_to_14(real_ds, 1.0))
+    if fresh_res is not None:
+        _append_14(fresh_res[0])
+    if gold_res is not None:
+        _append_14(gold_res[0])
+    if combined is None:
+        _append_14(_lift_12_to_14(generate_temporal_action_dataset(num_samples=800, device=str(device)), 1.0))
         num_synth = 800
 
-    dataset = TensorDataset(*ds)
+    # Pre-update policy snapshot (old_logp, old_val) for true Clipped PPO
+    total_n = int(combined[0].shape[0])
+    old_logp_all = torch.zeros(total_n, dtype=torch.float32, device=device)
+    old_val_all = torch.zeros(total_n, dtype=torch.float32, device=device)
+    model.eval()
+    with torch.no_grad():
+        for start in range(0, total_n, batch_size):
+            end = min(total_n, start + batch_size)
+            out_snap = model(
+                combined[0][start:end].to(dtype),
+                combined[1][start:end].to(dtype),
+                voxels=combined[2][start:end],
+                entities=combined[3][start:end].to(dtype),
+            )
+            lp_s, _, v_s = model.evaluate_action_chunk(
+                out_snap,
+                combined[4][start:end],
+                combined[5][start:end],
+                combined[6][start:end],
+                combined[7][start:end],
+            )
+            old_logp_all[start:end] = torch.nan_to_num(lp_s, nan=0.0, posinf=0.0, neginf=-5.0)
+            old_val_all[start:end] = torch.nan_to_num(v_s, nan=0.5, posinf=1.0, neginf=0.0)
+
+    # Signed normalized advantage for fresh PPO samples
+    is_gold_all = combined[12]
+    tgt_val_all = combined[10]
+    raw_adv = tgt_val_all - old_val_all
+    fresh_idx_mask = is_gold_all < 0.5
+    adv_all = torch.zeros_like(raw_adv)
+    if fresh_idx_mask.any():
+        fresh_adv = raw_adv[fresh_idx_mask]
+        std_adv = fresh_adv.std(unbiased=False).clamp(min=1e-4) if fresh_adv.numel() > 1 else torch.tensor(1.0, device=device)
+        adv_all[fresh_idx_mask] = ((fresh_adv - fresh_adv.mean()) / std_adv).clamp(-3.0, 3.0)
+
+    combined.extend([old_logp_all, adv_all])
+    dataset = TensorDataset(*combined)
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=effective_lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
-
-    criterion_mse = nn.MSELoss()
-    criterion_bce = nn.BCEWithLogitsLoss()
 
     initial_loss = 0.0
     final_loss = 0.0
     avg_acc = 0.0
     avg_aim_deg = 0.0
     avg_tool_acc = 0.0
+    avg_ppo_loss = 0.0
+    avg_val_loss = 0.0
+    avg_entropy = 0.0
+    avg_clip_frac = 0.0
 
-    print(f"[Action Head] Starting optimization across {len(loader)} batches per epoch...")
+    print(f"[Action Head] Starting Clipped PPO + Gold-Anchor optimization across {len(loader)} batches/epoch...")
 
     for epoch in range(1, epochs + 1):
         model.train()
         epoch_loss = 0.0
+        epoch_ppo_loss = 0.0
+        epoch_val_loss = 0.0
+        epoch_entropy = 0.0
+        epoch_clip_frac = 0.0
         epoch_aim_err = 0.0
         epoch_move_err = 0.0
         epoch_discrete_acc = 0.0
         epoch_tool_acc = 0.0
         batches = 0
 
-        for b_lat, b_prop, b_vox, b_ent, b_aim, b_move, b_disc, b_ext, b_tool, b_gate, b_val, b_w in loader:
+        for (
+            b_lat, b_prop, b_vox, b_ent, b_aim, b_move, b_disc, b_ext,
+            b_tool, b_gate, b_val, b_w, b_is_gold, _b_ret, b_old_logp, b_adv
+        ) in loader:
             optimizer.zero_grad()
 
             out = model(
@@ -629,29 +828,46 @@ def train_action_transformer(
             pred_ext_logits = out["trajectory_extended_logits"]
             pred_tool_logits = out["tool_logits"]
             pred_gate_logit = out["tool_gate_logit"]
-            pred_val = out["value"]
+            new_logp, ent, pred_val = model.evaluate_action_chunk(out, b_aim, b_move, b_disc, b_ext)
 
-            # Advantage-Weighted Regression (AWR) using detached Critic baseline V(s)
-            adv = (b_val.float() - pred_val.detach().float()).clamp(-1.0, 2.0)
-            awr_mult = torch.exp(adv * 1.5).clamp(0.25, 3.0)
-            w_actor_f32 = b_w.float() * awr_mult
-            pos_mask = w_actor_f32 > 0
-            if pos_mask.any():
-                w_actor_f32 = w_actor_f32 / w_actor_f32[pos_mask].mean().clamp(min=1e-4)
-            w_actor = w_actor_f32.to(dtype=dtype)
+            fresh_mask = b_is_gold < 0.5
+            gold_mask = b_is_gold >= 0.5
 
-            loss_aim = (F.mse_loss(pred_aim, b_aim.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 0.001
-            loss_move = (F.mse_loss(pred_move, b_move.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.0
-            loss_disc = (F.binary_cross_entropy_with_logits(pred_discrete_logits, b_disc.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 2.5
-            loss_ext = (F.binary_cross_entropy_with_logits(pred_ext_logits, b_ext.to(dtype), reduction="none").mean(dim=(1, 2)) * w_actor).mean() * 1.0
-            loss_tool = (F.cross_entropy(pred_tool_logits.float(), b_tool, reduction="none") * w_actor_f32).mean() * 0.75
-            loss_gate = (F.binary_cross_entropy_with_logits(pred_gate_logit, b_gate.to(dtype), reduction="none") * w_actor).mean() * 0.5
-            loss_val = criterion_mse(pred_val, b_val.to(dtype)) * 0.5
-            disc_p = torch.sigmoid(pred_discrete_logits.float()).clamp(1e-5, 1.0 - 1e-5)
-            disc_ent = -(disc_p * torch.log(disc_p) + (1.0 - disc_p) * torch.log(1.0 - disc_p)).mean()
-            loss_ent = (-0.01 * disc_ent).to(dtype=loss_disc.dtype)
+            # 1. True Clipped PPO Objective on Fresh On-Policy Chunks (supports negative advantages!)
+            loss_ppo = torch.tensor(0.0, dtype=torch.float32, device=device)
+            clip_frac_val = 0.0
+            if fresh_mask.any():
+                ratio = torch.exp((new_logp - b_old_logp).clamp(-4.0, 4.0))
+                surr1 = ratio * b_adv
+                surr2 = torch.clamp(ratio, 0.8, 1.2) * b_adv
+                loss_ppo = -torch.min(surr1, surr2)[fresh_mask].mean()
+                clip_frac_val = float(((ratio[fresh_mask] - 1.0).abs() > 0.2).float().mean().item())
 
-            total_loss = loss_aim + loss_move + loss_disc + loss_ext + loss_tool + loss_gate + loss_val + loss_ent
+            # 2. Stratified Gold Anchor Supervision (retains wide-turn & multi-tool competence)
+            loss_anchor = torch.tensor(0.0, dtype=torch.float32, device=device)
+            if gold_mask.any():
+                gw = b_w[gold_mask].clamp(min=0.25)
+                gw = gw / gw.mean().clamp(min=1e-4)
+                l_aim_g = (F.mse_loss(pred_aim[gold_mask].float(), b_aim[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.001
+                l_mov_g = (F.mse_loss(pred_move[gold_mask].float(), b_move[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
+                l_dsc_g = (F.binary_cross_entropy_with_logits(pred_discrete_logits[gold_mask].float(), b_disc[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
+                l_ext_g = (F.binary_cross_entropy_with_logits(pred_ext_logits[gold_mask].float(), b_ext[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.75
+                loss_anchor = (l_aim_g + l_mov_g + l_dsc_g + l_ext_g) * 0.45
+
+            # 3. Tool Dispatch + Invocation Gate Supervision (gold + positive-advantage fresh chunks)
+            tool_sup_mask = gold_mask | (fresh_mask & (b_adv > 0.0))
+            loss_tool = torch.tensor(0.0, dtype=torch.float32, device=device)
+            if tool_sup_mask.any():
+                l_tool = F.cross_entropy(pred_tool_logits[tool_sup_mask].float(), b_tool[tool_sup_mask]).mean() * 0.6
+                l_gate = F.binary_cross_entropy_with_logits(pred_gate_logit[tool_sup_mask].float(), b_gate[tool_sup_mask].float()).mean() * 0.4
+                loss_tool = l_tool + l_gate
+
+            # 4. Critic Value V(s) Loss & Entropy Exploration Bonus
+            loss_val = F.smooth_l1_loss(pred_val.float(), b_val.float()) * 0.5
+            mean_ent = ent.mean()
+            loss_ent = -0.015 * mean_ent
+
+            total_loss = loss_ppo + loss_anchor + loss_tool + loss_val + loss_ent
             if not torch.isfinite(total_loss):
                 continue
             total_loss.backward()
@@ -659,7 +875,16 @@ def train_action_transformer(
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
 
+            # Clamp exploration std parameters strictly within safe physical floor/ceiling
+            with torch.no_grad():
+                model.aim_log_std.data.clamp_(math.log(AIM_STD_MIN), math.log(AIM_STD_MAX))
+                model.move_log_std.data.clamp_(math.log(MOVE_STD_MIN), math.log(MOVE_STD_MAX))
+
             epoch_loss += float(total_loss.item())
+            epoch_ppo_loss += float(loss_ppo.item())
+            epoch_val_loss += float(loss_val.item())
+            epoch_entropy += float(mean_ent.item())
+            epoch_clip_frac += clip_frac_val
             with torch.no_grad():
                 epoch_aim_err += float(torch.abs(pred_aim - b_aim).mean().item())
                 epoch_move_err += float(torch.abs(pred_move - b_move).mean().item())
@@ -671,6 +896,10 @@ def train_action_transformer(
 
         scheduler.step()
         avg_loss = epoch_loss / max(1, batches)
+        avg_ppo_loss = epoch_ppo_loss / max(1, batches)
+        avg_val_loss = epoch_val_loss / max(1, batches)
+        avg_entropy = epoch_entropy / max(1, batches)
+        avg_clip_frac = epoch_clip_frac / max(1, batches)
         avg_aim_deg = epoch_aim_err / max(1, batches)
         avg_move_err = epoch_move_err / max(1, batches)
         avg_acc = (epoch_discrete_acc / max(1, batches)) * 100.0
@@ -680,15 +909,16 @@ def train_action_transformer(
             initial_loss = avg_loss
         final_loss = avg_loss
 
+        aim_s, move_s = model.get_action_stds()
         vram_mb = torch.cuda.memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
         print(
-            f"  Epoch {epoch:2d}/{epochs:2d} | Loss: {avg_loss:.4f} | Aim Err: {avg_aim_deg:.2f}° | "
-            f"Move Err: {avg_move_err:.3f} | Disc Acc: {avg_acc:.1f}% | Tool Acc: {avg_tool_acc:.1f}% | VRAM: {vram_mb:.0f} MB"
+            f"  Epoch {epoch:2d}/{epochs:2d} | Loss: {avg_loss:.4f} (PPO: {avg_ppo_loss:.4f}, V: {avg_val_loss:.4f}, Clip: {avg_clip_frac:.2f}) | "
+            f"AimErr: {avg_aim_deg:.2f}° (std={float(aim_s[0]):.1f}°/{float(aim_s[1]):.1f}°) | Disc: {avg_acc:.1f}% | VRAM: {vram_mb:.0f} MB"
         )
 
     ckpt_path = CHECKPOINT_DIR / "action_head_latest.pt"
     torch.save(model.state_dict(), ckpt_path)
-    print(f"\n[Action Head] Successfully saved trained 211M weights to {ckpt_path}!")
+    print(f"\n[Action Head] Successfully saved trained 211M PPO weights to {ckpt_path}!")
 
     if is_best:
         best_path = CHECKPOINT_DIR / "action_head_best.pt"
@@ -697,6 +927,7 @@ def train_action_transformer(
 
     total_time = time.perf_counter() - t0
     peak_vram = torch.cuda.max_memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0
+    final_aim_std, final_move_std = model.get_action_stds()
 
     metrics = {
         "status": "success",
@@ -709,9 +940,19 @@ def train_action_transformer(
         "tool_dispatch_accuracy_pct": round(avg_tool_acc, 2),
         "aim_error_deg": round(avg_aim_deg, 2),
         "realTransitionsLoaded": num_real,
-        "realMotorChunksLoaded": num_motor_chunks,
+        "realMotorChunksLoaded": num_fresh,
+        "goldChunksLoaded": num_gold,
         "synthSamplesUsed": num_synth,
         "awr_rl_enabled": True,
+        "ppo_rl_enabled": True,
+        "ppo_policy_loss": round(avg_ppo_loss, 4),
+        "value_loss": round(avg_val_loss, 4),
+        "entropy": round(avg_entropy, 4),
+        "clip_fraction": round(avg_clip_frac, 4),
+        "aim_yaw_std_deg": round(float(final_aim_std[0].item()), 2),
+        "aim_pitch_std_deg": round(float(final_aim_std[1].item()), 2),
+        "move_std": round(float(final_move_std.mean().item()), 3),
+        "meanChunkReturn": round(mean_chunk_return, 4),
         "peak_vram_mb": round(peak_vram, 1),
         "training_time_s": round(total_time, 2),
         "checkpoint_path": str(ckpt_path),

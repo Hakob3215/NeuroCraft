@@ -3,6 +3,141 @@ import * as path from 'path';
 import { spawn } from 'child_process';
 import { Vec3 } from 'vec3';
 
+export interface ChunkPhysicsSnapshot {
+  pos: { x: number; y: number; z: number };
+  yaw: number;
+  pitch: number;
+  targetPos?: { x: number; y: number; z: number } | null;
+  health: number;
+  damageDealt: number;
+  arrowsFired: number;
+  blocksMined: number;
+  blocksPlaced: number;
+  invCount: number;
+  died?: boolean;
+}
+
+function clampVal(v: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, v));
+}
+
+export function computeUniversalChunkReward(
+  pre: ChunkPhysicsSnapshot,
+  post: ChunkPhysicsSnapshot,
+  toolName: string = 'none'
+): number {
+  let r = 0;
+  const tgtPre = pre.targetPos;
+  const tgtPost = post.targetPos ?? tgtPre;
+  if (tgtPre && tgtPost) {
+    const distPre = Math.hypot(tgtPre.x - pre.pos.x, tgtPre.y - pre.pos.y, tgtPre.z - pre.pos.z);
+    const distPost = Math.hypot(tgtPost.x - post.pos.x, tgtPost.y - post.pos.y, tgtPost.z - post.pos.z);
+    if (toolName !== 'shoot_bow' && Number.isFinite(distPre) && Number.isFinite(distPost)) {
+      r += clampVal((distPre - distPost) * 0.4, -1.0, 1.5);
+    }
+    const cosAlign = (p: ChunkPhysicsSnapshot, t: { x: number; y: number; z: number }): number => {
+      const dx = t.x - p.pos.x;
+      const dy = (t.y + 0.8) - (p.pos.y + 1.62);
+      const dz = t.z - p.pos.z;
+      const d = Math.hypot(dx, dy, dz);
+      if (!Number.isFinite(d) || d < 0.25) return 1.0;
+      const cp = Math.cos(p.pitch || 0);
+      const lx = -Math.sin(p.yaw || 0) * cp;
+      const ly = Math.sin(p.pitch || 0);
+      const lz = -Math.cos(p.yaw || 0) * cp;
+      return (lx * dx + ly * dy + lz * dz) / d;
+    };
+    const cPre = cosAlign(pre, tgtPre);
+    const cPost = cosAlign(post, tgtPost);
+    if (Number.isFinite(cPre) && Number.isFinite(cPost)) {
+      r += clampVal((cPost - cPre) * 1.2, -0.8, 1.0);
+    }
+  }
+  r += clampVal((post.damageDealt - pre.damageDealt) * 0.35, 0, 2.5);
+  r += clampVal((post.arrowsFired - pre.arrowsFired) * 0.5, 0, 1.0);
+  r -= clampVal(Math.max(0, pre.health - post.health) * 0.45, 0, 3.0);
+  if (post.died) r -= 3.0;
+  r += clampVal((post.blocksMined - pre.blocksMined) * 0.8, 0, 2.0);
+  r += clampVal((post.blocksPlaced - pre.blocksPlaced) * 0.8, 0, 2.0);
+  r += clampVal(Math.max(0, post.invCount - pre.invCount) * 0.25, 0, 1.5);
+  return Number(clampVal(r, -5.0, 5.0).toFixed(4));
+}
+
+export function assignDiscountedChunkReturns(
+  chunks: any[],
+  stepReward: number,
+  episodeReward: number,
+  stepSuccess: boolean,
+  episodePassed: boolean,
+  gamma: number = 0.95
+): any[] {
+  if (!chunks || chunks.length === 0) return [];
+  const outcomeBonus = episodePassed && stepSuccess ? 1.5 : stepSuccess ? 0.5 : -0.75;
+  let g = clampVal((0.4 * Number(stepReward || 0) + 0.6 * Number(episodeReward || 0)) / 40.0, -2.5, 3.5) + outcomeBonus;
+  for (let i = chunks.length - 1; i >= 0; i--) {
+    const imm = Number(chunks[i]?.chunkReward ?? 0);
+    g = imm + gamma * g;
+    chunks[i].chunkReturn = Number(clampVal(g, -6.0, 8.0).toFixed(4));
+  }
+  return chunks;
+}
+
+export function updateStratifiedMotorGoldBank(
+  goldPath: string,
+  candidateChunks: any[],
+  maxPerTool: number = 180
+): { totalSaved: number; perTool: Record<string, number> } {
+  const byTool: Record<string, any[]> = {};
+  const addRecord = (rec: any, seqIdx: number) => {
+    if (!rec || typeof rec !== 'object' || !Array.isArray(rec.latent_h)) return;
+    const tool = String(rec.toolName || 'none').toLowerCase();
+    if (!byTool[tool]) byTool[tool] = [];
+    const score =
+      (rec.episodePassed ? 10.0 : 0.0) +
+      (rec.stepSuccess ? 2.0 : 0.0) +
+      Number(rec.chunkReturn ?? Number(rec.episodeReward ?? 0) / 25.0);
+    byTool[tool].push({ rec, score, seqIdx });
+  };
+
+  let seq = 0;
+  if (fs.existsSync(goldPath)) {
+    try {
+      const existing = fs.readFileSync(goldPath, 'utf-8').split(/\r?\n/);
+      for (const line of existing) {
+        if (!line.trim()) continue;
+        try {
+          addRecord(JSON.parse(line), seq++);
+        } catch {}
+      }
+    } catch {}
+  }
+
+  for (const c of candidateChunks || []) {
+    if (!c) continue;
+    const qualifies =
+      (Boolean(c.episodePassed) && Boolean(c.stepSuccess)) ||
+      (Boolean(c.stepSuccess) && Number(c.chunkReturn ?? 0) >= 1.5);
+    if (qualifies) addRecord(c, seq++);
+  }
+
+  const outLines: string[] = [];
+  const perTool: Record<string, number> = {};
+  for (const [tool, items] of Object.entries(byTool)) {
+    items.sort((a, b) => (b.score !== a.score ? b.score - a.score : b.seqIdx - a.seqIdx));
+    const kept = items.slice(0, Math.max(1, maxPerTool));
+    perTool[tool] = kept.length;
+    for (const item of kept) {
+      outLines.push(JSON.stringify(item.rec));
+    }
+  }
+
+  fs.mkdirSync(path.dirname(goldPath), { recursive: true });
+  const tmpPath = `${goldPath}.tmp`;
+  fs.writeFileSync(tmpPath, outLines.length > 0 ? outLines.join('\n') + '\n' : '', 'utf-8');
+  fs.renameSync(tmpPath, goldPath);
+  return { totalSaved: outLines.length, perTool };
+}
+
 function forceKillPid(pid: number | undefined): void {
   if (!pid || pid <= 0) return;
   try {
@@ -1010,6 +1145,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
   const replayPath = path.join(resultsDir, 'rl_replay_buffer.jsonl');
   const transitionsPath = path.join(resultsDir, 'real_rl_transitions.jsonl');
   const motorChunksPath = path.join(resultsDir, 'real_motor_chunks.jsonl');
+  const motorGoldPath = path.join(resultsDir, 'real_motor_gold.jsonl');
 
   // Load existing persistent training state or initialize
   let state: TrainingState = {
@@ -1273,6 +1409,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       let heldOutTotal = 0;
       let heldOutScoreSum = 0;
       const domainStats: Record<string, { passed: number; total: number; scoreSum: number }> = {};
+      const iterationGoldCandidates: any[] = [];
 
       const classifyDomainBucket = (t: MinebenchTaskSpec): string => {
         const tid = (t.id || '').toLowerCase();
@@ -2101,15 +2238,35 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               let stepSummary = '';
               let stepReward = 0;
 
-              // Shadow 20Hz 8-tick physics sampler during live execution (up to 2 chunks/step, non-intrusive)
+              // Shadow 20Hz 8-tick physics sampler during live execution
               const pendingStepChunks: any[] = [];
               let activeChunkTicks: any[] = [];
+              const getTotalInvCount = (): number =>
+                (bot.inventory?.items?.() || []).reduce((sum: number, it: any) => sum + Number(it?.count || 0), 0);
+              const readPhysicsSnap = (targetOverride?: any): ChunkPhysicsSnapshot => {
+                const p = bot.entity?.position || { x: 0, y: 64, z: 0 };
+                const t = targetOverride !== undefined ? targetOverride : worker.system1.getActiveMotorTarget?.() || null;
+                return {
+                  pos: { x: Number(p.x || 0), y: Number(p.y || 0), z: Number(p.z || 0) },
+                  yaw: Number(bot.entity?.yaw || 0),
+                  pitch: Number(bot.entity?.pitch || 0),
+                  targetPos: t ? { x: Number(t.x || 0), y: Number(t.y || 0), z: Number(t.z || 0) } : null,
+                  health: Number(bot.health ?? 20),
+                  damageDealt,
+                  arrowsFired,
+                  blocksMined,
+                  blocksPlaced,
+                  invCount: getTotalInvCount(),
+                  died: deaths > 0,
+                };
+              };
               let activeChunkPre: {
                 voxels: number[];
                 entities: number[][];
                 proprio24: number[];
                 baseYaw: number;
                 basePitch: number;
+                prePhys: ChunkPhysicsSnapshot;
               } | null = null;
               let motorSampleInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -2123,6 +2280,9 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   activeChunkTicks.push({ ...activeChunkTicks[activeChunkTicks.length - 1] });
                 }
                 const ticks = activeChunkTicks.slice(0, 8);
+                const postTarget = worker.system1.getActiveMotorTarget?.() || activeChunkPre.prePhys.targetPos || null;
+                const postPhys = readPhysicsSnap(postTarget);
+                const chunkReward = computeUniversalChunkReward(activeChunkPre.prePhys, postPhys, toolName);
                 pendingStepChunks.push({
                   taskId: task.id,
                   toolName,
@@ -2134,6 +2294,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   moveTargets: ticks.map((t) => [t.vx, t.vz]),
                   discreteTargets: ticks.map((t) => [t.jump, t.sprint, t.sneak, t.attack, t.useItem, t.swapSlot]),
                   extendedTargets: ticks.map((t) => [t.digBlock, t.dropItem]),
+                  chunkReward,
                 });
                 activeChunkTicks = [];
                 activeChunkPre = null;
@@ -2151,6 +2312,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                   proprio24: initProprio24.map((v: number) => Number(Number(v || 0).toFixed(4))),
                   baseYaw: startYaw,
                   basePitch: startPitch,
+                  prePhys: readPhysicsSnap(activeTargetInit || null),
                 };
                 const wrapDeg = (rad: number) => {
                   let a = rad % (2 * Math.PI);
@@ -2172,6 +2334,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                         proprio24: p24.map((v: number) => Number(Number(v || 0).toFixed(4))),
                         baseYaw: bot.entity.yaw || 0,
                         basePitch: bot.entity.pitch || 0,
+                        prePhys: readPhysicsSnap(activeTargetTick || null),
                       };
                     }
                     const cs: any = bot.controlState || {};
@@ -2344,6 +2507,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 for (const mc of selectedStepChunks) {
                   episodeMotorChunks.push({
                     ...mc,
+                    stepIdx,
                     stepSuccess,
                     reward: stepReward,
                   });
@@ -2442,12 +2606,33 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             }
 
             if (episodeMotorChunks.length > 0) {
+              const byStep = new Map<number, any[]>();
               for (const mc of episodeMotorChunks) {
-                fs.appendFileSync(
-                  motorChunksPath,
-                  JSON.stringify({ ...mc, episodePassed: grading.passed, episodeReward: grading.rawReward }) + '\n',
-                  'utf-8'
+                const sk = Number(mc.stepIdx ?? 0);
+                if (!byStep.has(sk)) byStep.set(sk, []);
+                byStep.get(sk)!.push(mc);
+              }
+              for (const stepChunks of byStep.values()) {
+                assignDiscountedChunkReturns(
+                  stepChunks,
+                  Number(stepChunks[0]?.reward ?? 0),
+                  grading.rawReward,
+                  Boolean(stepChunks[0]?.stepSuccess),
+                  grading.passed,
+                  0.95
                 );
+              }
+              for (const mc of episodeMotorChunks) {
+                const enriched = {
+                  ...mc,
+                  iteration: iter,
+                  episodePassed: grading.passed,
+                  episodeReward: grading.rawReward,
+                };
+                fs.appendFileSync(motorChunksPath, JSON.stringify(enriched) + '\n', 'utf-8');
+                if ((enriched.episodePassed && enriched.stepSuccess) || (enriched.stepSuccess && Number(enriched.chunkReturn ?? 0) >= 1.5)) {
+                  iterationGoldCandidates.push(enriched);
+                }
               }
             }
 
@@ -2620,7 +2805,15 @@ export async function runContinuousTrainingLoop(): Promise<void> {
             }
           }
 
-          // 3. Trigger RTX 5060 211.4M Multi-Modal Action Transformer (ACT) Fine-Tuning
+          // 3. Trigger RTX 5060 211.4M Multi-Modal Action Transformer (ACT) PPO + Stratified Gold Fine-Tuning
+          if (iterationGoldCandidates.length > 0) {
+            try {
+              const goldStats = updateStratifiedMotorGoldBank(motorGoldPath, iterationGoldCandidates, 180);
+              console.log(`[TrainLoop] Stratified Motor Gold Bank updated: ${goldStats.totalSaved} balanced chunks across ${Object.keys(goldStats.perTool).length} tools.`);
+            } catch (gErr: any) {
+              console.warn(`[TrainLoop] Warning updating Stratified Motor Gold Bank: ${gErr?.message || gErr}`);
+            }
+          }
           if (fs.existsSync(venvPython) && fs.existsSync(actScript)) {
             try {
               const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
