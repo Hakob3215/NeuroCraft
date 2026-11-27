@@ -98,8 +98,20 @@ export class ReflexEngine {
       return;
     }
 
+    const phaseBMotorTools = new Set([
+      'engage_combat',
+      'shoot_bow',
+      'navigate_parkour_or_bridge',
+      'navigate_to_coordinates',
+    ]);
+    const isPhaseBMotorActive = () =>
+      process.env.NEURAL_MOTOR_CONTROL !== 'false' &&
+      (Boolean((this.bot as any)?._vlaMotorControlActive) ||
+        phaseBMotorTools.has(state.activeSubtask?.toolName || ''));
+    const inPhaseBMotorControl = isPhaseBMotorActive();
+
     // 4. HIGH: Sudden damage spike (> 2.5 HP lost in a single tick)
-    if (healthDrop >= 2.5) {
+    if (healthDrop >= 2.5 && !inPhaseBMotorControl) {
       this.triggerReflex(
         'SUDDEN_DAMAGE',
         'HIGH',
@@ -110,7 +122,7 @@ export class ReflexEngine {
     }
 
     // 5. MEDIUM: Starvation / Low HP during combat (food < 14 and health < 12)
-    if (state.health < 12 && state.food < 16 && !this.isExecutingReflex) {
+    if (state.health < 12 && state.food < 16 && !this.isExecutingReflex && !inPhaseBMotorControl) {
       if (now - this.lastInterruptTime > 6000) {
         this.executeAutoEat();
       }
@@ -123,6 +135,7 @@ export class ReflexEngine {
     if (
       !this.isExecutingReflex &&
       !this.isEvaluatingNeuralReflex &&
+      !inPhaseBMotorControl &&
       now - this.lastNeuralCheckTime > 250 &&
       state.visibleEntities &&
       state.visibleEntities.some(
@@ -140,7 +153,7 @@ export class ReflexEngine {
       sharedNeuralBridge
         .evaluateReflex(state)
         .then((reflexOut) => {
-          if (!reflexOut || !this.bot?.entity) return;
+          if (!reflexOut || !this.bot?.entity || isPhaseBMotorActive()) return;
           if (reflexOut.hazard_urgency > 0.55 && !this.activeHazard) {
             // 1. Continuous camera aim tracking
             if (reflexOut.aim_delta && (reflexOut.aim_delta.dyaw !== 0 || reflexOut.aim_delta.dpitch !== 0)) {
@@ -364,6 +377,7 @@ export class ReflexEngine {
     }
 
     this.combat.lowerShield();
+    (this.bot as any)._vlaItemUseState = null;
   }
 
   private async executeAutoEat(): Promise<void> {
@@ -371,7 +385,7 @@ export class ReflexEngine {
       'cooked_beef',
       'cooked_porkchop',
       'golden_apple',
-      'Golden_carrot',
+      'golden_carrot',
       'cooked_mutton',
       'cooked_chicken',
       'bread',
@@ -383,6 +397,7 @@ export class ReflexEngine {
         this.bot.activateItem();
         await new Promise((r) => setTimeout(r, 1650)); // Standard Minecraft eating duration (32 ticks = 1.6s)
         this.bot.deactivateItem();
+        (this.bot as any)._vlaItemUseState = null;
         break;
       }
     }

@@ -5355,6 +5355,94 @@ test('83. Phase B neural motor control uses tick-0 aim frame, prioritizes target
   assert.equal(chunk2Res.bowReleases, 1, 'Cross-chunk bow draw must record release on transition to false');
   assert.equal(bowReleaseCount, 1);
 
+  // Verify Probe 2 Fix #2: raycastCursorBlock uses eyeHeight (1.62 standing / 1.27 sneaking) instead of entity.height (1.8)
+  let capturedEyeY = -1;
+  const mockEyeBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 0, pitch: 0, height: 1.8, eyeHeight: 1.62, onGround: true, velocity: new Vec3(0, 0, 0) },
+    heldItem: { type: 4, name: 'cobblestone', count: 16 },
+    inventory: { slots: {} },
+    entities: {},
+    world: {
+      raycast: (origin: Vec3) => {
+        capturedEyeY = origin.y;
+        return { name: 'stone', boundingBox: 'block', face: 3, position: new Vec3(0, 63, 1) };
+      },
+    },
+    placeBlock: async () => {},
+    look: async () => {},
+    setControlState: () => {},
+    clearControlStates: () => {},
+    activateItem: () => {},
+    deactivateItem: () => {},
+  };
+  await client.executeMotorActionChunk(
+    mockEyeBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false }],
+    targetPos,
+    1,
+    { neuralAimOnly: true, allowUseItem: true, allowPlaceBlock: true }
+  );
+  assert.ok(Math.abs(capturedEyeY - 65.62) < 1e-4, 'raycastCursorBlock must use eyeHeight 1.62 instead of height 1.8');
+
+  mockEyeBot.entity.eyeHeight = undefined;
+  mockEyeBot.controlState = { sneak: true };
+  await client.executeMotorActionChunk(
+    mockEyeBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: true, attack: false, use_item: true, swap_slot: false }],
+    targetPos,
+    1,
+    { neuralAimOnly: true, allowUseItem: true, allowPlaceBlock: true }
+  );
+  assert.ok(Math.abs(capturedEyeY - 65.27) < 1e-4, 'raycastCursorBlock must fall back to sneaking eyeHeight 1.27');
+
+  // Verify Probe 2 Fix #1: ReflexEngine gates SUDDEN_DAMAGE during active Phase B motor subtasks but fires outside them
+  const { ReflexEngine } = require('../system1/reflexes/reflexEngine');
+  const prevNeuralMotorEnv = process.env.NEURAL_MOTOR_CONTROL;
+  process.env.NEURAL_MOTOR_CONTROL = 'true';
+  try {
+    let shieldRaises = 0;
+    const interrupts: any[] = [];
+    const reflexBot: any = {
+      health: 20,
+      entity: { position: { x: 0, y: 64, z: 0 }, onGround: true },
+      clearControlStates: () => {},
+      setControlState: () => {},
+      _vlaMotorControlActive: false,
+    };
+    const engine = new ReflexEngine(
+      reflexBot,
+      { lookAtSmooth: async () => {} },
+      { raiseShield: () => { shieldRaises++; }, lowerShield: () => {} },
+      { equipItemHumanized: async () => false },
+      (ev: any) => interrupts.push(ev)
+    );
+    const baseState: any = {
+      health: 20,
+      food: 20,
+      oxygen: 20,
+      visibleEntities: [],
+      isInWater: false,
+      isInLava: false,
+      activeSubtask: { toolName: 'shoot_bow', goal: 'shoot skeleton' },
+    };
+    engine.evaluateTick(baseState);
+    reflexBot.health = 14;
+    baseState.health = 14;
+    engine.evaluateTick(baseState);
+    assert.equal(shieldRaises, 0, 'ReflexEngine must not raiseShield during active shoot_bow subtask');
+    assert.equal(engine.getActiveHazard(), null, 'ReflexEngine must not set SUDDEN_DAMAGE hazard during active shoot_bow subtask');
+
+    baseState.activeSubtask = null;
+    reflexBot.health = 8;
+    baseState.health = 8;
+    engine.evaluateTick(baseState);
+    assert.equal(interrupts.length, 1, 'SUDDEN_DAMAGE must fire once Phase B motor subtask finishes');
+    assert.equal(interrupts[0].hazard, 'SUDDEN_DAMAGE');
+  } finally {
+    if (prevNeuralMotorEnv === undefined) delete process.env.NEURAL_MOTOR_CONTROL;
+    else process.env.NEURAL_MOTOR_CONTROL = prevNeuralMotorEnv;
+  }
+
   const rootDir = path.resolve(__dirname, '..', '..');
   const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
   const pyCheck = `
@@ -5377,6 +5465,12 @@ b_w = torch.tensor([1.5, 0.0])
 adv = (b_val - pred_val).clamp(-1.0, 2.0)
 w = b_w * torch.exp(adv * 1.5).clamp(0.25, 3.0)
 assert torch.isfinite(w).all() and w[1].item() == 0.0 and w[0].item() > 0.0
+
+# Verify Probe 2 Fix #3: synthetic Mode 4 pitch=-88.0 (down) and Mode 6 pitch=+14.0 (up)
+ds = tah.generate_temporal_action_dataset(num_samples=20, device="cpu")
+target_aim = ds[4]
+assert abs(float(target_aim[4, 0, 1].item()) - (-88.0)) < 1e-4, f"Expected Mode 4 pitch -88.0, got {target_aim[4, 0, 1].item()}"
+assert abs(float(target_aim[6, 0, 1].item()) - 14.0) < 1e-4, f"Expected Mode 6 pitch +14.0, got {target_aim[6, 0, 1].item()}"
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');

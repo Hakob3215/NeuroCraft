@@ -164,7 +164,7 @@ def generate_temporal_action_dataset(
             target_tool_gate[i] = 0.0
 
             for t in range(chunk_size):
-                target_aim[i, t, 1] = 88.0
+                target_aim[i, t, 1] = -88.0
                 if t == 0:
                     target_discrete[i, t, 5] = 1.0  # swap_slot
                 if t >= 6:
@@ -200,7 +200,7 @@ def generate_temporal_action_dataset(
 
             for t in range(chunk_size):
                 target_move[i, t, 0] = 0.1 * math.sin(t)
-                target_aim[i, t, 1] = -14.0
+                target_aim[i, t, 1] = 14.0
                 if t <= 5:
                     target_discrete[i, t, 4] = 1.0  # draw bow
             target_values[i] = 0.80

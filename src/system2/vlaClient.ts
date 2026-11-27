@@ -218,7 +218,7 @@ function raycastCursorBlock(bot: Bot, maxDist = 4.5): any {
   if (b?.world && typeof b.world.raycast === 'function' && b.entity?.position) {
     const yaw = Number(b.entity.yaw || 0);
     const pitch = Number(b.entity.pitch || 0);
-    const eyeHeight = Number(b.entity.height || 1.62);
+    const eyeHeight = Number(b.entity.eyeHeight ?? ((b.controlState as any)?.sneak ? 1.27 : 1.62));
     const eyePos = b.entity.position.offset(0, eyeHeight, 0);
     const cosPitch = Math.cos(pitch);
     const dir = new Vec3(-Math.sin(yaw) * cosPitch, Math.sin(pitch), -Math.cos(yaw) * cosPitch);
@@ -634,6 +634,7 @@ export class VLACompanionClient {
     let reachedTarget = false;
 
     const slice = chunk.slice(0, Math.max(1, maxTicks));
+    (bot as any)._vlaMotorControlActive = true;
     try {
       for (const step of slice) {
         if (!bot.entity || options?.abortSignal?.aborted) break;
@@ -794,6 +795,7 @@ export class VLACompanionClient {
         await new Promise((r) => setTimeout(r, 50));
       }
     } finally {
+      (bot as any)._vlaMotorControlActive = false;
       if (persistItemUse && !options?.abortSignal?.aborted) {
         (bot as any)._vlaItemUseState = { activated: itemActivated, useTicks };
       } else {
