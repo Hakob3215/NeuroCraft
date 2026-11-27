@@ -3058,6 +3058,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
                   allowUseItem: true,
                   allowDig: false,
                   allowItemDrop: false,
+                  persistItemUse: true,
                   neuralAimOnly: true,
                   combatTarget: targetEntity,
                   abortSignal: ctx.abortSignal,
@@ -3115,8 +3116,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
           }
 
           ctx.kinematics.setActiveMotorTarget?.(null);
+          (ctx.bot as any)._vlaItemUseState = null;
+          try { ctx.bot.deactivateItem?.(); } catch {}
           ctx.bot.pathfinder.setGoal(null);
-          ctx.bot.setControlState('back', false);
+          ctx.bot.clearControlStates?.();
 
           if (botDied || (ctx.bot.health ?? 20) <= 0) {
             botDied = true;
@@ -3146,9 +3149,11 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       } finally {
         ctx.kinematics.setActiveMotorTarget?.(null);
+        (ctx.bot as any)._vlaItemUseState = null;
+        try { ctx.bot.deactivateItem?.(); } catch {}
         ctx.bot.removeListener?.('death', onBotDeath);
         ctx.bot.pathfinder.setGoal(null);
-        ctx.bot.setControlState('back', false);
+        ctx.bot.clearControlStates?.();
       }
 
       ctx.reportProgress(1.0);
@@ -4625,6 +4630,7 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
                   allowAttack: false,
                   allowDig: false,
                   allowItemDrop: false,
+                  persistItemUse: true,
                   neuralAimOnly: true,
                   abortSignal: ctx.abortSignal,
                 }
@@ -4638,6 +4644,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
               }
             }
             if (shotExecuted) {
+              (ctx.bot as any)._vlaItemUseState = null;
+              try { ctx.bot.deactivateItem?.(); } catch {}
+              try { ctx.bot.clearControlStates?.(); } catch {}
               if (!shotReleased) fired += 0;
               ctx.reportProgress((i + 1) / maxShots);
               await new Promise((r) => setTimeout(r, 150));
@@ -4662,6 +4671,9 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         }
       } finally {
         ctx.kinematics.setActiveMotorTarget?.(null);
+        (ctx.bot as any)._vlaItemUseState = null;
+        try { ctx.bot.deactivateItem?.(); } catch {}
+        try { ctx.bot.clearControlStates?.(); } catch {}
       }
 
       ctx.reportProgress(1.0);

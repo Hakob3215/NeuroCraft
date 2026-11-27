@@ -204,6 +204,30 @@ export function getEntityPriority(name: string, type?: string): number {
   return 5;
 }
 
+const BLOCK_FACE_NORMALS: Record<number, Vec3> = {
+  0: new Vec3(0, -1, 0),
+  1: new Vec3(0, 1, 0),
+  2: new Vec3(0, 0, -1),
+  3: new Vec3(0, 0, 1),
+  4: new Vec3(-1, 0, 0),
+  5: new Vec3(1, 0, 0),
+};
+
+function raycastCursorBlock(bot: Bot, maxDist = 4.5): any {
+  const b: any = bot;
+  if (b?.world && typeof b.world.raycast === 'function' && b.entity?.position) {
+    const yaw = Number(b.entity.yaw || 0);
+    const pitch = Number(b.entity.pitch || 0);
+    const eyeHeight = Number(b.entity.height || 1.62);
+    const eyePos = b.entity.position.offset(0, eyeHeight, 0);
+    const cosPitch = Math.cos(pitch);
+    const dir = new Vec3(-Math.sin(yaw) * cosPitch, Math.sin(pitch), -Math.cos(yaw) * cosPitch);
+    const hit = b.world.raycast(eyePos, dir, maxDist, null);
+    if (hit) return hit;
+  }
+  return typeof b?.blockAtCursor === 'function' ? b.blockAtCursor(maxDist) : null;
+}
+
 export class VLACompanionClient {
   private daemonUrl: string;
 
@@ -563,6 +587,7 @@ export class VLACompanionClient {
       allowAttack?: boolean;
       allowUseItem?: boolean;
       allowPlaceBlock?: boolean;
+      persistItemUse?: boolean;
       combatTarget?: any;
       stopWhenNearPos?: { pos: Vec3; range: number };
       abortSignal?: AbortSignal;
@@ -598,8 +623,10 @@ export class VLACompanionClient {
     const allowAttack = options?.allowAttack !== false;
     const allowUseItem = options?.allowUseItem !== false;
     const allowPlaceBlock = options?.allowPlaceBlock === true;
-    let itemActivated = false;
-    let useTicks = 0;
+    const persistItemUse = options?.persistItemUse === true;
+    const prevUseState = persistItemUse ? (bot as any)._vlaItemUseState : null;
+    let itemActivated = Boolean(prevUseState?.activated);
+    let useTicks = Number(prevUseState?.useTicks || 0);
     let lastPlaceAt = 0;
     let executedTicks = 0;
     let strikes = 0;
@@ -622,7 +649,7 @@ export class VLACompanionClient {
         }
 
         // 1. Aim adjustment relative to tick-0 camera frame under Phase B (or target frame under legacy mode)
-        if (step.delta_yaw !== 0 || step.delta_pitch !== 0 || (!useNeuralAimOnly && targetPos)) {
+        if (useNeuralAimOnly || step.delta_yaw !== 0 || step.delta_pitch !== 0 || targetPos) {
           const rawDyaw = Number.isFinite(step.delta_yaw) ? step.delta_yaw : 0;
           const rawDpitch = Number.isFinite(step.delta_pitch) ? step.delta_pitch : 0;
           const clampedDyaw = useNeuralAimOnly
@@ -646,7 +673,7 @@ export class VLACompanionClient {
         bot.setControlState('back', step.vz < -0.1);
         bot.setControlState('left', step.vx < -0.1);
         bot.setControlState('right', step.vx > 0.1);
-        if (step.jump && bot.entity.onGround) {
+        if (step.jump && (bot.entity.onGround || Boolean((bot.entity as any).isInWater))) {
           bot.setControlState('jump', true);
         } else {
           bot.setControlState('jump', false);
@@ -699,14 +726,18 @@ export class VLACompanionClient {
           useTicks++;
           const heldName = String(bot.heldItem?.name || '').toLowerCase();
           const isBridgeBlock = /^(cobblestone|stone|oak_planks|spruce_planks|birch_planks|jungle_planks|acacia_planks|dark_oak_planks|dirt|sandstone|netherrack)$/.test(heldName);
-          if (allowPlaceBlock && isBridgeBlock && typeof (bot as any).blockAtCursor === 'function' && typeof (bot as any).placeBlock === 'function') {
+          if (allowPlaceBlock && isBridgeBlock && typeof (bot as any).placeBlock === 'function') {
             const nowMs = Date.now();
             if (nowMs - lastPlaceAt >= 200) {
               try {
-                const refBlock = (bot as any).blockAtCursor(4.5);
+                const refBlock = raycastCursorBlock(bot, 4.5);
                 if (refBlock && refBlock.name !== 'air' && refBlock.boundingBox === 'block') {
+                  const faceVec =
+                    typeof refBlock.face === 'number' && BLOCK_FACE_NORMALS[refBlock.face]
+                      ? BLOCK_FACE_NORMALS[refBlock.face]
+                      : new Vec3(0, 1, 0);
                   lastPlaceAt = nowMs;
-                  void (bot as any).placeBlock(refBlock, new Vec3(0, 1, 0)).catch(() => {});
+                  void (bot as any).placeBlock(refBlock, faceVec).catch(() => {});
                 }
               } catch {}
             }
@@ -738,7 +769,7 @@ export class VLACompanionClient {
 
         if (allowDig && step.dig_block) {
           try {
-            const targetBlk = typeof (bot as any).blockAtCursor === 'function' ? (bot as any).blockAtCursor(4.5) : null;
+            const targetBlk = raycastCursorBlock(bot, 4.5);
             if (
               targetBlk &&
               targetBlk.name !== 'air' &&
@@ -763,10 +794,17 @@ export class VLACompanionClient {
         await new Promise((r) => setTimeout(r, 50));
       }
     } finally {
-      if (itemActivated) {
-        try {
-          bot.deactivateItem?.();
-        } catch {}
+      if (persistItemUse && !options?.abortSignal?.aborted) {
+        (bot as any)._vlaItemUseState = { activated: itemActivated, useTicks };
+      } else {
+        if (persistItemUse) {
+          (bot as any)._vlaItemUseState = null;
+        }
+        if (itemActivated) {
+          try {
+            bot.deactivateItem?.();
+          } catch {}
+        }
       }
       if (!targetPos) {
         try {

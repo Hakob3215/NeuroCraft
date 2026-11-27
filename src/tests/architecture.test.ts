@@ -5294,6 +5294,67 @@ test('83. Phase B neural motor control uses tick-0 aim frame, prioritizes target
   assert.equal(strikeCount, 0);
   assert.ok(deactivateCalls >= 1);
 
+  // Verify Fix #1 (side-face placement), Fix #2 (cross-chunk persistItemUse), Fix #3 (swim jump), Fix #5 (delta=0 aim reset)
+  let placedFace: any = null;
+  let swimJumpSet = false;
+  lookAngles.length = 0;
+  deactivateCalls = 0;
+  const mockWaterBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 0.5, pitch: 0.0, onGround: false, isInWater: true, velocity: new Vec3(0, 0, 0) },
+    heldItem: { type: 4, name: 'cobblestone', count: 16 },
+    inventory: { slots: {} },
+    entities: {},
+    world: { raycast: () => ({ name: 'stone', boundingBox: 'block', face: 3, position: new Vec3(0, 63, 1) }) },
+    placeBlock: async (_blk: any, faceVec: Vec3) => { placedFace = faceVec; },
+    look: async (yaw: number, pitch: number) => { lookAngles.push({ yaw, pitch }); },
+    setControlState: (s: string, v: boolean) => { if (s === 'jump' && v) swimJumpSet = true; },
+    clearControlStates: () => {},
+    activateItem: () => {},
+    deactivateItem: () => { deactivateCalls++; },
+  };
+  await client.executeMotorActionChunk(
+    mockWaterBot,
+    [
+      { delta_yaw: 10, delta_pitch: 0, vx: 0, vz: 1, jump: true, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 1, jump: true, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+    ],
+    targetPos,
+    2,
+    { neuralAimOnly: true, allowUseItem: true, allowPlaceBlock: true }
+  );
+  assert.ok(placedFace && placedFace.z === 1 && placedFace.y === 0, 'Must place against intersected side face normal instead of hardcoded (0,1,0)');
+  assert.equal(swimJumpSet, true, 'Must allow jump control state while swimming in water');
+  assert.equal(lookAngles.length, 2, 'Tick with delta_yaw=0 must still reset look back to baseYaw');
+
+  // Verify cross-chunk persistItemUse holds bow draw across chunk 1 without deactivating, then fires in chunk 2
+  mockBot.heldItem = { type: 261, name: 'bow', count: 1 };
+  (mockBot as any)._vlaItemUseState = null;
+  deactivateCalls = 0;
+  bowReleaseCount = 0;
+  await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+    ],
+    targetPos,
+    2,
+    { neuralAimOnly: true, persistItemUse: true, onBowRelease: () => { bowReleaseCount++; } }
+  );
+  assert.equal(deactivateCalls, 0, 'persistItemUse must hold bow draw across chunk boundary');
+  const chunk2Res = await client.executeMotorActionChunk(
+    mockBot,
+    [
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false },
+      { delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: false, swap_slot: false },
+    ],
+    targetPos,
+    2,
+    { neuralAimOnly: true, persistItemUse: true, onBowRelease: () => { bowReleaseCount++; } }
+  );
+  assert.equal(chunk2Res.bowReleases, 1, 'Cross-chunk bow draw must record release on transition to false');
+  assert.equal(bowReleaseCount, 1);
+
   const rootDir = path.resolve(__dirname, '..', '..');
   const pythonExe = path.join(rootDir, 'neural_lab', '.venv', 'Scripts', 'python.exe');
   const pyCheck = `
