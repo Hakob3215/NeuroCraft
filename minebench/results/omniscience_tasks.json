@@ -14942,7 +14942,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:emerald\",Count:2b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15007,7 +15007,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:emerald\",Count:2b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],

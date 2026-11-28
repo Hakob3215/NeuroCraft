@@ -6092,6 +6092,8 @@ test('87. Generalist benchmark cleanup, shifted shelter IoU, quota rebalance, ge
   assert.equal(extFire?.expectedToolArgs?.targetBlock, 'netherrack', 'Extinguish fire must target netherrack block underneath fire');
   const raids = omniRaw.filter((t) => t.category === 'structure_raid');
   assert.ok(raids.length > 0 && raids.every((t) => t.setupCommands.some((c: string) => c.includes('setblock ~ ~ ~3 chest'))), 'Structure raid chests must sit on ground floor');
+  const plainsRaid = raids.find((t) => t.taskId === 'omni_structure_village_plains');
+  assert.ok(plainsRaid?.setupCommands?.[0]?.includes('minecraft:emerald'), 'Village raid chest must contain non-loadout emerald loot');
 
   // 3. Generalist quota rebalance & generous maxSteps
   const omniPath = path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json');

@@ -2260,7 +2260,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               const toolArgs = decision.toolCall.arguments || {};
               const isBuildTool = toolName.includes('construct') || toolName.includes('build') || toolName.includes('house');
               const isSmeltTool = toolName === 'smelt_item' || toolName === 'smelt_ores';
-              const stepDurationMs = isBuildTool ? 55000 : isSmeltTool ? 40000 : 25000;
+              const stepDurationMs = isBuildTool ? 55000 : isSmeltTool ? 55000 : 25000;
               const abortController = new AbortController();
               activeStepAbortController = abortController;
               const stepTimeout = setTimeout(() => abortController.abort(), stepDurationMs);

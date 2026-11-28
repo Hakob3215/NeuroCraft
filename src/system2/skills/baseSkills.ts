@@ -2431,13 +2431,15 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
       const targetCount = Math.min(32, Math.max(1, Number(args.count) || 4));
 
       const invItems = ctx.bot.inventory?.items() || [];
-      const inputStack = invItems.find((i: any) => {
-        const n = i.name.toLowerCase();
-        if (requestedInput.includes('iron')) {
-          return n === 'raw_iron' || n === 'iron_ore' || n === 'deepslate_iron_ore';
-        }
-        return n === requestedInput || n.includes(requestedInput);
-      });
+      const inputStack =
+        invItems.find((i: any) => i.name.toLowerCase() === requestedInput) ||
+        invItems.find((i: any) => {
+          const n = i.name.toLowerCase();
+          if (requestedInput.includes('iron')) {
+            return n === 'raw_iron' || n === 'iron_ore' || n === 'deepslate_iron_ore';
+          }
+          return n.includes(requestedInput);
+        });
 
       if (!inputStack) {
         return {
