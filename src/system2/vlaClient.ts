@@ -686,7 +686,13 @@ export class VLACompanionClient {
         if (allowAttack && step.attack) {
           try {
             const nowMs = Date.now();
-            if (nowMs - ((bot as any)._lastAttackAt || 0) >= 450) {
+            const heldWeaponName = String(bot.heldItem?.name || '').toLowerCase();
+            const attackCooldownMs = heldWeaponName.includes('_axe')
+              ? 1020
+              : heldWeaponName.includes('_sword')
+                ? 630
+                : 480;
+            if (nowMs - ((bot as any)._lastAttackAt || 0) >= attackCooldownMs) {
               bot.swingArm?.('right');
               const preferred = options?.combatTarget;
               const preferredValid =
@@ -747,7 +753,7 @@ export class VLACompanionClient {
               const offHand = (bot.inventory as any)?.slots?.[45];
               const useOffHandShield = Boolean(
                 offHand?.name?.includes('shield') &&
-                  !/(bow|sword|apple|beef|bread|carrot|potion|milk|bucket)/i.test(heldName)
+                  !/(bow|crossbow|trident|shield|apple|beef|bread|carrot|potion|milk|bucket)/i.test(heldName)
               );
               bot.activateItem?.(useOffHandShield);
               itemActivated = true;

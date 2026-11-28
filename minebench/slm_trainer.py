@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 # Configure PyTorch allocator and cuBLAS workspace for VRAM fragmentation resistance and tensor core GEMMs
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
+os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "max_split_size_mb:128"
 os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
@@ -292,14 +292,15 @@ def compute_masked_logp_and_nll(
         shift_logits = outputs.logits[:, :-1, :].contiguous()
         valid_logits = shift_logits[valid_mask].float()
 
-    log_probs = torch.nn.functional.log_softmax(valid_logits, dim=-1)
-    token_logp = log_probs.gather(dim=-1, index=valid_labels.unsqueeze(-1)).squeeze(-1)
-    mean_logp = token_logp.mean()
-    nll = torch.nn.functional.cross_entropy(
-        valid_logits,
-        valid_labels,
-        label_smoothing=max(0.0, float(label_smoothing)),
-    )
+    mean_logp = -torch.nn.functional.cross_entropy(valid_logits, valid_labels)
+    if label_smoothing > 0.0:
+        nll = torch.nn.functional.cross_entropy(
+            valid_logits,
+            valid_labels,
+            label_smoothing=float(label_smoothing),
+        )
+    else:
+        nll = -mean_logp
     return mean_logp, nll
 
 
@@ -590,7 +591,7 @@ def train_slm_qlora(
                                 model, rej_ids, rej_mask, rej_lbls, label_smoothing=0.0
                             )
                         pi_w_val, _ = compute_masked_logp_and_nll(
-                            model, ch_ids, ch_mask, ch_lbls, label_smoothing=label_smoothing
+                            model, ch_ids, ch_mask, ch_lbls, label_smoothing=0.0
                         )
                         pi_l_val, _ = compute_masked_logp_and_nll(
                             model, rej_ids, rej_mask, rej_lbls, label_smoothing=0.0
@@ -703,6 +704,10 @@ def train_slm_qlora(
                 optimizer.zero_grad(set_to_none=True)
                 grad_pending = 0
 
+            if (b_idx + 1) % 24 == 0 and torch.cuda.is_available():
+                gc.collect()
+                torch.cuda.empty_cache()
+
         if grad_pending > 0:
             try:
                 torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
@@ -756,6 +761,11 @@ def train_slm_qlora(
     )
 
     # 5. Save LoRA Adapters (Zero-Disk-Bloat Policy: latest + best + loop checkpoint)
+    model.zero_grad(set_to_none=True)
+    del optimizer
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     model.save_pretrained(str(latest_adapter))
     tokenizer.save_pretrained(str(latest_adapter))
     print(f"[SLM Trainer] Saved latest adapter to: {latest_adapter}")

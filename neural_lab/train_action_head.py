@@ -524,6 +524,7 @@ def load_motor_chunks_with_returns(
     device: str = "cuda:0" if torch.cuda.is_available() else "cpu",
     balance_by_tool: bool = False,
     is_gold_flag: float = 0.0,
+    min_iter: Optional[int] = None,
 ) -> Optional[Tuple[Tuple[torch.Tensor, ...], float]]:
     """
     Loads motor chunk records with dense physics returns and optional per-tool balancing
@@ -534,7 +535,7 @@ def load_motor_chunks_with_returns(
         return None
 
     raw_records = []
-    scan_limit = max_samples * 4 if balance_by_tool else max_samples
+    scan_limit = max_samples * 4 if (balance_by_tool or min_iter is not None) else max_samples
     try:
         for line in read_jsonl_tail(chunks_path, max_lines=scan_limit):
             line = line.strip()
@@ -563,6 +564,13 @@ def load_motor_chunks_with_returns(
 
     if not raw_records:
         return None
+
+    if min_iter is not None:
+        recent_records = [r for r in raw_records if int(r.get("iteration") or 0) >= min_iter]
+        if len(recent_records) >= 128:
+            raw_records = recent_records
+        else:
+            raw_records = raw_records[-min(800, max_samples):]
 
     if balance_by_tool and len(raw_records) > max_samples:
         by_tool: Dict[str, List[dict]] = {}
@@ -692,7 +700,14 @@ def train_action_transformer(
 
     fresh_path = ROOT_DIR / "minebench" / "results" / "real_motor_chunks.jsonl"
     gold_path = ROOT_DIR / "minebench" / "results" / "real_motor_gold.jsonl"
-    fresh_res = load_motor_chunks_with_returns(fresh_path, max_samples=2000, device=str(device), balance_by_tool=False, is_gold_flag=0.0)
+    fresh_res = load_motor_chunks_with_returns(
+        fresh_path,
+        max_samples=2000,
+        device=str(device),
+        balance_by_tool=False,
+        is_gold_flag=0.0,
+        min_iter=(max(41, loop_idx - 1) if loop_idx >= 41 else None),
+    )
     gold_res = load_motor_chunks_with_returns(gold_path, max_samples=1200, device=str(device), balance_by_tool=True, is_gold_flag=1.0)
 
     num_fresh = int(fresh_res[0][0].shape[0]) if fresh_res is not None else 0
@@ -775,7 +790,7 @@ def train_action_transformer(
     if fresh_idx_mask.any():
         fresh_adv = raw_adv[fresh_idx_mask]
         std_adv = fresh_adv.std(unbiased=False).clamp(min=1e-4) if fresh_adv.numel() > 1 else torch.tensor(1.0, device=device)
-        adv_all[fresh_idx_mask] = ((fresh_adv - fresh_adv.mean()) / std_adv).clamp(-3.0, 3.0)
+        adv_all[fresh_idx_mask] = ((fresh_adv - fresh_adv.mean()) / std_adv).clamp(-2.0, 2.5)
 
     combined.extend([old_logp_all, adv_all])
     dataset = TensorDataset(*combined)
@@ -797,7 +812,9 @@ def train_action_transformer(
     print(f"[Action Head] Starting Clipped PPO + Gold-Anchor optimization across {len(loader)} batches/epoch...")
 
     for epoch in range(1, epochs + 1):
-        model.train()
+        # Keep model in eval() during PPO epochs so Transformer/attention dropout does not distort ratio vs old_logp
+        # (LayerNorm/GroupNorm and gradient flow are completely unaffected by eval())
+        model.eval()
         epoch_loss = 0.0
         epoch_ppo_loss = 0.0
         epoch_val_loss = 0.0
@@ -848,11 +865,11 @@ def train_action_transformer(
             if gold_mask.any():
                 gw = b_w[gold_mask].clamp(min=0.25)
                 gw = gw / gw.mean().clamp(min=1e-4)
-                l_aim_g = (F.mse_loss(pred_aim[gold_mask].float(), b_aim[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.001
+                l_aim_g = (F.mse_loss(pred_aim[gold_mask].float(), b_aim[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.006
                 l_mov_g = (F.mse_loss(pred_move[gold_mask].float(), b_move[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
                 l_dsc_g = (F.binary_cross_entropy_with_logits(pred_discrete_logits[gold_mask].float(), b_disc[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
                 l_ext_g = (F.binary_cross_entropy_with_logits(pred_ext_logits[gold_mask].float(), b_ext[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.75
-                loss_anchor = (l_aim_g + l_mov_g + l_dsc_g + l_ext_g) * 0.45
+                loss_anchor = (l_aim_g + l_mov_g + l_dsc_g + l_ext_g) * 0.60
 
             # 3. Tool Dispatch + Invocation Gate Supervision (gold + positive-advantage fresh chunks)
             tool_sup_mask = gold_mask | (fresh_mask & (b_adv > 0.0))
@@ -867,7 +884,7 @@ def train_action_transformer(
             mean_ent = ent.mean()
             loss_ent = -0.015 * mean_ent
 
-            total_loss = loss_ppo + loss_anchor + loss_tool + loss_val + loss_ent
+            total_loss = 0.50 * loss_ppo + loss_anchor + loss_tool + loss_val + loss_ent
             if not torch.isfinite(total_loss):
                 continue
             total_loss.backward()

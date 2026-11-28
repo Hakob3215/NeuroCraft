@@ -226,7 +226,7 @@ async function runPythonScriptAsync(
       if (code === 0) {
         resolve(stdoutTail);
       } else {
-        reject(new Error(`Python script exited ${code}: ${stderrTail.slice(-500) || stdoutTail.slice(-300)}`));
+        reject(new Error(`Python script exited ${code}: ${stderrTail.slice(-1500) || stdoutTail.slice(-500)}`));
       }
     });
   });
@@ -2726,6 +2726,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       const actScript = path.resolve(process.cwd(), 'neural_lab', 'train_action_head.py');
       let rlLossDelta = '';
       let slmLossDelta = '';
+      let slmUpdated = false;
       let actLossDelta = '';
       let actAimErrorDeg: number | undefined;
       let actDiscreteAccPct: number | undefined;
@@ -2802,6 +2803,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               } catch {}
 
               const slmOut = await runPythonScriptAsync(venvPython, slmArgs, 360000);
+              slmUpdated = true;
               const slmMetricsPath = path.resolve(resultsDir, 'slm_training_metrics.json');
               if (fs.existsSync(slmMetricsPath)) {
                 const parsedSlm = JSON.parse(fs.readFileSync(slmMetricsPath, 'utf-8'));
@@ -3073,7 +3075,8 @@ export async function runContinuousTrainingLoop(): Promise<void> {
       if (rlLossDelta) console.log(`  System 1 (PPO Reflex): ${rlLossDelta}`);
       if (actLossDelta) console.log(`  System 1 (211.4M ACT): ${actLossDelta}`);
       if (slmLossDelta) console.log(`  System 2 (SLM LoRA):   ${slmLossDelta}`);
-      console.log(`  Weights Updated: voxel_reflex_policy_latest.pt, action_head_latest.pt, & slm_minecraft_savant_latest/`);
+      const savedSlmLabel = slmUpdated ? ', & slm_minecraft_savant_latest/' : ' (SLM adapter unchanged)';
+      console.log(`  Weights Updated: voxel_reflex_policy_latest.pt, action_head_latest.pt${savedSlmLabel}`);
       if (isNewBest) {
         console.log(`  ⭐ NEW HIGH SCORE! Saved to: neural_lab/checkpoints/voxel_reflex_policy_best.pt`);
       }

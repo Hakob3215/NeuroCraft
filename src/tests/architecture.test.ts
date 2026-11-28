@@ -5610,6 +5610,68 @@ test('84. Universal 400ms physics chunk reward, stratified motor gold bank, and 
   );
   assert.equal(mockBowBot._bowReleaseCount, 1, 'executeMotorActionChunk must increment live _bowReleaseCount on bow fire');
 
+  // Verify off-hand shield works while holding sword and melee cooldown adapts for sword (630ms) & axe (1020ms)
+  let activatedOffHandShield: boolean | undefined;
+  let meleeSwingCount = 0;
+  const mockCombatClient = new VLACompanionClient();
+  const mockCombatTarget = {
+    type: 'hostile',
+    isValid: true,
+    position: new Vec3(0, 64, -2),
+  };
+  const mockShieldSwordBot: any = {
+    entity: { position: new Vec3(0, 64, 0), yaw: 0, pitch: 0, onGround: true, velocity: new Vec3(0, 0, 0) },
+    heldItem: { type: 267, name: 'iron_sword', count: 1 },
+    inventory: { slots: { 45: { name: 'shield', count: 1 } } },
+    look: async () => {},
+    setControlState: () => {},
+    clearControlStates: () => {},
+    swingArm: () => { meleeSwingCount++; },
+    attack: () => {},
+    nearestEntity: () => mockCombatTarget,
+    activateItem: (offHand?: boolean) => { activatedOffHandShield = offHand; },
+    deactivateItem: () => {},
+  };
+  await mockCombatClient.executeMotorActionChunk(
+    mockShieldSwordBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: false, use_item: true, swap_slot: false }],
+    new Vec3(0, 64, -2),
+    1,
+    { neuralAimOnly: true, combatTarget: mockCombatTarget }
+  );
+  assert.equal(activatedOffHandShield, true, 'executeMotorActionChunk must allow off-hand shield while holding sword');
+
+  mockShieldSwordBot._lastAttackAt = Date.now() - 500;
+  await mockCombatClient.executeMotorActionChunk(
+    mockShieldSwordBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: true, use_item: false, swap_slot: false }],
+    new Vec3(0, 64, -2),
+    1,
+    { neuralAimOnly: true, combatTarget: mockCombatTarget }
+  );
+  assert.equal(meleeSwingCount, 0, 'iron_sword cooldown (< 630ms) must prevent premature 500ms swing');
+
+  mockShieldSwordBot.heldItem = { type: 258, name: 'iron_axe', count: 1 };
+  mockShieldSwordBot._lastAttackAt = Date.now() - 700;
+  await mockCombatClient.executeMotorActionChunk(
+    mockShieldSwordBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: true, use_item: false, swap_slot: false }],
+    new Vec3(0, 64, -2),
+    1,
+    { neuralAimOnly: true, combatTarget: mockCombatTarget }
+  );
+  assert.equal(meleeSwingCount, 0, 'iron_axe cooldown (< 1020ms) must wait full 1020ms axe recharge');
+
+  mockShieldSwordBot._lastAttackAt = Date.now() - 1050;
+  await mockCombatClient.executeMotorActionChunk(
+    mockShieldSwordBot,
+    [{ delta_yaw: 0, delta_pitch: 0, vx: 0, vz: 0, jump: false, sprint: false, sneak: false, attack: true, use_item: false, swap_slot: false }],
+    new Vec3(0, 64, -2),
+    1,
+    { neuralAimOnly: true, combatTarget: mockCombatTarget }
+  );
+  assert.equal(meleeSwingCount, 1, 'iron_axe cooldown (>= 1020ms) must allow attack once recharged');
+
   // 3. Stratified motor gold reservoir caps eat_food without evicting engage_combat or shoot_bow
   const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'nc-gold-'));
   try {
@@ -5699,6 +5761,45 @@ with torch.no_grad():
     out1 = head(h, p)
     post_dist = abs(float(out1["trajectory_aim"][0, 0, 0].item()) - 20.0)
 assert post_dist > pre_dist, f"Negative advantage PPO must push yaw away from bad action (pre={pre_dist}, post={post_dist})"
+
+# Verify eval() during PPO keeps gradients intact while giving exact ratio == 1.0 before step 0 and min_iter filtering works cleanly
+import json, tempfile
+from pathlib import Path
+import neural_lab.train_action_head as tah
+
+head.eval()
+with torch.no_grad():
+    out_eval = head(h, p)
+    lp_eval, _, _ = head.evaluate_action_chunk(out_eval, bad_aim, zero_mov, zero_disc, zero_ext)
+out_train_nodrop = head(h, p)
+lp_train_nodrop, _, _ = head.evaluate_action_chunk(out_train_nodrop, bad_aim, zero_mov, zero_disc, zero_ext)
+ratio_nodrop = float(torch.exp((lp_train_nodrop - lp_eval).clamp(-4.0, 4.0)).item())
+assert abs(ratio_nodrop - 1.0) < 1e-5, f"Expected deterministic ratio == 1.0 with dropout eval freeze, got {ratio_nodrop}"
+lp_train_nodrop.backward()
+assert any(param.grad is not None and param.grad.abs().sum().item() > 0 for param in head.parameters()), "Gradients must still flow in eval() mode"
+head.zero_grad()
+
+with tempfile.NamedTemporaryFile('w', suffix='.jsonl', delete=False, encoding='utf-8') as tf:
+    base_rec = {
+        "latent_h": [0.0] * 1536,
+        "proprio24": [0.0] * 24,
+        "voxels": [0] * 3375,
+        "aimTargets": [[0.0, 0.0]] * 8,
+        "moveTargets": [[0.0, 0.0]] * 8,
+        "discreteTargets": [[0, 0, 0, 0, 0, 0]] * 8,
+        "extendedTargets": [[0, 0]] * 8,
+        "toolName": "engage_combat",
+    }
+    for it in ([42] * 100 + [45] * 130):
+        tf.write(json.dumps({**base_rec, "iteration": it}) + "\\n")
+    tmp_chunks = Path(tf.name)
+try:
+    res_filtered = tah.load_motor_chunks_with_returns(tmp_chunks, max_samples=500, device="cpu", min_iter=45)
+    assert res_filtered is not None and int(res_filtered[0][0].shape[0]) == 130, f"Expected 130 filtered records, got {res_filtered[0][0].shape[0]}"
+    res_fallback = tah.load_motor_chunks_with_returns(tmp_chunks, max_samples=500, device="cpu", min_iter=99)
+    assert res_fallback is not None and int(res_fallback[0][0].shape[0]) == 230, f"Expected 230 fallback records, got {res_fallback[0][0].shape[0]}"
+finally:
+    tmp_chunks.unlink(missing_ok=True)
 print("OK")
 `;
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
