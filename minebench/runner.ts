@@ -461,7 +461,14 @@ export async function runLiveHeadlessBenchmarkForProvider(
         server.unfreezeAndAccelerateTicks(40);
 
         if (!decision.toolCall || !decision.toolCall.name) {
-          if (decision.goalCompleted) break;
+          if (decision.goalCompleted && stepIdx > 0) break;
+          stepHistory.push({
+            stepNumber: stepIdx + 1,
+            toolName: 'none',
+            args: {},
+            success: false,
+            summary: decision.thought || 'No valid toolCall returned by model.',
+          });
           continue;
         }
 
@@ -570,7 +577,7 @@ export async function runLiveHeadlessBenchmarkForProvider(
           summary: stepSummary,
         });
 
-        if (decision.goalCompleted) {
+        if (decision.goalCompleted && stepIdx > 0) {
           break;
         }
       }

@@ -5935,19 +5935,84 @@ test('85. Batch 2 fixes: SLM strict parse goalCompleted=false & 256 tokens, craf
   assert.equal(gatherPayload.success, false, 'gather_resource must return success=false when 0 items enter inventory');
   assert.ok(gatherPayload.summary.includes('0 entered inventory'), `Expected grounded zero-gain message, got: ${gatherPayload.summary}`);
 
-  // 4. mp_bridge_race & mp_bridge_race_self glass catch floor covers full z-4..z+25 footprint with rim
+  // 4. mp_bridge_race & mp_bridge_race_self enclosed 2-block-high hollow glass catch trough covers full z-4..z+25 footprint
   for (const id of ['mp_bridge_race', 'mp_bridge_race_self']) {
     const t = [...DQN_MULTIPLAYER_TASKS, ...SELF_SPARRING_TASKS].find((x: any) => x.id === id);
     assert.ok(t, `${id} must exist`);
     const cmds = t.buildArenaCommands({ x: 100, y: 72, z: 200 });
-    assert.ok(cmds.some((c: string) => c.includes('fill 96 68 196 110 68 225 minecraft:glass')), `${id} must expand catch floor to z-4..z+25`);
-    assert.ok(cmds.some((c: string) => c.includes('fill 96 69 196 110 69 225 minecraft:glass outline')), `${id} must add safety glass rim`);
+    assert.ok(cmds.some((c: string) => c.includes('fill 96 68 196 110 70 225 minecraft:glass')), `${id} must build full catch trough box`);
+    assert.ok(cmds.some((c: string) => c.includes('fill 97 69 197 109 70 224 minecraft:air')), `${id} must carve hollow interior leaving 2-block perimeter walls`);
   }
 
   // 5. train_action_head.py uses fine-tune lr 1.5e-5, warmup, and loss_kl stabilizer
   const tahSrc = fs.readFileSync(path.join(rootDir, 'neural_lab', 'train_action_head.py'), 'utf8');
   assert.ok(tahSrc.includes('effective_lr = min(lr, 1.5e-5)'), 'train_action_head.py must cap fine-tune lr at 1.5e-5');
   assert.ok(tahSrc.includes('warmup_steps') && tahSrc.includes('loss_kl = 0.05'), 'train_action_head.py must include LR warmup and KL stabilizer');
+});
+
+test('86. Exhaustive code-freeze fixes: equippedArmor in Omniscience craft, strict tryParseJson NL gate, train_loop failed-step history, SLM safe empty_cache & atomic save, daemon no_repeat_ngram_size', async () => {
+  const { evaluateOmniscienceMilestones } = require('../../minebench/dist/minebench/evaluators');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+
+  // 1. evaluateOmniscienceMilestones credits auto-equipped crafted armor in equippedArmor (not just inventory)
+  const legsTask = {
+    taskId: 'omni_craft_iron_leggings',
+    targetObject: 'iron_leggings',
+    evaluatorMilestones: [
+      { name: 'Milestone 1: Raw Harvest', maxPoints: 25, condition: 'dag_raw_harvest' },
+      { name: 'Milestone 2: Basic Refine', maxPoints: 25, condition: 'dag_basic_refine' },
+      { name: 'Milestone 3: Workstation', maxPoints: 25, condition: 'dag_workstation' },
+      { name: 'Milestone 4: Final Target Item Synthesized (iron_leggings)', maxPoints: 25, condition: 'has_iron_leggings' },
+    ],
+  };
+  const armorSnap: any = {
+    botPosition: { x: 500, y: 100, z: 500 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [{ name: 'oak_log', count: 2 }, { name: 'crafting_table', count: 1 }],
+    equippedArmor: { head: null, torso: null, legs: 'iron_leggings', feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: { blocksPlaced: 0, blocksMined: 2, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0, endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0, ironPickaxeDurabilityUsedOnStone: 0 },
+  };
+  const legsRes = evaluateOmniscienceMilestones(legsTask, armorSnap);
+  assert.equal(legsRes.score, 100, `Auto-equipped iron_leggings must score 100, got ${legsRes.score}`);
+  assert.equal(legsRes.passed, true, 'Auto-equipped iron_leggings must pass');
+
+  // 2. UnifiedLLMClient.tryParseJson must NOT use natural language keyword fallback under STRICT_LLM_BENCHMARK=true
+  const prevStrict = process.env.STRICT_LLM_BENCHMARK;
+  process.env.STRICT_LLM_BENCHMARK = 'true';
+  try {
+    const client = new UnifiedLLMClient({ offlineOnly: true });
+    const nlRes = (client as any).tryParseJson('Step 1: Chop 6 logs please');
+    assert.equal(nlRes, null, 'tryParseJson must return null on freeform text when STRICT_LLM_BENCHMARK=true');
+  } finally {
+    if (prevStrict === undefined) delete process.env.STRICT_LLM_BENCHMARK;
+    else process.env.STRICT_LLM_BENCHMARK = prevStrict;
+  }
+
+  // 3. train_loop.ts, runner.ts, and parallel_bench_studio.ts record failed no-tool turns and use max-length 1024 / 480s timeout
+  const trainLoopSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'train_loop.ts'), 'utf8');
+  assert.ok(trainLoopSrc.includes('sStepHistory.push({'), 'Survival loop must record failed no-tool steps in sStepHistory');
+  assert.ok(trainLoopSrc.includes("toolName: 'none'") && trainLoopSrc.includes("'1024'") && trainLoopSrc.includes('480000'), 'train_loop.ts must use failed stepHistory push, max-length 1024, and 480000ms timeout');
+
+  const runnerSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'runner.ts'), 'utf8');
+  assert.equal(/if\s*\(\s*decision\.goalCompleted\s*\)/.test(runnerSrc), false, 'runner.ts must guard goalCompleted with stepIdx > 0');
+
+  const studioSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'parallel_bench_studio.ts'), 'utf8');
+  assert.equal(/if\s*\(\s*decision\.goalCompleted\s*\)/.test(studioSrc), false, 'parallel_bench_studio.ts must guard goalCompleted with stepIdx > 0');
+
+  // 4. slm_trainer.py uses _safe_cuda_empty_cache everywhere and atomic latest adapter save; neural_daemon uses no_repeat_ngram_size
+  const slmTrainerSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'slm_trainer.py'), 'utf8');
+  assert.ok(slmTrainerSrc.includes('def _safe_cuda_empty_cache'), 'slm_trainer.py must define _safe_cuda_empty_cache');
+  const rawEmptyCacheCount = (slmTrainerSrc.match(/torch\.cuda\.empty_cache\(\)/g) || []).length;
+  assert.equal(rawEmptyCacheCount, 1, 'slm_trainer.py must only call torch.cuda.empty_cache() inside _safe_cuda_empty_cache');
+  assert.ok(slmTrainerSrc.includes('slm_minecraft_savant_latest_tmp'), 'slm_trainer.py must write latest adapter atomically via tmp dir');
+
+  const daemonSrc = fs.readFileSync(path.join(rootDir, 'neural_lab', 'neural_daemon.py'), 'utf8');
+  assert.ok(daemonSrc.includes('"no_repeat_ngram_size": 8'), 'neural_daemon.py must enable no_repeat_ngram_size=8 to block runaway loops');
 });
 
 

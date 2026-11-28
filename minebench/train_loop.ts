@@ -1564,6 +1564,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               if (!dec.toolCall?.name) {
                 if (dec.goalCompleted && sIdx > 0) break;
+                sStepHistory.push({
+                  stepNumber: sIdx + 1,
+                  toolName: 'none',
+                  args: {},
+                  success: false,
+                  summary: dec.thought || 'No valid toolCall returned by model.',
+                });
                 continue;
               }
 
@@ -2214,6 +2221,13 @@ export async function runContinuousTrainingLoop(): Promise<void> {
 
               if (!decision.toolCall || !decision.toolCall.name) {
                 if (decision.goalCompleted && stepIdx > 0) break;
+                stepHistory.push({
+                  stepNumber: stepIdx + 1,
+                  toolName: 'none',
+                  args: {},
+                  success: false,
+                  summary: decision.thought || 'No valid toolCall returned by model.',
+                });
                 continue;
               }
 
@@ -2787,7 +2801,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 '--grad-accum',
                 '4',
                 '--max-length',
-                '1280',
+                '1024',
               ];
               if (isNewBest) slmArgs.push('--is-best');
 
@@ -2802,7 +2816,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 await new Promise((r) => setTimeout(r, 2000));
               } catch {}
 
-              const slmOut = await runPythonScriptAsync(venvPython, slmArgs, 360000);
+              const slmOut = await runPythonScriptAsync(venvPython, slmArgs, 480000);
               slmUpdated = true;
               const slmMetricsPath = path.resolve(resultsDir, 'slm_training_metrics.json');
               if (fs.existsSync(slmMetricsPath)) {

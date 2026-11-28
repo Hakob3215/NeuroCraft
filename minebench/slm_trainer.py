@@ -36,6 +36,15 @@ from minebench.rl_trainer import VALID_MCP_TOOLS
 
 CHECKPOINT_DIR = ROOT_DIR / "neural_lab" / "checkpoints"
 RESULTS_DIR = ROOT_DIR / "minebench" / "results"
+
+
+def _safe_cuda_empty_cache() -> None:
+    gc.collect()
+    if torch.cuda.is_available():
+        try:
+            torch.cuda.empty_cache()
+        except Exception:
+            pass
 GRPO_DATASET_PATH = RESULTS_DIR / "grpo_verified_trajectories.jsonl"
 REPLAY_BUFFER_PATH = RESULTS_DIR / "rl_replay_buffer.jsonl"
 DPO_PAIRS_PATH = RESULTS_DIR / "dpo_pairs.jsonl"
@@ -366,7 +375,7 @@ def train_slm_qlora(
     if torch.cuda.is_available():
         torch.backends.cuda.matmul.allow_tf32 = True
         torch.backends.cudnn.allow_tf32 = True
-        torch.cuda.empty_cache()
+        _safe_cuda_empty_cache()
 
     trajectories = load_training_trajectories(max_trajectories=max_trajectories)
     dpo_pairs = load_dpo_pairs(max_pairs=max(64, max_trajectories // 2))
@@ -572,6 +581,8 @@ def train_slm_qlora(
             try:
                 if mode == "dpo":
                     ch_ids_1d, ch_lbls_1d, rej_ids_1d, rej_lbls_1d = payload  # type: ignore[misc]
+                    if max(int(ch_ids_1d.shape[0]), int(rej_ids_1d.shape[0])) >= 896:
+                        _safe_cuda_empty_cache()
                     ch_ids, ch_lbls, ch_mask = _pad_1d_multiple_of_8(ch_ids_1d, ch_lbls_1d, pad_id)
                     rej_ids, rej_lbls, rej_mask = _pad_1d_multiple_of_8(rej_ids_1d, rej_lbls_1d, pad_id)
                     ch_ids = ch_ids.to(device)
@@ -669,12 +680,7 @@ def train_slm_qlora(
                     ch_ids = ch_lbls = ch_mask = rej_ids = rej_lbls = rej_mask = None
                     ref_w_logp = ref_l_logp = pi_w_logp = chosen_nll = pi_l_logp = None
                     logits_diff = dpo_loss = b_inps = b_lbls = b_mask = b_weights = raw_loss = loss = None
-                    gc.collect()
-                    try:
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                    except Exception:
-                        pass
+                    _safe_cuda_empty_cache()
                     continue
                 else:
                     raise e
@@ -693,20 +699,14 @@ def train_slm_qlora(
                     err_m = str(step_err).lower()
                     if "cublas" in err_m or "out of memory" in err_m or "acceleratorerror" in type(step_err).__name__.lower():
                         print(f"  [SLM Trainer Warning] Transient CUDA error during optimizer.step() batch {b_idx}: {step_err}. Recovering cache.")
-                        gc.collect()
-                        try:
-                            if torch.cuda.is_available():
-                                torch.cuda.empty_cache()
-                        except Exception:
-                            pass
+                        _safe_cuda_empty_cache()
                     else:
                         raise step_err
                 optimizer.zero_grad(set_to_none=True)
                 grad_pending = 0
 
-            if (b_idx + 1) % 24 == 0 and torch.cuda.is_available():
-                gc.collect()
-                torch.cuda.empty_cache()
+            if (b_idx + 1) % 24 == 0:
+                _safe_cuda_empty_cache()
 
         if grad_pending > 0:
             try:
@@ -716,12 +716,7 @@ def train_slm_qlora(
                 err_m = str(tail_err).lower()
                 if "cublas" in err_m or "out of memory" in err_m or "acceleratorerror" in type(tail_err).__name__.lower():
                     print(f"  [SLM Trainer Warning] Transient CUDA error during tail optimizer.step(): {tail_err}. Recovering cache.")
-                    gc.collect()
-                    try:
-                        if torch.cuda.is_available():
-                            torch.cuda.empty_cache()
-                    except Exception:
-                        pass
+                    _safe_cuda_empty_cache()
                 else:
                     raise tail_err
             optimizer.zero_grad(set_to_none=True)
@@ -749,26 +744,26 @@ def train_slm_qlora(
             torch.cuda.synchronize()
         except (RuntimeError, Exception) as sync_err:
             print(f"  [SLM Trainer Warning] Non-fatal cuda.synchronize() warning: {sync_err}")
-            gc.collect()
-            try:
-                torch.cuda.empty_cache()
-            except Exception:
-                pass
+            _safe_cuda_empty_cache()
 
     train_duration = time.perf_counter() - t0
     peak_vram = (
         torch.cuda.max_memory_allocated() / (1024 * 1024) if torch.cuda.is_available() else 0.0
     )
 
-    # 5. Save LoRA Adapters (Zero-Disk-Bloat Policy: latest + best + loop checkpoint)
+    # 5. Save LoRA Adapters atomically (Zero-Disk-Bloat Policy: latest + best + loop checkpoint)
     model.zero_grad(set_to_none=True)
     del optimizer
-    gc.collect()
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-    model.save_pretrained(str(latest_adapter))
-    tokenizer.save_pretrained(str(latest_adapter))
-    print(f"[SLM Trainer] Saved latest adapter to: {latest_adapter}")
+    _safe_cuda_empty_cache()
+    tmp_adapter = CHECKPOINT_DIR / "slm_minecraft_savant_latest_tmp"
+    if tmp_adapter.exists():
+        shutil.rmtree(tmp_adapter, ignore_errors=True)
+    model.save_pretrained(str(tmp_adapter))
+    tokenizer.save_pretrained(str(tmp_adapter))
+    if latest_adapter.exists():
+        shutil.rmtree(latest_adapter, ignore_errors=True)
+    tmp_adapter.rename(latest_adapter)
+    print(f"[SLM Trainer] Saved latest adapter atomically to: {latest_adapter}")
 
     if is_best:
         best_adapter = CHECKPOINT_DIR / "slm_minecraft_savant_best"

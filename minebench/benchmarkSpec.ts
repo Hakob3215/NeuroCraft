@@ -653,9 +653,9 @@ export const DQN_MULTIPLAYER_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 4} ${y - 6} ${z - 4} ${x + 10} ${y + 8} ${z + 25} minecraft:air`,
-      // Catch floor 4 blocks below gap covering full cleared footprint + 1-block safety rim
-      `fill ${x - 4} ${y - 4} ${z - 4} ${x + 10} ${y - 4} ${z + 25} minecraft:glass`,
-      `fill ${x - 4} ${y - 3} ${z - 4} ${x + 10} ${y - 3} ${z + 25} minecraft:glass outline`,
+      // Enclosed catch floor at y-4 with a 2-block-high perimeter glass wall (y-3..y-2) carved hollow inside
+      `fill ${x - 4} ${y - 4} ${z - 4} ${x + 10} ${y - 2} ${z + 25} minecraft:glass`,
+      `fill ${x - 3} ${y - 3} ${z - 3} ${x + 9} ${y - 2} ${z + 24} minecraft:air`,
       // Start platforms
       `fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`,
       `fill ${x + 4} ${y - 1} ${z - 2} ${x + 8} ${y - 1} ${z + 2} minecraft:stone`,
@@ -858,9 +858,9 @@ export const SELF_SPARRING_TASKS: MinebenchTaskSpec[] = [
     },
     buildArenaCommands: ({ x, y, z }) => [
       `fill ${x - 4} ${y - 6} ${z - 4} ${x + 10} ${y + 8} ${z + 25} minecraft:air`,
-      // Catch floor 4 blocks below gap covering full cleared footprint + 1-block safety rim
-      `fill ${x - 4} ${y - 4} ${z - 4} ${x + 10} ${y - 4} ${z + 25} minecraft:glass`,
-      `fill ${x - 4} ${y - 3} ${z - 4} ${x + 10} ${y - 3} ${z + 25} minecraft:glass outline`,
+      // Enclosed catch floor at y-4 with a 2-block-high perimeter glass wall (y-3..y-2) carved hollow inside
+      `fill ${x - 4} ${y - 4} ${z - 4} ${x + 10} ${y - 2} ${z + 25} minecraft:glass`,
+      `fill ${x - 3} ${y - 3} ${z - 3} ${x + 9} ${y - 2} ${z + 24} minecraft:air`,
       `fill ${x - 2} ${y - 1} ${z - 2} ${x + 2} ${y - 1} ${z + 2} minecraft:stone`,
       `fill ${x + 4} ${y - 1} ${z - 2} ${x + 8} ${y - 1} ${z + 2} minecraft:stone`,
       `fill ${x - 2} ${y - 1} ${z + 18} ${x + 2} ${y - 1} ${z + 22} minecraft:emerald_block`,

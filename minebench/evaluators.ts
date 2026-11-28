@@ -153,7 +153,11 @@ export function evaluateOmniscienceMilestones(
 
   const targetObj = (task.targetObject || task.expectedTool || '').toLowerCase();
   const invNames = (snap.inventory || []).map((i) => i.name.toLowerCase());
-  const hasTarget = Boolean(targetObj && invNames.includes(targetObj));
+  const equippedNames = Object.values(snap.equippedArmor || {})
+    .filter(Boolean)
+    .map((n) => String(n).toLowerCase());
+  const ownedNames = [...invNames, ...equippedNames];
+  const hasTarget = Boolean(targetObj && ownedNames.includes(targetObj));
   const hasTable = invNames.includes('crafting_table');
   const placedTable = !hasTable && !hasTarget && hasPlacedCraftingTable(task, snap);
   const hasWorkstation = hasTable || placedTable || hasTarget;
@@ -163,7 +167,7 @@ export function evaluateOmniscienceMilestones(
   const totalPlanks = (snap.inventory || [])
     .filter((i) => i.name.toLowerCase().endsWith('_planks') || i.name.toLowerCase() === 'planks')
     .reduce((sum, i) => sum + i.count, 0);
-  const hasSticksOrTools = invNames.some((n) => n === 'stick' || n.endsWith('_pickaxe') || n.endsWith('_axe') || n.endsWith('_sword') || n.endsWith('_shovel') || n === 'chest');
+  const hasSticksOrTools = ownedNames.some((n) => n === 'stick' || n.endsWith('_pickaxe') || n.endsWith('_axe') || n.endsWith('_sword') || n.endsWith('_shovel') || n === 'chest');
   const hasRefined = totalPlanks >= 8 || hasWorkstation || hasTarget || hasSticksOrTools || (totalPlanks >= 4 && ((snap.stats?.blocksMined || 0) >= 2 || (snap.stats?.blocksPlaced || 0) > 0));
   const hasRawHarvest = totalLogs >= 2 || (snap.stats?.blocksMined || 0) >= 2 || (((snap.stats?.blocksMined || 0) >= 1) && totalLogs >= 1) || hasRefined || hasWorkstation || hasTarget;
 
@@ -296,8 +300,8 @@ export function evaluateOmniscienceMilestones(
       }
     } else if (cond.startsWith('has_') || cond.startsWith('harvested_')) {
       const requiredItem = cond.replace(/^(has_|harvested_)/, '').toLowerCase();
-      // Match exact item name to prevent raw materials (e.g. "diamond") falsely matching tools ("diamond_pickaxe")
-      const hasItem = invNames.some((n) => n === requiredItem);
+      // Match exact item name in inventory or equippedArmor to prevent raw materials matching tools
+      const hasItem = ownedNames.some((n) => n === requiredItem);
       const didMine = (snap.stats?.blocksMined || 0) > 0;
       if (hasItem && (cond.startsWith('has_') || didMine)) {
         earned = m.maxPoints;

@@ -520,7 +520,7 @@ class NeuralStackServer:
         system_prompt: str,
         user_prompt: str,
         max_new_tokens: int,
-        repetition_penalty: float = 1.1,
+        repetition_penalty: float = 1.12,
         temperature: float = 0.0,
         top_p: float = 1.0,
         do_sample: bool = False,
@@ -553,6 +553,7 @@ class NeuralStackServer:
             "pad_token_id": self.tokenizer.pad_token_id or self.tokenizer.eos_token_id,
             "eos_token_id": [self.tokenizer.eos_token_id, 151643, 151645],
             "repetition_penalty": repetition_penalty,
+            "no_repeat_ngram_size": 8,
             "return_dict_in_generate": True,
             "output_hidden_states": False,
             "logits_to_keep": 1,
@@ -623,7 +624,7 @@ class NeuralStackServer:
         system_prompt = data.get("system_prompt", "You are a helpful Minecraft AI assistant. Respond with valid JSON.")
         user_prompt = data.get("user_prompt", "")
         max_new_tokens = int(data.get("max_new_tokens", 160))
-        repetition_penalty = float(data.get("repetition_penalty", 1.1))
+        repetition_penalty = float(data.get("repetition_penalty", 1.12))
         bot_id = str(data.get("bot_id", "default"))
 
         default_temp = float(os.environ.get("SLM_TEMPERATURE", "0.0"))

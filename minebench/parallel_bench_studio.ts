@@ -510,7 +510,14 @@ export async function runParallelNPassBenchmarkStudio(): Promise<void> {
               }
 
               if (!decision.toolCall || !decision.toolCall.name) {
-                if (decision.goalCompleted) break;
+                if (decision.goalCompleted && stepIdx > 0) break;
+                stepHistory.push({
+                  stepNumber: stepIdx + 1,
+                  toolName: 'none',
+                  args: {},
+                  success: false,
+                  summary: decision.thought || 'No valid toolCall returned by model.',
+                });
                 continue;
               }
 
@@ -601,7 +608,7 @@ export async function runParallelNPassBenchmarkStudio(): Promise<void> {
                 summary: sSummary,
               });
 
-              if (decision.goalCompleted) break;
+              if (decision.goalCompleted && stepIdx > 0) break;
             }
           } finally {
             bot.removeListener('death', onDeath);

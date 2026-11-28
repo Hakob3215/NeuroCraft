@@ -1520,7 +1520,10 @@ ${JSON.stringify(state.terrainContext?.resourceClusters || [])}
         }
       }
 
-      // 4. Natural Language Intent Fallback for local SLMs (only if structured formats failed)
+      // 4. Natural Language Intent Fallback for local SLMs (strictly disabled in STRICT_LLM_BENCHMARK mode)
+      if (process.env.STRICT_LLM_BENCHMARK === 'true') {
+        return null;
+      }
       const lowerRaw = raw.toLowerCase();
       if (lowerRaw.includes('wood') || lowerRaw.includes('log') || lowerRaw.includes('chop') || lowerRaw.includes('tree')) {
         return {
