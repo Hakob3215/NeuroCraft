@@ -2828,7 +2828,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           }
           if (fs.existsSync(venvPython) && fs.existsSync(actScript)) {
             try {
-              const actArgs = [actScript, '--epochs', '4', '--loop', String(iter)];
+              const actArgs = [actScript, '--epochs', '3', '--loop', String(iter)];
               if (isNewBest) actArgs.push('--is-best');
               const actOut = await runPythonScriptAsync(venvPython, actArgs, 180000);
               const parsedAct = JSON.parse(actOut.trim().split('\n').pop() || '{}');

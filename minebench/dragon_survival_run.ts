@@ -230,7 +230,14 @@ export async function runVanillaDragonSurvivalRun(maxSteps = 30): Promise<Dragon
       if (decision.activeGoal) currentGoal = decision.activeGoal;
 
       if (!decision.toolCall || !decision.toolCall.name) {
-        if (decision.goalCompleted) break;
+        if (decision.goalCompleted && step > 0) break;
+        executedHistory.push({
+          stepNumber: step + 1,
+          toolName: 'none',
+          args: {},
+          success: false,
+          summary: decision.thought || 'No valid toolCall returned by model.',
+        });
         continue;
       }
 

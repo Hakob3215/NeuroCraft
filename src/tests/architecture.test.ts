@@ -5805,6 +5805,151 @@ print("OK")
   assert.equal(execFileSync(pythonExe, ['-c', pyCheck], { encoding: 'utf8' }).trim().split('\n').pop(), 'OK');
 });
 
+test('85. Batch 2 fixes: SLM strict parse goalCompleted=false & 256 tokens, craft_item cycles, gather_resource grounded delta, bridge catch-floor, PPO warmup/KL clip stability', async () => {
+  const { registerBaseMCPTools } = require('../system2/skills/baseSkills');
+  const { DQN_MULTIPLAYER_TASKS, SELF_SPARRING_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+
+  // 1. llmClient.ts strict parse failure returns goalCompleted=false & uses localMaxTokens=256; dragon_survival_run guards step > 0
+  const llmSrc = fs.readFileSync(path.join(rootDir, 'src', 'system2', 'llmClient.ts'), 'utf8');
+  assert.equal(/STRICT_LLM_BENCHMARK[\s\S]{0,180}goalCompleted:\s*true/.test(llmSrc), false, 'STRICT_LLM_BENCHMARK parse failures must not return goalCompleted=true');
+  const dragonRunSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'dragon_survival_run.ts'), 'utf8');
+  assert.ok(dragonRunSrc.includes('if (decision.goalCompleted && step > 0) break;'), 'dragon_survival_run.ts must guard goalCompleted break with step > 0');
+
+  const prevStrict = process.env.STRICT_LLM_BENCHMARK;
+  const prevFast = process.env.DISABLE_FAST_INTENT;
+  process.env.STRICT_LLM_BENCHMARK = 'true';
+  process.env.DISABLE_FAST_INTENT = 'true';
+  try {
+    const client = new UnifiedLLMClient({ offlineOnly: true });
+    let capturedMaxTokens = 0;
+    (client as any).callConfiguredModel = async (_s: string, _u: string, _cs: string, _cu: string, maxTok: number) => {
+      capturedMaxTokens = maxTok;
+      return '{"thought":"truncated';
+    };
+    const dec = await client.generateCognitiveDecision(
+      'Player',
+      'craft planks',
+      {
+        botUsername: 'NeuroAgent',
+        position: { x: 0, y: 64, z: 0 },
+        velocity: { x: 0, y: 0, z: 0 },
+        yaw: 0,
+        pitch: 0,
+        health: 20,
+        food: 20,
+        oxygen: 20,
+        onGround: true,
+        isInWater: false,
+        isInLava: false,
+        heldItem: null,
+        inventory: [],
+        visibleEntities: [],
+        audibleCues: [],
+        nearbyNotableBlocks: [],
+        activeHazard: null,
+        activeSubtask: null,
+      } as any,
+      [],
+      []
+    );
+    assert.equal(capturedMaxTokens, 256, 'generateCognitiveDecision must pass localMaxTokens=256');
+    assert.equal(dec.goalCompleted, false, 'Strict parse failure must return goalCompleted=false');
+  } finally {
+    if (prevStrict === undefined) delete process.env.STRICT_LLM_BENCHMARK;
+    else process.env.STRICT_LLM_BENCHMARK = prevStrict;
+    if (prevFast === undefined) delete process.env.DISABLE_FAST_INTENT;
+    else process.env.DISABLE_FAST_INTENT = prevFast;
+  }
+
+  // 2. craft_item maps desired item quantity to recipe craft cycles (count=2 planks -> 1 cycle yielding 4 planks)
+  const registry = new DynamicMCPToolRegistry();
+  registerBaseMCPTools(registry);
+  const mcpServer = new NeuroCraftMCPServer(registry);
+
+  let craftedCycles = 0;
+  let craftedItems = 0;
+  const craftBot: any = {
+    version: '1.20.4',
+    entity: { position: new Vec3(0, 64, 0), onGround: true },
+    inventory: {
+      items: () => [{ name: 'oak_log', count: 1 }],
+      slots: [],
+    },
+    findBlock: () => null,
+    recipesFor: (_id: number, _m: any, minResultCount: number) => {
+      if (minResultCount <= 1) return [{ result: { count: 4 } }];
+      return [];
+    },
+    craft: async (_recipe: any, cycles: number) => {
+      craftedCycles = cycles;
+      craftedItems = cycles * 4;
+    },
+  };
+  const craftRes = await mcpServer.handleRpcRequest(
+    { jsonrpc: '2.0', id: 't85_craft', method: 'tools/call', params: { name: 'craft_item', arguments: { itemName: 'oak_planks', count: 2 } } },
+    () => ({
+      bot: craftBot,
+      kinematics: { equipItemHumanized: async () => true, pathfindTo: async () => true, lookAtSmooth: async () => {} },
+      reportProgress: () => {},
+      abortSignal: new AbortController().signal,
+    } as any)
+  );
+  const craftPayload = JSON.parse(craftRes.result.content[0].text);
+  assert.equal(craftPayload.success, true, `craft_item(oak_planks, 2) with 1 oak_log must succeed, got: ${craftPayload.summary}`);
+  assert.equal(craftedCycles, 1, 'craft_item(oak_planks, 2) must call bot.craft with 1 cycle, not 2');
+  assert.equal(craftedItems, 4);
+
+  // 3. gather_resource rejects blocksBroken > 0 with 0 inventory gain on oak_log
+  const logPos = new Vec3(0, 64, 2);
+  let brokenLog = false;
+  const dryGatherBot: any = {
+    entity: { id: 1, position: new Vec3(0, 64, 0), onGround: true },
+    heldItem: null,
+    entities: {},
+    inventory: { items: () => [] },
+    pathfinder: { setGoal: () => {} },
+    clearControlStates: () => {},
+    canDigBlock: () => true,
+    dig: async () => { brokenLog = true; },
+    stopDigging: () => {},
+    blockAt: (pos: Vec3) =>
+      pos.x === 0 && pos.y === 64 && pos.z === 2 && !brokenLog
+        ? { name: 'oak_log', position: pos, boundingBox: 'block' }
+        : { name: 'air', position: pos, boundingBox: 'empty' },
+    findBlocks: (opt: any) => (!opt.matching({ name: 'oak_log', position: null }) || brokenLog ? [] : [logPos]),
+  };
+  const gatherRes = await mcpServer.handleRpcRequest(
+    { jsonrpc: '2.0', id: 't85_gather', method: 'tools/call', params: { name: 'gather_resource', arguments: { blockType: 'oak_log', count: 1 } } },
+    () => ({
+      bot: dryGatherBot,
+      kinematics: { lookAtSmooth: async () => {}, moveAlongSpline: async () => {}, pathfindTo: async () => true, safeDig: async () => true, strikeTarget: async () => true, equipItemHumanized: async () => false },
+      worldState: () => ({} as any),
+      reportProgress: () => {},
+      sayHumanized: async () => {},
+      abortSignal: new AbortController().signal,
+    })
+  );
+  const gatherPayload = JSON.parse(gatherRes.result.content[0].text);
+  assert.equal(gatherPayload.success, false, 'gather_resource must return success=false when 0 items enter inventory');
+  assert.ok(gatherPayload.summary.includes('0 entered inventory'), `Expected grounded zero-gain message, got: ${gatherPayload.summary}`);
+
+  // 4. mp_bridge_race & mp_bridge_race_self glass catch floor covers full z-4..z+25 footprint with rim
+  for (const id of ['mp_bridge_race', 'mp_bridge_race_self']) {
+    const t = [...DQN_MULTIPLAYER_TASKS, ...SELF_SPARRING_TASKS].find((x: any) => x.id === id);
+    assert.ok(t, `${id} must exist`);
+    const cmds = t.buildArenaCommands({ x: 100, y: 72, z: 200 });
+    assert.ok(cmds.some((c: string) => c.includes('fill 96 68 196 110 68 225 minecraft:glass')), `${id} must expand catch floor to z-4..z+25`);
+    assert.ok(cmds.some((c: string) => c.includes('fill 96 69 196 110 69 225 minecraft:glass outline')), `${id} must add safety glass rim`);
+  }
+
+  // 5. train_action_head.py uses fine-tune lr 1.5e-5, warmup, and loss_kl stabilizer
+  const tahSrc = fs.readFileSync(path.join(rootDir, 'neural_lab', 'train_action_head.py'), 'utf8');
+  assert.ok(tahSrc.includes('effective_lr = min(lr, 1.5e-5)'), 'train_action_head.py must cap fine-tune lr at 1.5e-5');
+  assert.ok(tahSrc.includes('warmup_steps') && tahSrc.includes('loss_kl = 0.05'), 'train_action_head.py must include LR warmup and KL stabilizer');
+});
+
 
 
 

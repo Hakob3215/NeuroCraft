@@ -688,7 +688,7 @@ def train_action_transformer(
         try:
             model.load_state_dict(torch.load(ckpt_path, map_location=device, weights_only=True), strict=False)
             model.to(device=device, dtype=dtype)
-            effective_lr = min(lr, 5e-5)
+            effective_lr = min(lr, 1.5e-5)
             print(f"[Action Head] Resumed existing weights from {ckpt_path} (fine-tune lr={effective_lr:.1e})")
         except Exception as e:
             print(f"[Action Head] Could not resume checkpoint ({e}); starting from scratch.")
@@ -797,7 +797,15 @@ def train_action_transformer(
     loader = DataLoader(dataset, batch_size=batch_size, shuffle=True)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=effective_lr, weight_decay=1e-4)
-    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=1e-5)
+    total_opt_steps = max(1, epochs * len(loader))
+    warmup_steps = min(8, max(1, total_opt_steps // 10))
+    def _lr_lambda(step_i: int) -> float:
+        if step_i < warmup_steps:
+            return float(step_i + 1) / float(warmup_steps)
+        prog = float(step_i - warmup_steps) / float(max(1, total_opt_steps - warmup_steps))
+        min_ratio = 3e-6 / max(effective_lr, 1e-8)
+        return min_ratio + 0.5 * (1.0 - min_ratio) * (1.0 + math.cos(math.pi * min(1.0, prog)))
+    scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda=_lr_lambda)
 
     initial_loss = 0.0
     final_loss = 0.0
@@ -852,12 +860,14 @@ def train_action_transformer(
 
             # 1. True Clipped PPO Objective on Fresh On-Policy Chunks (supports negative advantages!)
             loss_ppo = torch.tensor(0.0, dtype=torch.float32, device=device)
+            loss_kl = torch.tensor(0.0, dtype=torch.float32, device=device)
             clip_frac_val = 0.0
             if fresh_mask.any():
                 ratio = torch.exp((new_logp - b_old_logp).clamp(-4.0, 4.0))
                 surr1 = ratio * b_adv
                 surr2 = torch.clamp(ratio, 0.8, 1.2) * b_adv
                 loss_ppo = -torch.min(surr1, surr2)[fresh_mask].mean()
+                loss_kl = 0.05 * ((new_logp - b_old_logp)[fresh_mask] ** 2).mean()
                 clip_frac_val = float(((ratio[fresh_mask] - 1.0).abs() > 0.2).float().mean().item())
 
             # 2. Stratified Gold Anchor Supervision (retains wide-turn & multi-tool competence)
@@ -869,7 +879,7 @@ def train_action_transformer(
                 l_mov_g = (F.mse_loss(pred_move[gold_mask].float(), b_move[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
                 l_dsc_g = (F.binary_cross_entropy_with_logits(pred_discrete_logits[gold_mask].float(), b_disc[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 1.5
                 l_ext_g = (F.binary_cross_entropy_with_logits(pred_ext_logits[gold_mask].float(), b_ext[gold_mask].float(), reduction="none").mean(dim=(1, 2)) * gw).mean() * 0.75
-                loss_anchor = (l_aim_g + l_mov_g + l_dsc_g + l_ext_g) * 0.60
+                loss_anchor = (l_aim_g + l_mov_g + l_dsc_g + l_ext_g) * 0.35
 
             # 3. Tool Dispatch + Invocation Gate Supervision (gold + positive-advantage fresh chunks)
             tool_sup_mask = gold_mask | (fresh_mask & (b_adv > 0.0))
@@ -884,13 +894,14 @@ def train_action_transformer(
             mean_ent = ent.mean()
             loss_ent = -0.015 * mean_ent
 
-            total_loss = 0.50 * loss_ppo + loss_anchor + loss_tool + loss_val + loss_ent
+            total_loss = 0.50 * loss_ppo + loss_kl + loss_anchor + loss_tool + loss_val + loss_ent
             if not torch.isfinite(total_loss):
                 continue
             total_loss.backward()
 
             torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
+            scheduler.step()
 
             # Clamp exploration std parameters strictly within safe physical floor/ceiling
             with torch.no_grad():
@@ -911,7 +922,6 @@ def train_action_transformer(
                 epoch_tool_acc += float((tool_preds == b_tool).float().mean().item())
             batches += 1
 
-        scheduler.step()
         avg_loss = epoch_loss / max(1, batches)
         avg_ppo_loss = epoch_ppo_loss / max(1, batches)
         avg_val_loss = epoch_val_loss / max(1, batches)

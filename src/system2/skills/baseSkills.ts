@@ -1495,8 +1495,22 @@ async function craftItemWithAutoPrereqs(
 
   ctx.reportProgress?.(0.5);
   await new Promise((r) => setTimeout(r, 200));
+  const outputPerCraft = Math.max(1, Number((recipes[0] as any)?.result?.count || 1));
+  const craftCycles = Math.max(1, Math.ceil(count / outputPerCraft));
+  const sizedRecipes =
+    craftCycles > 1 ? ctx.bot.recipesFor(itemInfo.id, null, craftCycles, craftingTable) : recipes;
+  if (!sizedRecipes || sizedRecipes.length === 0) {
+    await reclaimTableHelper();
+    const invList = (ctx.bot.inventory?.items() || [])
+      .map((i: any) => `${i.count}x ${i.name}`)
+      .join(', ');
+    return {
+      success: false,
+      summary: `Cannot craft ${count}x ${itemName}: insufficient ingredients for ${craftCycles} craft cycle(s) (each yields ${outputPerCraft}). (Inventory: [${invList || 'empty'}]).`,
+    };
+  }
   try {
-    await ctx.bot.craft(recipes[0], count, craftingTable || undefined);
+    await ctx.bot.craft(sizedRecipes[0], craftCycles, craftingTable || undefined);
     await reclaimTableHelper();
 
     // Auto-equip newly crafted armor pieces immediately (Mindcraft armorManager pattern)
@@ -1509,7 +1523,7 @@ async function craftItemWithAutoPrereqs(
     ctx.reportProgress?.(1.0);
     return {
       success: true,
-      summary: `Successfully crafted ${count}x ${itemName}!`,
+      summary: `Successfully crafted ${craftCycles * outputPerCraft}x ${itemName}!`,
     };
   } catch (err: any) {
     await reclaimTableHelper();
@@ -1694,6 +1708,10 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
 
       if (ctx.kinematics?.pathfindTo) {
         await ctx.kinematics.pathfindTo(standTarget, 1.0);
+      }
+      if (ctx.abortSignal?.aborted) {
+        ctx.bot.pathfinder.setGoal(null);
+        return { success: false, summary: 'Navigation aborted.' };
       }
       if (
         ctx.bot.entity.position.distanceTo(standTarget) > 3.5 &&
@@ -2205,7 +2223,8 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         0,
         countHarvestedDropsInInventory(ctx.bot, requestedType) - initialDropCount
       );
-      const isSuccess = finalDelta > 0 || blocksBroken > 0;
+      const dropsNothingBlock = /^(glass|.*_glass|.*_pane|ice|leaves|.*_leaves|tall_grass|short_grass|seagrass|fern|dead_bush|cobweb)$/i.test(requestedType);
+      const isSuccess = finalDelta > 0 || (dropsNothingBlock && blocksBroken > 0);
       const invSummary = (ctx.bot.inventory?.items() || [])
         .map((it: any) => `${it.count}x ${it.name}`)
         .join(', ');
@@ -2218,11 +2237,13 @@ export function registerBaseMCPTools(registry: DynamicMCPToolRegistry): void {
         summary:
           isSuccess
             ? `Harvested ${finalDelta || blocksBroken} ${requestedType} (${blocksBroken} blocks broken).${toolFailureNote} Current inventory: [${invSummary || 'empty'}].`
+            : blocksBroken > 0
+            ? `Broke ${blocksBroken} block(s) of ${requestedType}, but 0 entered inventory (drops were not picked up).${toolFailureNote} Current inventory: [${invSummary || 'empty'}].`
             : `Collected 0 ${requestedType} into inventory (${blocksBroken} blocks broken).${
                 toolFailureNote ||
                 ' Call explore_or_dig_for_ores (mode="staircase_mine") to dig down to stone/ore layer!'
               } Current inventory: [${invSummary || 'empty'}].`,
-        data: { harvested: finalDelta || blocksBroken, blocksBroken, inventoryDelta: finalDelta },
+        data: { harvested: finalDelta, blocksBroken, inventoryDelta: finalDelta },
       };
     }
   );

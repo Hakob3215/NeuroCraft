@@ -72,7 +72,7 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
       userPrompt,
       compactSystemPrompt,
       compactUserPrompt,
-      140,
+      256,
       360,
       worldState.botUsername || 'default'
     );
@@ -87,7 +87,7 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
     if (process.env.STRICT_LLM_BENCHMARK === 'true') {
       return {
         thought: `Strict LLM benchmark mode: model failed to return valid JSON (${rawJson ? rawJson.slice(0, 80) : 'null'}).`,
-        goalCompleted: true,
+        goalCompleted: false,
       };
     }
 
@@ -165,7 +165,7 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
       userPrompt,
       compactSystemPrompt,
       compactUserPrompt,
-      140,
+      256,
       360,
       worldState.botUsername || 'default'
     );
@@ -180,7 +180,7 @@ Return ONLY a valid JSON object: {"thought":"...", "toolCall":{"name":"...", "ar
     if (process.env.STRICT_LLM_BENCHMARK === 'true') {
       return {
         thought: `Strict LLM benchmark mode: model failed to return valid continuation JSON.`,
-        goalCompleted: true,
+        goalCompleted: false,
       };
     }
 
