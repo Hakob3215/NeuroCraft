@@ -2276,7 +2276,7 @@
       }
     ],
     "setupCommands": [
-      "summon zombie ~ ~ ~4",
+      "summon zombie ~ ~ ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
