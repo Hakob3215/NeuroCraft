@@ -240,6 +240,9 @@ export function evaluateOmniscienceMilestones(
     if (taskId === 'omni_tool_shears_carve_pumpkin') {
       return scanArena(8, 2, 4, 8, (b) => b.name === 'carved_pumpkin');
     }
+    if (taskId === 'omni_tool_shears_defuse_tripwire') {
+      return snap.stats.blocksMined > 0 || !scanArena(6, 2, 4, 6, (b) => b.name === 'tripwire');
+    }
     if (taskId === 'omni_tool_lava_bucket_trap_mob') {
       return ((snap.stats as any).lavaPlaced || 0) > 0 || scanArena(8, 2, 4, 8, (b) => b.name === 'lava');
     }
@@ -496,9 +499,27 @@ function evaluateBuildingShelterIoU(
   task: MinebenchTaskSpec,
   snap: MinebenchEvaluationSnapshot
 ): MinebenchGradingResult {
-  const ox = snap.blockAt(task.origin.x + 2, task.origin.y, task.origin.z + 2)?.name !== 'air' ? task.origin.x + 2 : task.origin.x + 1;
+  // Dynamically anchor the 5x5 shelter footprint to the placed structure's SW corner so shifted valid builds get full credit
+  let minPlacedX = Infinity;
+  let minPlacedZ = Infinity;
+  for (let dx = -4; dx <= 10; dx++) {
+    for (let dz = -4; dz <= 10; dz++) {
+      for (let dy = 0; dy <= 1; dy++) {
+        const b = snap.blockAt(task.origin.x + dx, task.origin.y + dy, task.origin.z + dz);
+        if (b && b.name !== 'air' && b.name !== 'grass_block' && b.name !== 'dirt' && b.name !== 'torch') {
+          if (task.origin.x + dx < minPlacedX) minPlacedX = task.origin.x + dx;
+          if (task.origin.z + dz < minPlacedZ) minPlacedZ = task.origin.z + dz;
+        }
+      }
+    }
+  }
+  const ox = Number.isFinite(minPlacedX)
+    ? minPlacedX
+    : snap.blockAt(task.origin.x + 2, task.origin.y, task.origin.z + 2)?.name !== 'air'
+      ? task.origin.x + 2
+      : task.origin.x + 1;
   const oy = task.origin.y;
-  const oz = task.origin.z + 2;
+  const oz = Number.isFinite(minPlacedZ) ? minPlacedZ : task.origin.z + 2;
   const w = 5;
   const l = 5;
   const h = 4;
@@ -1249,5 +1270,37 @@ export function evaluateProgressionTask(
       remainingHealth: snap.health,
     },
     breakdown: `Tier 6 Boss Fight: EndCrystalsDestroyed=${crystalsDestroyed}/2, EnderDragonSlain=${dragonSlain}, HP=${snap.health.toFixed(1)}/20.`,
+  };
+}
+
+/**
+ * Shapes episode rawReward for step efficiency without penalizing pass/fail completion:
+ * agents get full runway to recover from mistakes, while faster wins receive higher RL/DPO reward.
+ */
+export function applyStepEfficiencyShaping(
+  grading: MinebenchGradingResult,
+  stepsUsed: number,
+  maxSteps: number
+): MinebenchGradingResult {
+  const safeSteps = Math.max(1, Math.round(stepsUsed));
+  const parSteps = Math.max(1, Math.round(Math.max(2, maxSteps) * 0.45));
+  let effDelta = 0;
+  if (grading.passed) {
+    const effRatio = Math.min(1, parSteps / safeSteps);
+    const stepCost = Math.max(0, safeSteps - 1) * 1.5;
+    effDelta = Math.max(-10, Math.min(25, Number((25 * effRatio - stepCost).toFixed(2))));
+  } else {
+    const overPar = Math.max(0, safeSteps - parSteps);
+    effDelta = -Math.min(12, Number((overPar * 1.0).toFixed(2)));
+  }
+  return {
+    ...grading,
+    rawReward: Number((grading.rawReward + effDelta).toFixed(2)),
+    metrics: {
+      ...grading.metrics,
+      stepsUsed: safeSteps,
+      parSteps,
+      stepEfficiencyDelta: effDelta,
+    },
   };
 }

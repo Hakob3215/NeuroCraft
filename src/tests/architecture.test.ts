@@ -6015,6 +6015,106 @@ test('86. Exhaustive code-freeze fixes: equippedArmor in Omniscience craft, stri
   assert.ok(daemonSrc.includes('"no_repeat_ngram_size": 8'), 'neural_daemon.py must enable no_repeat_ngram_size=8 to block runaway loops');
 });
 
+test('87. Generalist benchmark cleanup, shifted shelter IoU, quota rebalance, generous maxSteps & step-efficiency shaping', async () => {
+  const {
+    applyStepEfficiencyShaping,
+    evaluateMinebenchEpisode,
+    evaluateOmniscienceMilestones,
+  } = require('../../minebench/dist/minebench/evaluators');
+  const { MINEBENCH_TASKS } = require('../../minebench/dist/minebench/benchmarkSpec');
+  const { sampleDiverseOmniscienceTasks } = require('../../minebench/dist/minebench/train_loop');
+
+  const rootDir = path.resolve(__dirname, '..', '..');
+
+  // 1. Shifted enclosed shelter cabin at (origin.x + 4, origin.y, origin.z + 3) passes evaluateBuildingShelterIoU
+  const shelterTask = MINEBENCH_TASKS.find((t: any) => t.id === 'build_enclosed_shelter');
+  assert.ok(shelterTask && shelterTask.maxSteps >= 8, 'build_enclosed_shelter must have maxSteps >= 8');
+  const sx = shelterTask.origin.x + 4;
+  const sy = shelterTask.origin.y;
+  const sz = shelterTask.origin.z + 3;
+  const shiftedSnap: any = {
+    botPosition: { x: sx + 2, y: sy, z: sz + 2 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    entities: [],
+    stats: { blocksPlaced: 40, blocksMined: 0, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0, endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0, ironPickaxeDurabilityUsedOnStone: 0 },
+    blockAt: (bx: number, by: number, bz: number) => {
+      const rx = bx - sx;
+      const ry = by - sy;
+      const rz = bz - sz;
+      if (rx >= 0 && rx < 5 && rz >= 0 && rz < 5) {
+        if (ry === -1) return { name: 'grass_block' };
+        if (ry === 4) return { name: 'oak_planks' };
+        if (ry >= 0 && ry < 4) {
+          const isPerim = rx === 0 || rx === 4 || rz === 0 || rz === 4;
+          if (isPerim) {
+            if (rx === 1 && rz === 0 && ry === 2) return { name: 'torch' };
+            return { name: 'oak_planks' };
+          }
+        }
+      }
+      return { name: 'air' };
+    },
+  };
+  const shiftedRes = evaluateMinebenchEpisode({ ...shelterTask, taskId: 'build_enclosed_shelter' } as any, shiftedSnap);
+  assert.equal(shiftedRes.passed, true, `Shifted cabin must pass IoU grading (score=${shiftedRes.score})`);
+
+  // 2. Tripwire affordance check & cleaned omniscience_tasks.json specs
+  const tripTask = {
+    taskId: 'omni_tool_shears_defuse_tripwire',
+    targetObject: 'shears',
+    evaluatorMilestones: [
+      { name: 'Tool', maxPoints: 50, condition: 'held_tool_correct' },
+      { name: 'Defuse', maxPoints: 50, condition: 'affordance_action_completed' },
+    ],
+  };
+  const tripSnap: any = {
+    botPosition: { x: 500, y: 100, z: 500 },
+    health: 20,
+    food: 20,
+    deaths: 0,
+    inventory: [{ name: 'shears', count: 1 }, { name: 'string', count: 1 }],
+    equippedArmor: { head: null, torso: null, legs: null, feet: null, offHand: null },
+    blockAt: () => ({ name: 'air' }),
+    entities: [],
+    stats: { blocksPlaced: 0, blocksMined: 1, mobsKilled: {}, creeperBlasts: 0, arrowsFired: 0, endCrystalsDestroyed: 0, enderDragonSlain: false, leversFlipped: 0, wolvesTamed: 0, ironPickaxeDurabilityUsedOnStone: 0 },
+  };
+  assert.equal(evaluateOmniscienceMilestones(tripTask, tripSnap).passed, true, 'omni_tool_shears_defuse_tripwire must pass when tripwire broken');
+
+  const omniRaw: any[] = JSON.parse(fs.readFileSync(path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json'), 'utf8'));
+  assert.equal(omniRaw.some((t) => t.taskId === 'omni_mob_ender_dragon' || t.taskId === 'omni_mob_wither'), false, 'Broken boss duplicates must be removed from omniscience_tasks.json');
+  const arrowShield = omniRaw.find((t) => t.taskId === 'omni_tool_shield_block_arrows');
+  assert.ok(arrowShield?.setupCommands?.[0]?.includes('ArmorItems'), 'Shield block arrows skeleton must wear sun protection');
+  const extFire = omniRaw.find((t) => t.taskId === 'omni_tool_water_bucket_extinguish_fire');
+  assert.equal(extFire?.expectedToolArgs?.targetBlock, 'netherrack', 'Extinguish fire must target netherrack block underneath fire');
+  const raids = omniRaw.filter((t) => t.category === 'structure_raid');
+  assert.ok(raids.length > 0 && raids.every((t) => t.setupCommands.some((c: string) => c.includes('setblock ~ ~ ~3 chest'))), 'Structure raid chests must sit on ground floor');
+
+  // 3. Generalist quota rebalance & generous maxSteps
+  const omniPath = path.join(rootDir, 'minebench', 'results', 'omniscience_tasks.json');
+  const sampled = sampleDiverseOmniscienceTasks(omniPath, 50);
+  const craftTasks = sampled.filter((t: any) => String(t.id).startsWith('omni_craft_'));
+  const eatTasks = sampled.filter((t: any) => String(t.id).startsWith('omni_food_'));
+  assert.ok(craftTasks.length >= 10 && craftTasks[0].maxSteps >= 14, `Expected >=10 crafting tasks with maxSteps>=14, got count=${craftTasks.length}`);
+  assert.ok(eatTasks.length <= 4, `Expected trimmed nutrition padding <=4, got ${eatTasks.length}`);
+
+  const spiderTask = MINEBENCH_TASKS.find((t: any) => t.id === 'combat_spider_swarm');
+  assert.ok(spiderTask && spiderTask.maxSteps >= 10, 'combat_spider_swarm must allow enough steps for 5 spiders');
+
+  // 4. Step efficiency shaping rewards faster wins over slow wins while preserving passed=true
+  const fastWin = applyStepEfficiencyShaping({ passed: true, score: 100, rawReward: 100, maxScore: 100, metrics: {}, breakdown: 'ok' }, 3, 14);
+  const slowWin = applyStepEfficiencyShaping({ passed: true, score: 100, rawReward: 100, maxScore: 100, metrics: {}, breakdown: 'ok' }, 11, 14);
+  assert.equal(fastWin.passed, true);
+  assert.equal(slowWin.passed, true);
+  assert.ok(fastWin.rawReward > slowWin.rawReward, `Fast 3-step win (${fastWin.rawReward}) must outscore 11-step recovery win (${slowWin.rawReward})`);
+
+  const tlSrc = fs.readFileSync(path.join(rootDir, 'minebench', 'train_loop.ts'), 'utf8');
+  assert.ok(tlSrc.includes('if (stepPassedNow) break;'), 'train_loop.ts must exit immediately on stepPassedNow');
+});
+
 
 
 

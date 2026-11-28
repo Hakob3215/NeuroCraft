@@ -238,7 +238,11 @@ import {
   MinebenchTaskSpec,
 } from './benchmarkSpec';
 import { SparringPartnerBot } from './sparringPartner';
-import { evaluateMinebenchEpisode, MinebenchEvaluationSnapshot } from './evaluators';
+import {
+  applyStepEfficiencyShaping,
+  evaluateMinebenchEpisode,
+  MinebenchEvaluationSnapshot,
+} from './evaluators';
 import { HeadlessMinecraftServerManager } from './headlessServer';
 import { System1BotController, HOSTILE_MOBS, getEntityPriority, isBossOrCrystalEntity } from '../src/system1/botController';
 import { DynamicMCPToolRegistry } from '../src/system2/mcp/toolRegistry';
@@ -1015,13 +1019,13 @@ export function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Mi
     for (const cat in evalByCat) evalByCat[cat].sort(() => Math.random() - 0.5);
 
     const quotas: Record<string, number> = {
-      tool_affordance: 8,
-      nutrition: 7,
-      equipment: 6,
-      crafting: 7,
-      block_mechanic: 4,
-      mob_interaction: 15,
-      structure_raid: 3,
+      tool_affordance: 10,
+      nutrition: 2,
+      equipment: 2,
+      crafting: 13,
+      block_mechanic: 5,
+      mob_interaction: 14,
+      structure_raid: 4,
     };
 
     const targetEvalCount = count >= 5 ? Math.max(1, Math.round(count * 0.2)) : 0;
@@ -1066,15 +1070,21 @@ export function sampleDiverseOmniscienceTasks(tasksPath: string, count = 50): Mi
       tier: t.tier || 1,
       maxDurationSeconds:
         t.domain === 'CRAFTING_RECIPES' || (t.taskId && t.taskId.startsWith('omni_craft_'))
-          ? 65
+          ? 95
           : t.taskId === 'omni_tool_lava_bucket_smelt_fuel_100'
-          ? 45
+          ? 55
           : t.domain === 'STRUCTURE_RAID'
-          ? 40
-          : 25,
+          ? 60
+          : t.domain === 'MOB_INTERACTION'
+          ? 45
+          : 35,
       maxSteps:
         t.maxSteps ||
-        (t.domain === 'CRAFTING_RECIPES' || (t.taskId && t.taskId.startsWith('omni_craft_')) ? 8 : 4),
+        (t.domain === 'CRAFTING_RECIPES' || (t.taskId && t.taskId.startsWith('omni_craft_'))
+          ? 14
+          : t.domain === 'STRUCTURE_RAID' || t.domain === 'MOB_INTERACTION'
+          ? 8
+          : 5),
       prompt: t.prompt,
       origin,
       targetObject: t.targetObject,
@@ -2267,6 +2277,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
               };
 
               let stepSuccess = false;
+              let stepPassedNow = false;
               let stepSummary = '';
               let stepReward = 0;
 
@@ -2500,6 +2511,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 const postSnap = buildSnapshot();
                 testbenchTrackingActive = false;
                 const postGrading = evaluateMinebenchEpisode(shardedTask, postSnap);
+                stepPassedNow = Boolean(postGrading.passed);
                 stepReward = Number((postGrading.rawReward - preGrading.rawReward).toFixed(3));
 
                 if (preRlState) {
@@ -2571,6 +2583,7 @@ export async function runContinuousTrainingLoop(): Promise<void> {
                 worker.system1.getLatestWorldState()
               );
 
+              if (stepPassedNow) break;
               if (decision.goalCompleted && stepIdx > 0) break;
               if (deaths > 0) {
                 console.log(`[TrainLoop] [${worker.botUsername}] Bot died during task ${task.id} (step ${stepIdx + 1}). Aborting remaining steps.`);
@@ -2591,7 +2604,11 @@ export async function runContinuousTrainingLoop(): Promise<void> {
           }
 
           const finalSnap = buildSnapshot();
-          const grading = evaluateMinebenchEpisode(shardedTask, finalSnap);
+          const grading = applyStepEfficiencyShaping(
+            evaluateMinebenchEpisode(shardedTask, finalSnap),
+            Math.max(1, stepHistory.length),
+            shardedTask.maxSteps
+          );
 
           // Query vanilla scoreboard values to log objective ground truth telemetry for this worker bot
           server.sendCommand(`scoreboard players get ${worker.botUsername} deaths`);

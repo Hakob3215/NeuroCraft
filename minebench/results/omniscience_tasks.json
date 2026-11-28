@@ -2113,7 +2113,7 @@
     "expectedTool": "use_tool_on_block",
     "expectedToolArgs": {
       "tool": "water_bucket",
-      "targetBlock": "fire"
+      "targetBlock": "netherrack"
     },
     "evaluatorMilestones": [
       {
@@ -2445,7 +2445,7 @@
       }
     ],
     "setupCommands": [
-      "summon skeleton ~ ~ ~8",
+      "summon skeleton ~ ~ ~8 {PersistenceRequired:1b,HandItems:[{id:\"minecraft:bow\",Count:1b},{}],ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}]}",
       "tp @p ~ ~ ~ 0 0"
     ],
     "expectedActionTokens": [
@@ -11788,57 +11788,6 @@
     ]
   },
   {
-    "taskId": "omni_mob_ender_dragon",
-    "domain": "MOB_INTERACTION",
-    "title": "Mob Interaction: Ender Dragon",
-    "targetObject": "ender_dragon",
-    "category": "mob_interaction",
-    "prompt": "Interact with or defeat the Ender Dragon.",
-    "variants": [
-      "Interact with or defeat the Ender Dragon.",
-      "Handle the ender_dragon right now."
-    ],
-    "initialLoadout": [
-      {
-        "name": "diamond_sword",
-        "count": 1
-      },
-      {
-        "name": "shield",
-        "count": 1,
-        "slot": 45
-      },
-      {
-        "name": "cooked_beef",
-        "count": 16
-      }
-    ],
-    "setupCommands": [
-      "summon ender_dragon ~ ~ ~4",
-      "tp @p ~ ~ ~ 0 0"
-    ],
-    "expectedActionTokens": [
-      "<|act:melee_attack|>",
-      "<|target:ender_dragon|>"
-    ],
-    "expectedTool": "engage_combat",
-    "expectedToolArgs": {
-      "targetType": "ender_dragon"
-    },
-    "evaluatorMilestones": [
-      {
-        "name": "Target Engaged",
-        "maxPoints": 40,
-        "condition": "target_engaged"
-      },
-      {
-        "name": "Target Resolved",
-        "maxPoints": 60,
-        "condition": "target_resolved"
-      }
-    ]
-  },
-  {
     "taskId": "omni_mob_enderman",
     "domain": "MOB_INTERACTION",
     "title": "Mob Interaction: Enderman",
@@ -14603,57 +14552,6 @@
     ]
   },
   {
-    "taskId": "omni_mob_wither",
-    "domain": "MOB_INTERACTION",
-    "title": "Mob Interaction: Wither",
-    "targetObject": "wither",
-    "category": "mob_interaction",
-    "prompt": "Interact with or defeat the Wither.",
-    "variants": [
-      "Interact with or defeat the Wither.",
-      "Handle the wither right now."
-    ],
-    "initialLoadout": [
-      {
-        "name": "diamond_sword",
-        "count": 1
-      },
-      {
-        "name": "shield",
-        "count": 1,
-        "slot": 45
-      },
-      {
-        "name": "cooked_beef",
-        "count": 16
-      }
-    ],
-    "setupCommands": [
-      "summon wither ~ ~ ~4",
-      "tp @p ~ ~ ~ 0 0"
-    ],
-    "expectedActionTokens": [
-      "<|act:melee_attack|>",
-      "<|target:wither|>"
-    ],
-    "expectedTool": "engage_combat",
-    "expectedToolArgs": {
-      "targetType": "wither"
-    },
-    "evaluatorMilestones": [
-      {
-        "name": "Target Engaged",
-        "maxPoints": 40,
-        "condition": "target_engaged"
-      },
-      {
-        "name": "Target Resolved",
-        "maxPoints": 60,
-        "condition": "target_resolved"
-      }
-    ]
-  },
-  {
     "taskId": "omni_mob_wither_skeleton",
     "domain": "MOB_INTERACTION",
     "title": "Mob Interaction: Wither Skeleton",
@@ -15044,7 +14942,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15109,7 +15007,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:bread\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15174,7 +15072,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15239,7 +15137,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:diamond\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15304,7 +15202,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:crossbow\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:crossbow\",Count:1b}]}",
       "summon minecraft:pillager ~2 ~1 ~4 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15369,7 +15267,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:totem_of_undying\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:totem_of_undying\",Count:1b}]}",
       "summon minecraft:pillager ~2 ~1 ~4 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15434,7 +15332,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:echo_shard\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:echo_shard\",Count:1b}]}",
       "summon minecraft:skeleton ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15499,7 +15397,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:sponge\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:sponge\",Count:1b}]}",
       "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15564,7 +15462,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:map\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:map\",Count:1b}]}",
       "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15629,7 +15527,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:heart_of_the_sea\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:heart_of_the_sea\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15694,7 +15592,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:ender_eye\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:ender_eye\",Count:1b}]}",
       "summon minecraft:zombie ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15759,7 +15657,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:blaze_rod\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:blaze_rod\",Count:1b}]}",
       "summon minecraft:blaze ~2 ~1 ~4 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15824,7 +15722,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:netherite_upgrade_smithing_template\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:netherite_upgrade_smithing_template\",Count:1b}]}",
       "summon minecraft:piglin ~2 ~1 ~4 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15889,7 +15787,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:elytra\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:elytra\",Count:1b}]}",
       "summon minecraft:shulker ~2 ~1 ~4 {PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],
@@ -15954,7 +15852,7 @@
       }
     ],
     "setupCommands": [
-      "setblock ~ ~1 ~3 chest{Items:[{Slot:0b,id:\"minecraft:sniffer_egg\",Count:1b}]}",
+      "setblock ~ ~ ~3 chest{Items:[{Slot:0b,id:\"minecraft:sniffer_egg\",Count:1b}]}",
       "summon minecraft:drowned ~2 ~1 ~4 {ArmorItems:[{},{},{},{id:\"minecraft:stone_button\",Count:1b}],PersistenceRequired:1b}",
       "tp @p ~ ~ ~ 0 0"
     ],

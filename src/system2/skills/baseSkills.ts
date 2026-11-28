@@ -1249,6 +1249,9 @@ function countHarvestedDropsInInventory(bot: any, requestedType: string): number
       if (req.includes('hay')) {
         return n === 'wheat' || n === 'hay_block';
       }
+      if (req === 'tripwire') {
+        return n === 'string' || n === 'tripwire';
+      }
       if (req === 'log' || req === 'wood' || req.includes('_log')) {
         return n.endsWith('_log') || n.endsWith('_stem');
       }
